@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum InstallationStatus {
+  ACTIF
+  BIENTOT_EXPIRE
+  EXPIRE
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Client {
+  id              String         @id @default(cuid())
+  axonautId       Int?           @unique
+  name            String
+  email           String?
+  phone           String?
+  address         String?
+  city            String?
+  zipCode         String?
+  country         String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  invoices        Invoice[]
+  installations   Installation[]
+
+  @@map("clients")
+}
+
+model Product {
+  id              String         @id @default(cuid())
+  axonautId       Int?           @unique
+  name            String
+  code            String?
+  description     String?
+  family          String?
+  supplier        String?
+  duration        String?
+  durationMonths  Int?
+  unitPrice       Float?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  invoiceLines    InvoiceLine[]
+  installations   Installation[]
+
+  @@map("products")
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  axonautId       Int?          @unique
+  invoiceNumber   String?
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id])
+  invoiceDate     DateTime
+  totalAmount     Float?
+  status          String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  lines           InvoiceLine[]
+  installations   Installation[]
+
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id              String        @id @default(cuid())
+  invoiceId       String
+  invoice         Invoice       @relation(fields: [invoiceId], references: [id])
+  productId       String?
+  product         Product?      @relation(fields: [productId], references: [id])
+  description     String?
+  quantity        Float         @default(1)
+  unitPrice       Float?
+  totalPrice      Float?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("invoice_lines")
+}
+
+model Installation {
+  id              String             @id @default(cuid())
+  clientId        String
+  client          Client             @relation(fields: [clientId], references: [id])
+  productId       String
+  product         Product            @relation(fields: [productId], references: [id])
+  invoiceId       String?
+  invoice         Invoice?           @relation(fields: [invoiceId], references: [id])
+  supplier        String?
+  family          String?
+  quantity        Float              @default(1)
+  startDate       DateTime
+  durationMonths  Int
+  endDate         DateTime
+  status          InstallationStatus @default(ACTIF)
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@index([endDate])
+  @@map("installations")
+}
+
+model SyncLog {
+  id          String   @id @default(cuid())
+  type        String
+  status      String
+  message     String?
+  details     String?
+  itemCount   Int      @default(0)
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@map("sync_logs")
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+
+  @@map("settings")
+}

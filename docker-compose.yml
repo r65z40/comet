@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: comet
+      POSTGRES_PASSWORD: comet_password
+      POSTGRES_DB: comet_cedelia
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U comet -d comet_cedelia"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://comet:comet_password@db:5432/comet_cedelia?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production-use-openssl-rand-base64-32}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      AXONAUT_API_KEY: ${AXONAUT_API_KEY:-}
+      AXONAUT_API_URL: ${AXONAUT_API_URL:-https://axonaut.com/api/v2}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

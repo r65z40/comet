@@ -1,0 +1,46 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const { id } = await params;
+
+  const installation = await prisma.installation.findUnique({
+    where: { id },
+    include: {
+      client: true,
+      product: true,
+      invoice: { include: { lines: true } },
+    },
+  });
+
+  if (!installation) {
+    return NextResponse.json({ error: "Installation non trouvée" }, { status: 404 });
+  }
+
+  return NextResponse.json(installation);
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const { id } = await params;
+  const body = await req.json();
+
+  const installation = await prisma.installation.update({
+    where: { id },
+    data: { notes: body.notes },
+  });
+
+  return NextResponse.json(installation);
+}
