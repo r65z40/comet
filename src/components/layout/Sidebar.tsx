@@ -7,6 +7,7 @@ import {
   Monitor,
   Users,
   Package,
+  FileText,
   RefreshCw,
   Settings,
   LogOut,
@@ -19,6 +20,7 @@ const navigation = [
   { name: "Installations", href: "/installations", icon: Monitor },
   { name: "Clients", href: "/clients", icon: Users },
   { name: "Produits", href: "/products", icon: Package },
+  { name: "Factures", href: "/invoices", icon: FileText },
   { name: "Synchronisation", href: "/sync", icon: RefreshCw },
   { name: "Paramètres", href: "/settings", icon: Settings },
 ];

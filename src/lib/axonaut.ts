@@ -28,6 +28,12 @@ async function axonautFetch(endpoint: string, page = 1) {
   return res.json();
 }
 
+function toFloat(val: unknown): number | null {
+  if (val == null) return null;
+  const n = parseFloat(String(val));
+  return isNaN(n) ? null : n;
+}
+
 export async function syncProducts() {
   const log = await prisma.syncLog.create({
     data: { type: "products", status: "running", message: "Synchronisation des produits..." },
@@ -62,7 +68,7 @@ export async function syncProducts() {
             supplier: customFields["Fournisseur"] || null,
             duration: customFields["Durée"] || customFields["Duree"] || null,
             durationMonths: durationMonths || null,
-            unitPrice: p.price != null ? parseFloat(String(p.price)) || null : null,
+            unitPrice: toFloat(p.price),
           },
           update: {
             name: p.name || "Sans nom",
@@ -72,7 +78,7 @@ export async function syncProducts() {
             supplier: customFields["Fournisseur"] || null,
             duration: customFields["Durée"] || customFields["Duree"] || null,
             durationMonths: durationMonths || null,
-            unitPrice: p.price != null ? parseFloat(String(p.price)) || null : null,
+            unitPrice: toFloat(p.price),
           },
         });
         totalSynced++;
@@ -125,8 +131,6 @@ export async function syncClients() {
       }
 
       for (const c of companies) {
-        if (!c.is_customer) continue;
-
         await prisma.client.upsert({
           where: { axonautId: c.id },
           create: {
@@ -199,8 +203,10 @@ export async function syncInvoices() {
       }
 
       for (const inv of invoices) {
-        const client = inv.company_id
-          ? await prisma.client.findUnique({ where: { axonautId: inv.company_id } })
+        // Try company_id, then company.id
+        const companyId = inv.company_id || inv.company?.id;
+        const client = companyId
+          ? await prisma.client.findUnique({ where: { axonautId: companyId } })
           : null;
 
         if (!client) continue;
@@ -209,35 +215,59 @@ export async function syncInvoices() {
           where: { axonautId: inv.id },
           create: {
             axonautId: inv.id,
-            invoiceNumber: inv.number || null,
+            invoiceNumber: inv.number || inv.invoice_number || null,
             clientId: client.id,
-            invoiceDate: new Date(inv.date || inv.created_at),
-            totalAmount: inv.total_amount != null ? parseFloat(String(inv.total_amount)) || null : null,
+            invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
+            totalAmount: toFloat(inv.total_amount ?? inv.total),
             status: inv.status || null,
           },
           update: {
-            invoiceNumber: inv.number || null,
+            invoiceNumber: inv.number || inv.invoice_number || null,
             clientId: client.id,
-            invoiceDate: new Date(inv.date || inv.created_at),
-            totalAmount: inv.total_amount != null ? parseFloat(String(inv.total_amount)) || null : null,
+            invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
+            totalAmount: toFloat(inv.total_amount ?? inv.total),
             status: inv.status || null,
           },
         });
 
-        const lines = inv.lines || inv.invoice_lines || [];
+        // Delete existing lines for this invoice before re-creating
+        await prisma.invoiceLine.deleteMany({
+          where: { invoiceId: invoice.id },
+        });
+
+        const lines = inv.lines || inv.invoice_lines || inv.products || [];
         for (const line of lines) {
-          const product = line.product_id
-            ? await prisma.product.findUnique({ where: { axonautId: line.product_id } })
-            : null;
+          // Try multiple field names for product ID
+          const lineProductId = line.product_id || line.productId || line.product?.id;
+          let product = null;
+
+          if (lineProductId) {
+            product = await prisma.product.findUnique({ where: { axonautId: lineProductId } });
+          }
+
+          // Fallback: match by product name or code
+          if (!product && (line.name || line.product_name || line.product_code)) {
+            const searchName = line.name || line.product_name;
+            const searchCode = line.product_code || line.code;
+
+            if (searchCode) {
+              product = await prisma.product.findFirst({ where: { code: searchCode } });
+            }
+            if (!product && searchName) {
+              product = await prisma.product.findFirst({
+                where: { name: { equals: searchName, mode: "insensitive" } },
+              });
+            }
+          }
 
           await prisma.invoiceLine.create({
             data: {
               invoiceId: invoice.id,
               productId: product?.id || null,
-              description: line.description || line.name || null,
-              quantity: line.quantity != null ? parseFloat(String(line.quantity)) || 1 : 1,
-              unitPrice: line.unit_price != null ? parseFloat(String(line.unit_price)) || null : null,
-              totalPrice: line.total_price != null ? parseFloat(String(line.total_price)) || null : null,
+              description: line.description || line.name || line.product_name || null,
+              quantity: toFloat(line.quantity) ?? 1,
+              unitPrice: toFloat(line.unit_price ?? line.price ?? line.unitPrice),
+              totalPrice: toFloat(line.total_price ?? line.total ?? line.totalPrice),
             },
           });
         }

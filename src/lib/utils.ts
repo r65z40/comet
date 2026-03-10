@@ -51,6 +51,13 @@ export function getStatusColor(status: string): string {
   }
 }
 
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+  }).format(amount);
+}
+
 export function daysUntil(date: Date | string): number {
   const now = new Date();
   const target = new Date(date);
