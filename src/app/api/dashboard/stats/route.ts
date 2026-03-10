@@ -6,6 +6,7 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
+  try {
   const now = new Date();
   const thirtyDays = new Date(now);
   thirtyDays.setDate(thirtyDays.getDate() + 30);
@@ -119,4 +120,11 @@ export async function GET() {
     upcomingRenewals,
     recentlyExpired,
   });
+  } catch (error) {
+    console.error("Dashboard stats error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erreur serveur" },
+      { status: 500 }
+    );
+  }
 }

@@ -57,15 +57,36 @@ const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard/stats")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Erreur ${r.status}`);
+        return r.json();
+      })
       .then(setData)
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading || !data) return <LoadingSpinner />;
+  if (loading) return <LoadingSpinner />;
+
+  if (error || !data) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
+          <p className="text-red-400 font-medium mb-2">Erreur de chargement</p>
+          <p className="text-sm text-surface-400">{error || "Données indisponibles"}</p>
+          <p className="text-xs text-surface-500 mt-3">
+            Si vous venez de mettre à jour, exécutez le script de migration :<br />
+            <code className="text-primary-400">bash scripts/migrate-statuses.sh</code>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
