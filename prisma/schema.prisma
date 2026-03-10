@@ -13,9 +13,9 @@ enum Role {
 }
 
 enum InstallationStatus {
-  ACTIF
-  BIENTOT_EXPIRE
-  EXPIRE
+  EN_PARC_GARANTIE
+  EN_PARC_HORS_GARANTIE
+  RENOUVELE
 }
 
 model User {
@@ -114,7 +114,7 @@ model Installation {
   startDate       DateTime
   durationMonths  Int
   endDate         DateTime
-  status          InstallationStatus @default(ACTIF)
+  status          InstallationStatus @default(EN_PARC_GARANTIE)
   notes           String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt

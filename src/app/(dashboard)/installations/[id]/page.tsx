@@ -2,10 +2,10 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save } from "lucide-react";
+import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, RefreshCw } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { formatDate, daysUntil } from "@/lib/utils";
+import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
 import Link from "next/link";
 
 interface InstallationDetail {
@@ -28,6 +28,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
   const router = useRouter();
   const [installation, setInstallation] = useState<InstallationDetail | null>(null);
   const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -37,17 +38,20 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
       .then((data) => {
         setInstallation(data);
         setNotes(data.notes || "");
+        setStatus(data.status);
       })
       .finally(() => setLoading(false));
   }, [id]);
 
-  async function saveNotes() {
+  async function saveData() {
     setSaving(true);
-    await fetch(`/api/installations/${id}`, {
+    const res = await fetch(`/api/installations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes }),
+      body: JSON.stringify({ notes, status }),
     });
+    const updated = await res.json();
+    setInstallation((prev) => prev ? { ...prev, status: updated.status, notes: updated.notes } : prev);
     setSaving(false);
   }
 
@@ -63,7 +67,8 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
     );
   }
 
-  const days = daysUntil(installation.endDate);
+  const countdown = formatCountdown(installation.endDate);
+  const countdownColor = getCountdownColor(installation.endDate);
 
   return (
     <div className="space-y-6">
@@ -83,6 +88,37 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
         <StatusBadge status={installation.status} />
       </div>
 
+      {/* Compte à rebours principal */}
+      <div className={`rounded-xl border p-6 text-center ${
+        installation.status === "RENOUVELE"
+          ? "border-blue-500/30 bg-blue-500/10"
+          : countdownColor === "text-red-400"
+            ? "border-red-500/30 bg-red-500/10"
+            : countdownColor === "text-orange-400"
+              ? "border-orange-500/30 bg-orange-500/10"
+              : countdownColor === "text-amber-400"
+                ? "border-amber-500/30 bg-amber-500/10"
+                : "border-emerald-500/30 bg-emerald-500/10"
+      }`}>
+        {installation.status === "RENOUVELE" ? (
+          <div className="flex items-center justify-center gap-3">
+            <RefreshCw className="h-6 w-6 text-blue-400" />
+            <span className="text-2xl font-bold text-blue-400">Renouvelé</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Clock className={`h-5 w-5 ${countdownColor}`} />
+              <span className="text-sm text-surface-400">Garantie restante</span>
+            </div>
+            <p className={`text-3xl font-bold ${countdownColor}`}>{countdown}</p>
+            <p className="text-sm text-surface-400 mt-2">
+              Début : {formatDate(installation.startDate)} — Fin : {formatDate(installation.endDate)} ({installation.durationMonths} mois)
+            </p>
+          </>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
@@ -92,14 +128,9 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
               <InfoItem icon={Package} label="Produit" value={installation.product.name} />
               <InfoItem icon={Truck} label="Fournisseur" value={installation.supplier || "—"} />
               <InfoItem icon={Tag} label="Famille" value={installation.family || "—"} />
-              <InfoItem icon={Calendar} label="Date début" value={formatDate(installation.startDate)} />
-              <InfoItem icon={Calendar} label="Date échéance" value={formatDate(installation.endDate)} />
+              <InfoItem icon={Calendar} label="Début garantie" value={formatDate(installation.startDate)} />
+              <InfoItem icon={Calendar} label="Fin garantie" value={formatDate(installation.endDate)} />
               <InfoItem icon={Calendar} label="Durée" value={`${installation.durationMonths} mois`} />
-              <InfoItem
-                icon={Calendar}
-                label="Jours restants"
-                value={days > 0 ? `${days} jours` : `Expiré depuis ${Math.abs(days)} jours`}
-              />
               {installation.invoice && (
                 <InfoItem
                   icon={FileText}
@@ -111,11 +142,12 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
             </div>
           </div>
 
+          {/* Changement de statut + Notes */}
           <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-surface-400">Notes</h3>
+              <h3 className="text-sm font-medium text-surface-400">Statut et notes</h3>
               <button
-                onClick={saveNotes}
+                onClick={saveData}
                 disabled={saving}
                 className="flex items-center gap-2 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
               >
@@ -123,13 +155,47 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                 {saving ? "Enregistrement..." : "Enregistrer"}
               </button>
             </div>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ajouter des notes..."
-              rows={4}
-              className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-3 text-sm text-surface-200 placeholder-surface-500 focus:border-primary-500 focus:outline-none resize-none"
-            />
+
+            <div className="mb-4">
+              <label className="block text-xs text-surface-500 mb-2">Statut</label>
+              <div className="flex gap-2 flex-wrap">
+                <StatusButton
+                  label="En parc garantie"
+                  value="EN_PARC_GARANTIE"
+                  current={status}
+                  onClick={setStatus}
+                  icon={ShieldCheck}
+                  color="emerald"
+                />
+                <StatusButton
+                  label="En parc sans garantie"
+                  value="EN_PARC_HORS_GARANTIE"
+                  current={status}
+                  onClick={setStatus}
+                  icon={ShieldX}
+                  color="red"
+                />
+                <StatusButton
+                  label="Renouvelé"
+                  value="RENOUVELE"
+                  current={status}
+                  onClick={setStatus}
+                  icon={RefreshCw}
+                  color="blue"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-surface-500 mb-2">Notes</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Ajouter des notes..."
+                rows={4}
+                className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-3 text-sm text-surface-200 placeholder-surface-500 focus:border-primary-500 focus:outline-none resize-none"
+              />
+            </div>
           </div>
         </div>
 
@@ -188,5 +254,38 @@ function InfoItem({ icon: Icon, label, value }: { icon: typeof Calendar; label: 
         <p className="text-sm font-medium text-surface-200">{value}</p>
       </div>
     </div>
+  );
+}
+
+function StatusButton({
+  label,
+  value,
+  current,
+  onClick,
+  icon: Icon,
+  color,
+}: {
+  label: string;
+  value: string;
+  current: string;
+  onClick: (v: string) => void;
+  icon: typeof ShieldCheck;
+  color: string;
+}) {
+  const isActive = current === value;
+  const colorClasses: Record<string, string> = {
+    emerald: isActive ? "border-emerald-500 bg-emerald-500/20 text-emerald-400" : "border-surface-700 text-surface-400 hover:border-emerald-500/50",
+    red: isActive ? "border-red-500 bg-red-500/20 text-red-400" : "border-surface-700 text-surface-400 hover:border-red-500/50",
+    blue: isActive ? "border-blue-500 bg-blue-500/20 text-blue-400" : "border-surface-700 text-surface-400 hover:border-blue-500/50",
+  };
+
+  return (
+    <button
+      onClick={() => onClick(value)}
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${colorClasses[color]}`}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+    </button>
   );
 }

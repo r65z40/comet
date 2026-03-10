@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Mail, Phone, MapPin, Calendar, Clock } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { formatDate, daysUntil } from "@/lib/utils";
+import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
 import Link from "next/link";
 
 interface ClientDetail {
@@ -61,9 +61,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const activeInstallations = client.installations.filter((i) => i.status === "ACTIF");
-  const expiringInstallations = client.installations.filter((i) => i.status === "BIENTOT_EXPIRE");
-  const expiredInstallations = client.installations.filter((i) => i.status === "EXPIRE");
+  const enGarantie = client.installations.filter((i) => i.status === "EN_PARC_GARANTIE");
+  const horsGarantie = client.installations.filter((i) => i.status === "EN_PARC_HORS_GARANTIE");
+  const renouvele = client.installations.filter((i) => i.status === "RENOUVELE");
 
   return (
     <div className="space-y-6">
@@ -98,24 +98,24 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-xl border border-surface-800 bg-surface-900 p-4 text-center">
-          <p className="text-2xl font-bold text-emerald-400">{activeInstallations.length}</p>
-          <p className="text-xs text-surface-400 mt-1">Actives</p>
+          <p className="text-2xl font-bold text-emerald-400">{enGarantie.length}</p>
+          <p className="text-xs text-surface-400 mt-1">En parc garantie</p>
         </div>
         <div className="rounded-xl border border-surface-800 bg-surface-900 p-4 text-center">
-          <p className="text-2xl font-bold text-amber-400">{expiringInstallations.length}</p>
-          <p className="text-xs text-surface-400 mt-1">Bientôt expirées</p>
+          <p className="text-2xl font-bold text-red-400">{horsGarantie.length}</p>
+          <p className="text-xs text-surface-400 mt-1">En parc sans garantie</p>
         </div>
         <div className="rounded-xl border border-surface-800 bg-surface-900 p-4 text-center">
-          <p className="text-2xl font-bold text-red-400">{expiredInstallations.length}</p>
-          <p className="text-xs text-surface-400 mt-1">Expirées</p>
+          <p className="text-2xl font-bold text-blue-400">{renouvele.length}</p>
+          <p className="text-xs text-surface-400 mt-1">Renouvelés</p>
         </div>
       </div>
 
-      {expiringInstallations.length > 0 && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
-          <h3 className="text-sm font-medium text-amber-400 mb-3">Prochaines échéances</h3>
+      {horsGarantie.length > 0 && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-6">
+          <h3 className="text-sm font-medium text-red-400 mb-3">En parc sans garantie</h3>
           <div className="space-y-2">
-            {expiringInstallations.map((inst) => (
+            {horsGarantie.map((inst) => (
               <Link
                 key={inst.id}
                 href={`/installations/${inst.id}`}
@@ -126,10 +126,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <p className="text-xs text-surface-500">{inst.family}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1 text-xs text-amber-400">
-                    <Clock className="h-3 w-3" /> {daysUntil(inst.endDate)}j
+                  <span className={`flex items-center gap-1 text-xs font-bold ${getCountdownColor(inst.endDate)}`}>
+                    <Clock className="h-3 w-3" /> {formatCountdown(inst.endDate)}
                   </span>
-                  <span className="text-xs text-surface-400">{formatDate(inst.endDate)}</span>
                 </div>
               </Link>
             ))}
@@ -147,8 +146,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Produit</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Famille</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Fournisseur</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Début</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Échéance</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Début garantie</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Fin garantie</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Compte à rebours</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Statut</th>
             </tr>
           </thead>
@@ -164,12 +164,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <td className="px-4 py-3 text-sm text-surface-300">{inst.supplier || "—"}</td>
                 <td className="px-4 py-3 text-sm text-surface-300">{formatDate(inst.startDate)}</td>
                 <td className="px-4 py-3 text-sm text-surface-300">{formatDate(inst.endDate)}</td>
+                <td className="px-4 py-3">
+                  <span className={`text-xs font-bold ${getCountdownColor(inst.endDate)}`}>
+                    {formatCountdown(inst.endDate)}
+                  </span>
+                </td>
                 <td className="px-4 py-3"><StatusBadge status={inst.status} /></td>
               </tr>
             ))}
             {client.installations.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-surface-500">Aucune installation</td>
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-surface-500">Aucune installation</td>
               </tr>
             )}
           </tbody>

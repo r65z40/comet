@@ -16,9 +16,9 @@ export async function GET() {
 
   const [
     totalInstallations,
-    activeInstallations,
-    soonExpiring,
-    expiredInstallations,
+    enGarantie,
+    horsGarantie,
+    renouvele,
     expiring30,
     expiring60,
     expiring90,
@@ -29,17 +29,17 @@ export async function GET() {
     totalProducts,
   ] = await Promise.all([
     prisma.installation.count(),
-    prisma.installation.count({ where: { status: "ACTIF" } }),
-    prisma.installation.count({ where: { status: "BIENTOT_EXPIRE" } }),
-    prisma.installation.count({ where: { status: "EXPIRE" } }),
+    prisma.installation.count({ where: { status: "EN_PARC_GARANTIE" } }),
+    prisma.installation.count({ where: { status: "EN_PARC_HORS_GARANTIE" } }),
+    prisma.installation.count({ where: { status: "RENOUVELE" } }),
     prisma.installation.count({
-      where: { endDate: { gte: now, lte: thirtyDays } },
+      where: { endDate: { gte: now, lte: thirtyDays }, status: { not: "RENOUVELE" } },
     }),
     prisma.installation.count({
-      where: { endDate: { gte: now, lte: sixtyDays } },
+      where: { endDate: { gte: now, lte: sixtyDays }, status: { not: "RENOUVELE" } },
     }),
     prisma.installation.count({
-      where: { endDate: { gte: now, lte: ninetyDays } },
+      where: { endDate: { gte: now, lte: ninetyDays }, status: { not: "RENOUVELE" } },
     }),
     prisma.installation.groupBy({
       by: ["family"],
@@ -62,6 +62,7 @@ export async function GET() {
       FROM installations
       WHERE "endDate" >= NOW() - INTERVAL '3 months'
         AND "endDate" <= NOW() + INTERVAL '12 months'
+        AND status != 'RENOUVELE'
       GROUP BY TO_CHAR("endDate", 'YYYY-MM')
       ORDER BY month ASC
     `,
@@ -71,6 +72,7 @@ export async function GET() {
 
   const upcomingRenewals = await prisma.installation.findMany({
     where: {
+      status: { not: "RENOUVELE" },
       endDate: { gte: now, lte: ninetyDays },
     },
     include: {
@@ -78,15 +80,27 @@ export async function GET() {
       product: { select: { id: true, name: true } },
     },
     orderBy: { endDate: "asc" },
+    take: 15,
+  });
+
+  const recentlyExpired = await prisma.installation.findMany({
+    where: {
+      status: "EN_PARC_HORS_GARANTIE",
+    },
+    include: {
+      client: { select: { id: true, name: true } },
+      product: { select: { id: true, name: true } },
+    },
+    orderBy: { endDate: "desc" },
     take: 10,
   });
 
   return NextResponse.json({
     counts: {
       total: totalInstallations,
-      active: activeInstallations,
-      soonExpiring,
-      expired: expiredInstallations,
+      enGarantie,
+      horsGarantie,
+      renouvele,
       expiring30,
       expiring60,
       expiring90,
@@ -103,5 +117,6 @@ export async function GET() {
     })),
     byMonth,
     upcomingRenewals,
+    recentlyExpired,
   });
 }

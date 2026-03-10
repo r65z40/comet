@@ -37,9 +37,15 @@ export async function PATCH(
   const { id } = await params;
   const body = await req.json();
 
+  const updateData: Record<string, unknown> = {};
+  if (body.notes !== undefined) updateData.notes = body.notes;
+  if (body.status && ["EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE", "RENOUVELE"].includes(body.status)) {
+    updateData.status = body.status;
+  }
+
   const installation = await prisma.installation.update({
     where: { id },
-    data: { notes: body.notes },
+    data: updateData,
   });
 
   return NextResponse.json(installation);

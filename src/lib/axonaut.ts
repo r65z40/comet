@@ -309,6 +309,10 @@ export async function generateInstallations() {
 
   try {
     let totalGenerated = 0;
+    let skippedNoProduct = 0;
+    let skippedNoDuration = 0;
+    let skippedNoClient = 0;
+    let skippedExisting = 0;
 
     const invoiceLines = await prisma.invoiceLine.findMany({
       include: {
@@ -318,8 +322,9 @@ export async function generateInstallations() {
     });
 
     for (const line of invoiceLines) {
-      if (!line.product || !line.product.durationMonths || line.product.durationMonths <= 0) continue;
-      if (!line.invoice?.client) continue;
+      if (!line.product) { skippedNoProduct++; continue; }
+      if (!line.product.durationMonths || line.product.durationMonths <= 0) { skippedNoDuration++; continue; }
+      if (!line.invoice?.client) { skippedNoClient++; continue; }
 
       const existing = await prisma.installation.findFirst({
         where: {
@@ -329,7 +334,7 @@ export async function generateInstallations() {
         },
       });
 
-      if (existing) continue;
+      if (existing) { skippedExisting++; continue; }
 
       const startDate = new Date(line.invoice.invoiceDate);
       const endDate = new Date(startDate);
@@ -337,9 +342,7 @@ export async function generateInstallations() {
 
       const now = new Date();
       const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      let status: "ACTIF" | "BIENTOT_EXPIRE" | "EXPIRE" = "ACTIF";
-      if (diffDays < 0) status = "EXPIRE";
-      else if (diffDays <= 90) status = "BIENTOT_EXPIRE";
+      const status: "EN_PARC_GARANTIE" | "EN_PARC_HORS_GARANTIE" = diffDays > 0 ? "EN_PARC_GARANTIE" : "EN_PARC_HORS_GARANTIE";
 
       await prisma.installation.create({
         data: {
@@ -363,7 +366,7 @@ export async function generateInstallations() {
       where: { id: log.id },
       data: {
         status: "success",
-        message: `${totalGenerated} installations générées`,
+        message: `${totalGenerated} installations générées (${invoiceLines.length} lignes analysées, ${skippedNoProduct} sans produit lié, ${skippedNoDuration} sans durée, ${skippedNoClient} sans client, ${skippedExisting} déjà existantes)`,
         itemCount: totalGenerated,
         completedAt: new Date(),
       },
@@ -385,23 +388,22 @@ export async function generateInstallations() {
 
 export async function updateInstallationStatuses() {
   const now = new Date();
-  const ninetyDaysFromNow = new Date(now);
-  ninetyDaysFromNow.setDate(ninetyDaysFromNow.getDate() + 90);
 
-  await prisma.installation.updateMany({
-    where: { endDate: { lt: now } },
-    data: { status: "EXPIRE" },
-  });
-
+  // Produits dont la garantie est encore valide
   await prisma.installation.updateMany({
     where: {
-      endDate: { gte: now, lte: ninetyDaysFromNow },
+      endDate: { gt: now },
+      status: { not: "RENOUVELE" },
     },
-    data: { status: "BIENTOT_EXPIRE" },
+    data: { status: "EN_PARC_GARANTIE" },
   });
 
+  // Produits dont la garantie est expirée (ne pas toucher ceux marqués Renouvelé)
   await prisma.installation.updateMany({
-    where: { endDate: { gt: ninetyDaysFromNow } },
-    data: { status: "ACTIF" },
+    where: {
+      endDate: { lte: now },
+      status: { not: "RENOUVELE" },
+    },
+    data: { status: "EN_PARC_HORS_GARANTIE" },
   });
 }

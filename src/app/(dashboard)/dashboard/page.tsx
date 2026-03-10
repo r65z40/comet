@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Monitor, CheckCircle, AlertTriangle, XCircle, Users, Package, Clock } from "lucide-react";
+import { Monitor, ShieldCheck, ShieldX, RefreshCw, Users, Package, Clock, AlertTriangle } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
-import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { formatDate, daysUntil } from "@/lib/utils";
+import { formatDate, daysUntil, formatCountdown, getCountdownColor } from "@/lib/utils";
 import Link from "next/link";
 import {
   BarChart,
@@ -24,9 +23,9 @@ import {
 interface DashboardData {
   counts: {
     total: number;
-    active: number;
-    soonExpiring: number;
-    expired: number;
+    enGarantie: number;
+    horsGarantie: number;
+    renouvele: number;
     expiring30: number;
     expiring60: number;
     expiring90: number;
@@ -37,6 +36,14 @@ interface DashboardData {
   bySupplier: { name: string; value: number }[];
   byMonth: { month: string; count: number }[];
   upcomingRenewals: {
+    id: string;
+    endDate: string;
+    status: string;
+    durationMonths: number;
+    client: { id: string; name: string };
+    product: { id: string; name: string };
+  }[];
+  recentlyExpired: {
     id: string;
     endDate: string;
     status: string;
@@ -64,20 +71,43 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-sm text-surface-400 mt-1">Vue d&apos;ensemble des installations et échéances</p>
+        <p className="text-sm text-surface-400 mt-1">Suivi des garanties et échéances</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total installations" value={data.counts.total} icon={Monitor} color="blue" />
-        <StatCard title="Actives" value={data.counts.active} icon={CheckCircle} color="green" />
+        <StatCard title="En parc garantie" value={data.counts.enGarantie} icon={ShieldCheck} color="green" />
         <StatCard
-          title="Bientôt expirées"
-          value={data.counts.soonExpiring}
-          icon={AlertTriangle}
-          color="amber"
-          trend={`${data.counts.expiring30} dans 30j`}
+          title="En parc sans garantie"
+          value={data.counts.horsGarantie}
+          icon={ShieldX}
+          color="red"
         />
-        <StatCard title="Expirées" value={data.counts.expired} icon={XCircle} color="red" />
+        <StatCard title="Renouvelés" value={data.counts.renouvele} icon={RefreshCw} color="blue" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className="h-4 w-4 text-red-400" />
+            <span className="text-sm font-medium text-red-400">Expire dans 30 jours</span>
+          </div>
+          <p className="text-2xl font-bold text-white">{data.counts.expiring30}</p>
+        </div>
+        <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Clock className="h-4 w-4 text-orange-400" />
+            <span className="text-sm font-medium text-orange-400">Expire dans 60 jours</span>
+          </div>
+          <p className="text-2xl font-bold text-white">{data.counts.expiring60}</p>
+        </div>
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Clock className="h-4 w-4 text-amber-400" />
+            <span className="text-sm font-medium text-amber-400">Expire dans 90 jours</span>
+          </div>
+          <p className="text-2xl font-bold text-white">{data.counts.expiring90}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -87,7 +117,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
-          <h3 className="text-sm font-medium text-surface-400 mb-4">Échéances par mois</h3>
+          <h3 className="text-sm font-medium text-surface-400 mb-4">Fins de garantie par mois</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data.byMonth}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -101,7 +131,7 @@ export default function DashboardPage() {
                   color: "#e2e8f0",
                 }}
               />
-              <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Échéances" />
+              <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Fins de garantie" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -170,38 +200,72 @@ export default function DashboardPage() {
 
         <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-surface-400">À renouveler</h3>
-            <Link href="/installations?status=BIENTOT_EXPIRE" className="text-xs text-primary-400 hover:text-primary-300">
+            <h3 className="text-sm font-medium text-surface-400">Prochaines fins de garantie</h3>
+            <Link href="/installations?status=EN_PARC_GARANTIE" className="text-xs text-primary-400 hover:text-primary-300">
               Voir tout
             </Link>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {data.upcomingRenewals.length === 0 ? (
-              <p className="text-sm text-surface-500 text-center py-8">Aucune échéance proche</p>
+              <p className="text-sm text-surface-500 text-center py-8">Aucune échéance dans les 90 prochains jours</p>
             ) : (
-              data.upcomingRenewals.map((r) => (
-                <Link
-                  key={r.id}
-                  href={`/installations/${r.id}`}
-                  className="flex items-center justify-between rounded-lg border border-surface-800 p-3 hover:bg-surface-800/50 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-surface-200 truncate">{r.product.name}</p>
-                    <p className="text-xs text-surface-500">{r.client.name}</p>
-                  </div>
-                  <div className="flex items-center gap-2 ml-3">
-                    <div className="flex items-center gap-1 text-xs text-surface-400">
-                      <Clock className="h-3 w-3" />
-                      <span>{daysUntil(r.endDate)}j</span>
+              data.upcomingRenewals.map((r) => {
+                const days = daysUntil(r.endDate);
+                return (
+                  <Link
+                    key={r.id}
+                    href={`/installations/${r.id}`}
+                    className="flex items-center justify-between rounded-lg border border-surface-800 p-3 hover:bg-surface-800/50 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-surface-200 truncate">{r.product.name}</p>
+                      <p className="text-xs text-surface-500">{r.client.name}</p>
                     </div>
-                    <StatusBadge status={r.status} />
-                  </div>
-                </Link>
-              ))
+                    <div className="flex items-center gap-3 ml-3">
+                      <div className={`flex items-center gap-1 text-xs font-bold ${getCountdownColor(r.endDate)}`}>
+                        <Clock className="h-3 w-3" />
+                        <span>{days}j</span>
+                      </div>
+                      <span className="text-xs text-surface-500">{formatDate(r.endDate)}</span>
+                    </div>
+                  </Link>
+                );
+              })
             )}
           </div>
         </div>
       </div>
+
+      {data.recentlyExpired.length > 0 && (
+        <div className="rounded-xl border border-red-500/20 bg-surface-900 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <ShieldX className="h-4 w-4 text-red-400" />
+              <h3 className="text-sm font-medium text-red-400">En parc sans garantie</h3>
+            </div>
+            <Link href="/installations?status=EN_PARC_HORS_GARANTIE" className="text-xs text-primary-400 hover:text-primary-300">
+              Voir tout
+            </Link>
+          </div>
+          <div className="space-y-2 max-h-[250px] overflow-y-auto">
+            {data.recentlyExpired.map((r) => (
+              <Link
+                key={r.id}
+                href={`/installations/${r.id}`}
+                className="flex items-center justify-between rounded-lg border border-surface-800 p-2.5 hover:bg-surface-800/50 transition-colors"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-surface-200 truncate">{r.product.name}</p>
+                  <p className="text-xs text-surface-500">{r.client.name}</p>
+                </div>
+                <div className="text-right ml-3">
+                  <p className="text-xs text-red-400 font-medium">{formatCountdown(r.endDate)}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Filter } from "lucide-react";
+import { Search } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
 
 interface Installation {
   id: string;
@@ -70,18 +70,22 @@ export default function InstallationsPage() {
     { key: "supplier", label: "Fournisseur" },
     {
       key: "startDate",
-      label: "Début",
+      label: "Début garantie",
       render: (i: Installation) => formatDate(i.startDate),
     },
     {
       key: "endDate",
-      label: "Échéance",
+      label: "Fin garantie",
       render: (i: Installation) => formatDate(i.endDate),
     },
     {
-      key: "durationMonths",
-      label: "Durée",
-      render: (i: Installation) => `${i.durationMonths} mois`,
+      key: "countdown",
+      label: "Compte à rebours",
+      render: (i: Installation) => (
+        <span className={`text-xs font-bold ${getCountdownColor(i.endDate)}`}>
+          {formatCountdown(i.endDate)}
+        </span>
+      ),
     },
     {
       key: "status",
@@ -94,7 +98,7 @@ export default function InstallationsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Installations</h1>
-        <p className="text-sm text-surface-400 mt-1">Liste de toutes les installations suivies</p>
+        <p className="text-sm text-surface-400 mt-1">Suivi des garanties sur les produits installés</p>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -115,9 +119,9 @@ export default function InstallationsPage() {
           className="rounded-lg border border-surface-700 bg-surface-900 px-3 py-2 text-sm text-surface-300 focus:border-primary-500 focus:outline-none"
         >
           <option value="">Tous les statuts</option>
-          <option value="ACTIF">Actif</option>
-          <option value="BIENTOT_EXPIRE">Bientôt expiré</option>
-          <option value="EXPIRE">Expiré</option>
+          <option value="EN_PARC_GARANTIE">En parc garantie</option>
+          <option value="EN_PARC_HORS_GARANTIE">En parc sans garantie</option>
+          <option value="RENOUVELE">Renouvelé</option>
         </select>
 
         <input
