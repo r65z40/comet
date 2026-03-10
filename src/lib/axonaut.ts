@@ -62,7 +62,7 @@ export async function syncProducts() {
             supplier: customFields["Fournisseur"] || null,
             duration: customFields["Durée"] || customFields["Duree"] || null,
             durationMonths: durationMonths || null,
-            unitPrice: p.price || null,
+            unitPrice: p.price != null ? parseFloat(String(p.price)) || null : null,
           },
           update: {
             name: p.name || "Sans nom",
@@ -72,7 +72,7 @@ export async function syncProducts() {
             supplier: customFields["Fournisseur"] || null,
             duration: customFields["Durée"] || customFields["Duree"] || null,
             durationMonths: durationMonths || null,
-            unitPrice: p.price || null,
+            unitPrice: p.price != null ? parseFloat(String(p.price)) || null : null,
           },
         });
         totalSynced++;
@@ -212,14 +212,14 @@ export async function syncInvoices() {
             invoiceNumber: inv.number || null,
             clientId: client.id,
             invoiceDate: new Date(inv.date || inv.created_at),
-            totalAmount: inv.total_amount || null,
+            totalAmount: inv.total_amount != null ? parseFloat(String(inv.total_amount)) || null : null,
             status: inv.status || null,
           },
           update: {
             invoiceNumber: inv.number || null,
             clientId: client.id,
             invoiceDate: new Date(inv.date || inv.created_at),
-            totalAmount: inv.total_amount || null,
+            totalAmount: inv.total_amount != null ? parseFloat(String(inv.total_amount)) || null : null,
             status: inv.status || null,
           },
         });
@@ -235,9 +235,9 @@ export async function syncInvoices() {
               invoiceId: invoice.id,
               productId: product?.id || null,
               description: line.description || line.name || null,
-              quantity: line.quantity || 1,
-              unitPrice: line.unit_price || null,
-              totalPrice: line.total_price || null,
+              quantity: line.quantity != null ? parseFloat(String(line.quantity)) || 1 : 1,
+              unitPrice: line.unit_price != null ? parseFloat(String(line.unit_price)) || null : null,
+              totalPrice: line.total_price != null ? parseFloat(String(line.total_price)) || null : null,
             },
           });
         }
