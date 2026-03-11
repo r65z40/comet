@@ -3,16 +3,25 @@ set -e
 
 echo "=== Running database migrations ==="
 
-# Wait for database to be ready
-until psql "$DATABASE_URL" -c "SELECT 1" > /dev/null 2>&1; do
-  echo "Waiting for database..."
+# Strip Prisma-specific query params (?schema=public) that psql doesn't understand
+DB_URL=$(echo "$DATABASE_URL" | sed 's/\?.*$//')
+
+# Wait for database to be ready (max 30 seconds)
+RETRIES=15
+until psql "$DB_URL" -c "SELECT 1" > /dev/null 2>&1; do
+  RETRIES=$((RETRIES - 1))
+  if [ "$RETRIES" -le 0 ]; then
+    echo "WARNING: Could not connect to database, starting app anyway..."
+    exec node server.js
+  fi
+  echo "Waiting for database... ($RETRIES retries left)"
   sleep 2
 done
 
-echo "Database is ready."
+echo "Database is ready. Running migrations..."
 
 # Check if status column is still an enum type and convert to text
-psql "$DATABASE_URL" -v ON_ERROR_STOP=0 <<'SQL'
+psql "$DB_URL" -v ON_ERROR_STOP=0 <<'SQL'
 DO $$
 BEGIN
   -- Check if InstallationStatus enum type exists
