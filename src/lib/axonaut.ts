@@ -34,6 +34,40 @@ function toFloat(val: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
+// custom_fields peut être:
+// - un objet: {"Durée en mois": "12", "Famille": "Réseau"}
+// - un tableau: [{name: "Durée en mois", value: "12"}, ...]
+// - un tableau avec label/value: [{label: "Durée en mois", value: "12"}, ...]
+function getCustomField(customFields: unknown, fieldName: string): string | null {
+  if (!customFields) return null;
+
+  if (typeof customFields === "object" && !Array.isArray(customFields)) {
+    const obj = customFields as Record<string, unknown>;
+    for (const key of Object.keys(obj)) {
+      if (key === fieldName || norm(key) === norm(fieldName)) {
+        return obj[key] != null ? String(obj[key]) : null;
+      }
+    }
+    return null;
+  }
+
+  if (Array.isArray(customFields)) {
+    for (const field of customFields) {
+      const name = field.name || field.label || field.key || "";
+      if (name === fieldName || norm(name) === norm(fieldName)) {
+        return field.value != null ? String(field.value) : null;
+      }
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function norm(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+}
+
 export async function syncProducts() {
   const log = await prisma.syncLog.create({
     data: { type: "products", status: "running", message: "Synchronisation des produits..." },
@@ -54,8 +88,12 @@ export async function syncProducts() {
       }
 
       for (const p of products) {
-        const customFields = p.custom_fields || {};
-        const durationMonths = parseInt(customFields["Durée en mois"] || customFields["Duree en mois"] || "0", 10);
+        const cf = p.custom_fields;
+        const durationStr = getCustomField(cf, "Durée en mois") || getCustomField(cf, "Duree en mois");
+        const durationMonths = durationStr ? parseInt(durationStr, 10) : 0;
+        const family = getCustomField(cf, "Famille") || p.category || null;
+        const supplier = getCustomField(cf, "Fournisseur") || null;
+        const duration = getCustomField(cf, "Durée") || getCustomField(cf, "Duree") || null;
 
         await prisma.product.upsert({
           where: { axonautId: p.id },
@@ -64,9 +102,9 @@ export async function syncProducts() {
             name: p.name || "Sans nom",
             code: p.code || null,
             description: p.description || null,
-            family: customFields["Famille"] || p.category || null,
-            supplier: customFields["Fournisseur"] || null,
-            duration: customFields["Durée"] || customFields["Duree"] || null,
+            family,
+            supplier,
+            duration,
             durationMonths: durationMonths || null,
             unitPrice: toFloat(p.price),
           },
@@ -74,9 +112,9 @@ export async function syncProducts() {
             name: p.name || "Sans nom",
             code: p.code || null,
             description: p.description || null,
-            family: customFields["Famille"] || p.category || null,
-            supplier: customFields["Fournisseur"] || null,
-            duration: customFields["Durée"] || customFields["Duree"] || null,
+            family,
+            supplier,
+            duration,
             durationMonths: durationMonths || null,
             unitPrice: toFloat(p.price),
           },
