@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Package, Tag, Truck, Clock, Calendar, Monitor } from "lucide-react";
+import { ArrowLeft, Package, Tag, Truck, Clock, Calendar, Monitor, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
@@ -74,6 +74,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           <h1 className="text-2xl font-bold text-white">{product.name}</h1>
           {product.code && <p className="text-sm text-surface-400 mt-1">Code: {product.code}</p>}
         </div>
+        <button
+          onClick={async () => {
+            if (!confirm(`Supprimer le produit "${product.name}" et toutes ses installations associées ?`)) return;
+            await fetch(`/api/products/${product.id}`, { method: "DELETE" });
+            router.push("/products");
+          }}
+          className="flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Supprimer
+        </button>
       </div>
 
       {/* Infos produit */}

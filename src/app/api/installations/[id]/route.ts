@@ -39,7 +39,7 @@ export async function PATCH(
 
   const updateData: Record<string, unknown> = {};
   if (body.notes !== undefined) updateData.notes = body.notes;
-  if (body.status && ["EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE", "RENOUVELE"].includes(body.status)) {
+  if (body.status && ["EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE", "RENOUVELE", "NON_DEFINI"].includes(body.status)) {
     updateData.status = body.status;
   }
 
@@ -49,4 +49,18 @@ export async function PATCH(
   });
 
   return NextResponse.json(installation);
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const { id } = await params;
+
+  await prisma.installation.delete({ where: { id } });
+
+  return NextResponse.json({ success: true });
 }

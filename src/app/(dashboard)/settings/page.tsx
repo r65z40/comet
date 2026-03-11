@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon } from "lucide-react";
 
 interface User {
   id: string;
@@ -39,8 +39,10 @@ export default function SettingsPage() {
   const [reportTitle, setReportTitle] = useState("");
   const [reportSubtitle, setReportSubtitle] = useState("");
   const [reportMessage, setReportMessage] = useState("");
+  const [companyLogo, setCompanyLogo] = useState("");
   const [savingReport, setSavingReport] = useState(false);
   const [savedReport, setSavedReport] = useState(false);
+  const companyLogoRef = useRef<HTMLInputElement>(null);
 
   // User management
   const [users, setUsers] = useState<User[]>([]);
@@ -70,6 +72,7 @@ export default function SettingsPage() {
         setReportTitle(data.report_title || "");
         setReportSubtitle(data.report_subtitle || "");
         setReportMessage(data.report_message || "");
+        setCompanyLogo(data.company_logo || "");
       })
       .finally(() => setLoading(false));
 
@@ -176,6 +179,7 @@ export default function SettingsPage() {
         report_title: reportTitle,
         report_subtitle: reportSubtitle,
         report_message: reportMessage,
+        company_logo: companyLogo,
       }),
     });
     setSavingReport(false);
@@ -515,6 +519,61 @@ export default function SettingsPage() {
         <p className="text-xs text-surface-500">
           Ces paramètres personnalisent la première page du rapport imprimable depuis la fiche client.
         </p>
+
+        <div>
+          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+            Logo de votre société
+          </label>
+          <div className="flex items-center gap-4">
+            {companyLogo ? (
+              <div className="relative group">
+                <img
+                  src={companyLogo}
+                  alt="Logo société"
+                  className="h-20 w-auto max-w-[200px] rounded-lg bg-white p-2 border border-surface-700 object-contain"
+                />
+                <button
+                  onClick={() => setCompanyLogo("")}
+                  className="absolute -top-1.5 -right-1.5 rounded-full bg-red-500 p-0.5 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => companyLogoRef.current?.click()}
+                className="flex h-20 w-40 items-center justify-center gap-2 rounded-lg border-2 border-dashed border-surface-700 text-surface-500 hover:border-primary-500 hover:text-primary-400 transition-colors"
+              >
+                <ImageIcon className="h-5 w-5" />
+                <span className="text-xs">Ajouter un logo</span>
+              </button>
+            )}
+            {companyLogo && (
+              <button
+                onClick={() => companyLogoRef.current?.click()}
+                className="flex items-center gap-2 rounded-lg border border-surface-700 px-3 py-2 text-xs font-medium text-surface-400 hover:bg-surface-800 transition-colors"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Changer
+              </button>
+            )}
+          </div>
+          <input
+            ref={companyLogoRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              if (file.size > 2 * 1024 * 1024) { alert("Max 2 Mo"); return; }
+              const reader = new FileReader();
+              reader.onload = () => setCompanyLogo(reader.result as string);
+              reader.readAsDataURL(file);
+            }}
+          />
+          <p className="text-xs text-surface-500 mt-1">Ce logo apparaîtra sur la page de garde du rapport (max 2 Mo)</p>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-surface-300 mb-1.5">

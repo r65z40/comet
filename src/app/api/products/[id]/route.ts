@@ -30,3 +30,22 @@ export async function GET(
 
   return NextResponse.json(product);
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const { id } = await params;
+
+  // Delete related installations first
+  await prisma.installation.deleteMany({ where: { productId: id } });
+  // Delete related invoice lines
+  await prisma.invoiceLine.deleteMany({ where: { productId: id } });
+  // Delete the product
+  await prisma.product.delete({ where: { id } });
+
+  return NextResponse.json({ success: true });
+}

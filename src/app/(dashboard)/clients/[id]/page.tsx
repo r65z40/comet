@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, RefreshCw, HelpCircle, Upload, Printer, X, ImageIcon } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, RefreshCw, HelpCircle, Upload, Printer, X, ImageIcon, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel } from "@/lib/utils";
@@ -106,13 +106,31 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     setUploadingLogo(false);
   }
 
+  async function deleteInstallation(installId: string, productName: string) {
+    if (!confirm(`Supprimer l'installation "${productName}" ?`)) return;
+    await fetch(`/api/installations/${installId}`, { method: "DELETE" });
+    const res = await fetch(`/api/clients/${id}`);
+    const data = await res.json();
+    setClient(data);
+  }
+
   function printReport() {
     if (!client) return;
 
     const title = reportSettings.report_title || "Rapport de suivi des garanties";
     const subtitle = reportSettings.report_subtitle || "";
     const message = reportSettings.report_message || "";
+    const companyLogo = reportSettings.company_logo || "";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+
+    function getStatusStyle(status: string, endDate: string): string {
+      if (status === "EN_PARC_HORS_GARANTIE") return "color: #dc2626; font-weight: 700;";
+      if (status === "RENOUVELE") return "color: #2563eb; font-weight: 700;";
+      if (status === "NON_DEFINI") return "color: #6b7280; font-weight: 700;";
+      const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      if (days <= 90) return "color: #ea580c; font-weight: 700;";
+      return "color: #16a34a; font-weight: 700;";
+    }
 
     const instRows = client.installations.map((inst) => `
       <tr>
@@ -122,12 +140,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <td>${formatDate(inst.startDate)}</td>
         <td>${inst.durationMonths} mois</td>
         <td>${formatDate(inst.endDate)}</td>
-        <td>${getStatusLabel(inst.status)}</td>
+        <td style="${getStatusStyle(inst.status, inst.endDate)}">${getStatusLabel(inst.status)}</td>
       </tr>
     `).join("");
 
-    const logoHtml = client.logoUrl
-      ? `<img src="${client.logoUrl}" alt="Logo" style="max-width: 200px; max-height: 150px; margin-bottom: 30px;" />`
+    const clientLogoHtml = client.logoUrl
+      ? `<img src="${client.logoUrl}" alt="Logo client" style="max-width: 180px; max-height: 120px;" />`
+      : "";
+    const companyLogoHtml = companyLogo
+      ? `<img src="${companyLogo}" alt="Logo société" style="max-width: 180px; max-height: 120px;" />`
       : "";
 
     const html = `<!DOCTYPE html>
@@ -152,8 +173,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       color: white;
       padding: 40px;
     }
-    .cover-page .logo-container { margin-bottom: 40px; }
-    .cover-page .logo-container img { border-radius: 12px; background: white; padding: 20px; }
+    .cover-logos { display: flex; align-items: center; justify-content: center; gap: 40px; margin-bottom: 40px; }
+    .cover-logos img { border-radius: 12px; background: white; padding: 16px; }
     .cover-page h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; }
     .cover-page .client-name { font-size: 42px; font-weight: 800; color: #60a5fa; margin-bottom: 30px; }
     .cover-page .subtitle { font-size: 18px; color: #94a3b8; margin-bottom: 8px; }
@@ -164,15 +185,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; }
 
     .stats { display: flex; gap: 16px; margin-bottom: 30px; flex-wrap: wrap; }
-    .stat-card { flex: 1; min-width: 120px; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
+    .stat-card { flex: 1; min-width: 100px; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
     .stat-card .value { font-size: 28px; font-weight: 800; }
     .stat-card .label { font-size: 11px; color: #64748b; margin-top: 4px; }
-    .stat-green { border-color: #10b981; }
-    .stat-green .value { color: #10b981; }
-    .stat-red { border-color: #ef4444; }
-    .stat-red .value { color: #ef4444; }
-    .stat-blue { border-color: #3b82f6; }
-    .stat-blue .value { color: #3b82f6; }
+    .stat-green { border-color: #10b981; } .stat-green .value { color: #10b981; }
+    .stat-red { border-color: #ef4444; } .stat-red .value { color: #ef4444; }
+    .stat-blue { border-color: #3b82f6; } .stat-blue .value { color: #3b82f6; }
+    .stat-gray { border-color: #9ca3af; } .stat-gray .value { color: #9ca3af; }
 
     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
     th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; }
@@ -187,7 +206,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 </head>
 <body>
   <div class="cover-page">
-    <div class="logo-container">${logoHtml}</div>
+    <div class="cover-logos">
+      ${companyLogoHtml}
+      ${clientLogoHtml}
+    </div>
     <h1>${title}</h1>
     <div class="client-name">${client.name}</div>
     ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ""}
@@ -223,6 +245,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       <div class="stat-card stat-blue">
         <div class="value">${client.installations.filter(i => i.status === "RENOUVELE").length}</div>
         <div class="label">Renouvelés</div>
+      </div>
+      <div class="stat-card stat-gray">
+        <div class="value">${client.installations.filter(i => i.status === "NON_DEFINI").length}</div>
+        <div class="label">Non défini</div>
       </div>
     </div>
 
@@ -478,6 +504,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                           <HelpCircle className="h-3.5 w-3.5" />
                         </button>
                       )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteInstallation(inst.id, inst.product.name); }}
+                        title="Supprimer"
+                        className="rounded p-1 text-surface-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </td>
                 </tr>

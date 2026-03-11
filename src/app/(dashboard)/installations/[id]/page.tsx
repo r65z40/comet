@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, RefreshCw, HelpCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, RefreshCw, HelpCircle, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
@@ -86,6 +86,17 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
           </p>
         </div>
         <StatusBadge status={installation.status} />
+        <button
+          onClick={async () => {
+            if (!confirm("Supprimer cette installation ?")) return;
+            await fetch(`/api/installations/${installation.id}`, { method: "DELETE" });
+            router.push("/installations");
+          }}
+          className="flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Supprimer
+        </button>
       </div>
 
       {/* Compte à rebours principal */}
