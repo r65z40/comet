@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Package, Tag, Truck, Clock, Calendar, Monitor, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
+import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired } from "@/lib/utils";
 import Link from "next/link";
 
 interface Installation {
@@ -109,11 +109,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
         <div className="lg:col-span-2 grid grid-cols-3 gap-4">
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-            <p className="text-sm text-emerald-400 mb-1">En parc garantie</p>
+            <p className="text-sm text-emerald-400 mb-1">En parc</p>
             <p className="text-3xl font-bold text-white">{activeInstalls.length}</p>
           </div>
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center">
-            <p className="text-sm text-red-400 mb-1">Hors garantie</p>
+            <p className="text-sm text-red-400 mb-1">Hors parc</p>
             <p className="text-3xl font-bold text-white">{expiredInstalls.length}</p>
           </div>
           <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-center">
@@ -157,7 +157,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       {formatCountdown(inst.endDate)}
                     </span>
                   )}
-                  <StatusBadge status={inst.status} />
+                  <StatusBadge status={inst.status} expired={isWarrantyExpired(inst.endDate)} />
                 </div>
               </Link>
             ))}

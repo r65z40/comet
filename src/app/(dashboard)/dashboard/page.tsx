@@ -111,9 +111,9 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total installations" value={data.counts.total} icon={Monitor} color="blue" href="/installations" />
-        <StatCard title="En parc garantie" value={data.counts.enGarantie} icon={ShieldCheck} color="green" href="/installations?status=EN_PARC_GARANTIE" />
+        <StatCard title="En parc" value={data.counts.enGarantie} icon={ShieldCheck} color="green" href="/installations?status=EN_PARC_GARANTIE" />
         <StatCard
-          title="En parc sans garantie"
+          title="Hors parc"
           value={data.counts.horsGarantie}
           icon={ShieldX}
           color="red"
@@ -288,7 +288,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <ShieldX className="h-4 w-4 text-red-400" />
-              <h3 className="text-sm font-medium text-red-400">En parc sans garantie</h3>
+              <h3 className="text-sm font-medium text-red-400">Hors parc</h3>
             </div>
             <Link href="/installations?status=EN_PARC_HORS_GARANTIE" className="text-xs text-primary-400 hover:text-primary-300">
               Voir tout

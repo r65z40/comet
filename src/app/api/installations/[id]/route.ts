@@ -39,8 +39,11 @@ export async function PATCH(
 
   const updateData: Record<string, unknown> = {};
   if (body.notes !== undefined) updateData.notes = body.notes;
-  if (body.status && ["EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE", "RENOUVELE", "NON_DEFINI"].includes(body.status)) {
+  if (body.status && ["EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE", "RENOUVELE"].includes(body.status)) {
     updateData.status = body.status;
+  }
+  if (body.endDate) {
+    updateData.endDate = new Date(body.endDate);
   }
 
   const installation = await prisma.installation.update({

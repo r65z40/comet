@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
+import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired } from "@/lib/utils";
 
 interface Installation {
   id: string;
@@ -94,7 +94,7 @@ export default function InstallationsPage() {
     {
       key: "status",
       label: "Statut",
-      render: (i: Installation) => <StatusBadge status={i.status} />,
+      render: (i: Installation) => <StatusBadge status={i.status} expired={isWarrantyExpired(i.endDate)} />,
     },
   ];
 
@@ -145,10 +145,9 @@ export default function InstallationsPage() {
           className="rounded-lg border border-surface-700 bg-surface-900 px-3 py-2 text-sm text-surface-300 focus:border-primary-500 focus:outline-none"
         >
           <option value="">Tous les statuts</option>
-          <option value="EN_PARC_GARANTIE">En parc garantie</option>
-          <option value="EN_PARC_HORS_GARANTIE">En parc sans garantie</option>
+          <option value="EN_PARC_GARANTIE">En parc</option>
+          <option value="EN_PARC_HORS_GARANTIE">Hors parc</option>
           <option value="RENOUVELE">Renouvelé</option>
-          <option value="NON_DEFINI">Non défini</option>
         </select>
 
         <input

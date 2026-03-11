@@ -40,6 +40,7 @@ export default function SettingsPage() {
   const [reportSubtitle, setReportSubtitle] = useState("");
   const [reportMessage, setReportMessage] = useState("");
   const [companyLogo, setCompanyLogo] = useState("");
+  const [reportGroupMode, setReportGroupMode] = useState("date");
   const [savingReport, setSavingReport] = useState(false);
   const [savedReport, setSavedReport] = useState(false);
   const companyLogoRef = useRef<HTMLInputElement>(null);
@@ -73,6 +74,7 @@ export default function SettingsPage() {
         setReportSubtitle(data.report_subtitle || "");
         setReportMessage(data.report_message || "");
         setCompanyLogo(data.company_logo || "");
+        setReportGroupMode(data.report_group_mode || "date");
       })
       .finally(() => setLoading(false));
 
@@ -180,6 +182,7 @@ export default function SettingsPage() {
         report_subtitle: reportSubtitle,
         report_message: reportMessage,
         company_logo: companyLogo,
+        report_group_mode: reportGroupMode,
       }),
     });
     setSavingReport(false);
@@ -612,6 +615,35 @@ export default function SettingsPage() {
             rows={3}
             className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+            Classement des produits dans le rapport
+          </label>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setReportGroupMode("date")}
+              className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                reportGroupMode === "date"
+                  ? "border-primary-500 bg-primary-500/20 text-primary-400"
+                  : "border-surface-700 bg-surface-800 text-surface-400 hover:border-surface-600"
+              }`}
+            >
+              Par date de fin
+            </button>
+            <button
+              onClick={() => setReportGroupMode("family")}
+              className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                reportGroupMode === "family"
+                  ? "border-primary-500 bg-primary-500/20 text-primary-400"
+                  : "border-surface-700 bg-surface-800 text-surface-400 hover:border-surface-600"
+              }`}
+            >
+              Par famille
+            </button>
+          </div>
+          <p className="text-xs text-surface-500 mt-1">Détermine comment les produits sont organisés dans le rapport imprimé</p>
         </div>
 
         <div className="flex items-center gap-3 pt-2">

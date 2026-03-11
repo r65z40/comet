@@ -25,10 +25,9 @@ export function formatDateShort(date: Date | string): string {
 
 export function getStatusLabel(status: string): string {
   switch (status) {
-    case "EN_PARC_GARANTIE": return "En parc garantie";
-    case "EN_PARC_HORS_GARANTIE": return "En parc sans garantie";
-    case "RENOUVELE": return "Renouvelé";
-    case "NON_DEFINI": return "Non défini";
+    case "EN_PARC_GARANTIE": return "En parc";
+    case "EN_PARC_HORS_GARANTIE": return "Hors parc";
+    case "RENOUVELE": return "Hors parc";
     default: return status;
   }
 }
@@ -38,9 +37,12 @@ export function getStatusColor(status: string): string {
     case "EN_PARC_GARANTIE": return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
     case "EN_PARC_HORS_GARANTIE": return "bg-red-500/20 text-red-400 border-red-500/30";
     case "RENOUVELE": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-    case "NON_DEFINI": return "bg-gray-500/20 text-gray-400 border-gray-500/30";
     default: return "bg-gray-500/20 text-gray-400 border-gray-500/30";
   }
+}
+
+export function isWarrantyExpired(endDate: Date | string): boolean {
+  return daysUntil(endDate) <= 0;
 }
 
 export function formatCurrency(amount: number): string {

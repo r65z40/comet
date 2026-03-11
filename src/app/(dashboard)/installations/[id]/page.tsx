@@ -2,10 +2,10 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, RefreshCw, HelpCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, RefreshCw, Trash2, Pencil } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
+import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired } from "@/lib/utils";
 import Link from "next/link";
 
 interface InstallationDetail {
@@ -31,6 +31,8 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [editingEndDate, setEditingEndDate] = useState(false);
+  const [newEndDate, setNewEndDate] = useState("");
 
   useEffect(() => {
     fetch(`/api/installations/${id}`)
@@ -55,6 +57,20 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
     setSaving(false);
   }
 
+  async function saveEndDate() {
+    if (!newEndDate) return;
+    setSaving(true);
+    const res = await fetch(`/api/installations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endDate: newEndDate }),
+    });
+    const updated = await res.json();
+    setInstallation((prev) => prev ? { ...prev, endDate: updated.endDate } : prev);
+    setEditingEndDate(false);
+    setSaving(false);
+  }
+
   if (loading) return <LoadingSpinner />;
   if (!installation) {
     return (
@@ -69,6 +85,8 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
 
   const countdown = formatCountdown(installation.endDate);
   const countdownColor = getCountdownColor(installation.endDate);
+  const expired = isWarrantyExpired(installation.endDate);
+  const isRenewed = installation.status === "RENOUVELE";
 
   return (
     <div className="space-y-6">
@@ -85,7 +103,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
             Installé chez <Link href={`/clients/${installation.client.id}`} className="text-primary-400 hover:text-primary-300">{installation.client.name}</Link>
           </p>
         </div>
-        <StatusBadge status={installation.status} />
+        <StatusBadge status={installation.status} expired={expired} />
         <button
           onClick={async () => {
             if (!confirm("Supprimer cette installation ?")) return;
@@ -101,9 +119,9 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
 
       {/* Compte à rebours principal */}
       <div className={`rounded-xl border p-6 text-center ${
-        installation.status === "RENOUVELE"
+        isRenewed
           ? "border-blue-500/30 bg-blue-500/10"
-          : countdownColor === "text-red-400"
+          : expired
             ? "border-red-500/30 bg-red-500/10"
             : countdownColor === "text-orange-400"
               ? "border-orange-500/30 bg-orange-500/10"
@@ -111,7 +129,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                 ? "border-amber-500/30 bg-amber-500/10"
                 : "border-emerald-500/30 bg-emerald-500/10"
       }`}>
-        {installation.status === "RENOUVELE" ? (
+        {isRenewed ? (
           <div className="flex items-center justify-center gap-3">
             <RefreshCw className="h-6 w-6 text-blue-400" />
             <span className="text-2xl font-bold text-blue-400">Renouvelé</span>
@@ -140,7 +158,51 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
               <InfoItem icon={Truck} label="Fournisseur" value={installation.supplier || "—"} />
               <InfoItem icon={Tag} label="Famille" value={installation.family || "—"} />
               <InfoItem icon={Calendar} label="Début garantie" value={formatDate(installation.startDate)} />
-              <InfoItem icon={Calendar} label="Fin garantie" value={formatDate(installation.endDate)} />
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-surface-800 p-2">
+                  <Calendar className="h-4 w-4 text-surface-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-surface-500">Fin garantie</p>
+                  {editingEndDate ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        type="date"
+                        value={newEndDate}
+                        onChange={(e) => setNewEndDate(e.target.value)}
+                        className="rounded-lg border border-surface-700 bg-surface-800 px-2 py-1 text-sm text-surface-200 focus:border-primary-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={saveEndDate}
+                        disabled={saving}
+                        className="rounded px-2 py-1 text-xs bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50"
+                      >
+                        OK
+                      </button>
+                      <button
+                        onClick={() => setEditingEndDate(false)}
+                        className="rounded px-2 py-1 text-xs border border-surface-700 text-surface-400 hover:bg-surface-800"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className={`text-sm font-medium ${expired ? "text-red-400" : "text-surface-200"}`}>{formatDate(installation.endDate)}</p>
+                      <button
+                        onClick={() => {
+                          setNewEndDate(new Date(installation.endDate).toISOString().split("T")[0]);
+                          setEditingEndDate(true);
+                        }}
+                        className="rounded p-0.5 text-surface-500 hover:text-primary-400 transition-colors"
+                        title="Modifier la date de fin"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
               <InfoItem icon={Calendar} label="Durée" value={`${installation.durationMonths} mois`} />
               {installation.invoice && (
                 <InfoItem
@@ -171,7 +233,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
               <label className="block text-xs text-surface-500 mb-2">Statut</label>
               <div className="flex gap-2 flex-wrap">
                 <StatusButton
-                  label="En parc garantie"
+                  label="En parc"
                   value="EN_PARC_GARANTIE"
                   current={status}
                   onClick={setStatus}
@@ -179,7 +241,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                   color="emerald"
                 />
                 <StatusButton
-                  label="En parc sans garantie"
+                  label="Hors parc"
                   value="EN_PARC_HORS_GARANTIE"
                   current={status}
                   onClick={setStatus}
@@ -193,14 +255,6 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                   onClick={setStatus}
                   icon={RefreshCw}
                   color="blue"
-                />
-                <StatusButton
-                  label="Non défini"
-                  value="NON_DEFINI"
-                  current={status}
-                  onClick={setStatus}
-                  icon={HelpCircle}
-                  color="gray"
                 />
               </div>
             </div>
@@ -296,7 +350,6 @@ function StatusButton({
     emerald: isActive ? "border-emerald-500 bg-emerald-500/20 text-emerald-400" : "border-surface-700 text-surface-400 hover:border-emerald-500/50",
     red: isActive ? "border-red-500 bg-red-500/20 text-red-400" : "border-surface-700 text-surface-400 hover:border-red-500/50",
     blue: isActive ? "border-blue-500 bg-blue-500/20 text-blue-400" : "border-surface-700 text-surface-400 hover:border-blue-500/50",
-    gray: isActive ? "border-gray-500 bg-gray-500/20 text-gray-400" : "border-surface-700 text-surface-400 hover:border-gray-500/50",
   };
 
   return (

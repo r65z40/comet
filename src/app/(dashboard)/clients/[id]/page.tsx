@@ -2,10 +2,10 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, RefreshCw, HelpCircle, Upload, Printer, X, ImageIcon, Trash2 } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, RefreshCw, Upload, Printer, X, ImageIcon, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel } from "@/lib/utils";
+import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
 import Link from "next/link";
 
 interface Installation {
@@ -121,28 +121,102 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const subtitle = reportSettings.report_subtitle || "";
     const message = reportSettings.report_message || "";
     const companyLogo = reportSettings.company_logo || "";
+    const groupByFamily = reportSettings.report_group_mode === "family";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
+    function getReportStatusLabel(status: string): string {
+      if (status === "EN_PARC_GARANTIE") return "En parc";
+      if (status === "EN_PARC_HORS_GARANTIE") return "Hors parc";
+      if (status === "RENOUVELE") return "Hors parc (Renouvelé)";
+      return status;
+    }
+
     function getStatusStyle(status: string, endDate: string): string {
-      if (status === "EN_PARC_HORS_GARANTIE") return "color: #dc2626; font-weight: 700;";
+      const expired = new Date(endDate).getTime() < Date.now();
       if (status === "RENOUVELE") return "color: #2563eb; font-weight: 700;";
-      if (status === "NON_DEFINI") return "color: #6b7280; font-weight: 700;";
+      if (status === "EN_PARC_HORS_GARANTIE") return "color: #dc2626; font-weight: 700;";
+      if (expired) return "color: #dc2626; font-weight: 700;";
       const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       if (days <= 90) return "color: #ea580c; font-weight: 700;";
       return "color: #16a34a; font-weight: 700;";
     }
 
-    const instRows = client.installations.map((inst) => `
-      <tr>
-        <td>${inst.product.name}</td>
-        <td>${inst.family || "—"}</td>
-        <td>${inst.supplier || "—"}</td>
-        <td>${formatDate(inst.startDate)}</td>
-        <td>${inst.durationMonths} mois</td>
-        <td>${formatDate(inst.endDate)}</td>
-        <td style="${getStatusStyle(inst.status, inst.endDate)}">${getStatusLabel(inst.status)}</td>
-      </tr>
-    `).join("");
+    function buildInstRows(installations: Installation[]): string {
+      return installations.map((inst) => `
+        <tr>
+          <td>${inst.product.name}</td>
+          <td>${inst.family || "—"}</td>
+          <td>${inst.supplier || "—"}</td>
+          <td>${formatDate(inst.startDate)}</td>
+          <td>${inst.durationMonths} mois</td>
+          <td>${formatDate(inst.endDate)}</td>
+          <td style="${getStatusStyle(inst.status, inst.endDate)}">${getReportStatusLabel(inst.status)}</td>
+        </tr>
+      `).join("");
+    }
+
+    let tableContent = "";
+    if (groupByFamily) {
+      const families = new Map<string, Installation[]>();
+      client.installations.forEach((inst) => {
+        const fam = inst.family || "Autre";
+        if (!families.has(fam)) families.set(fam, []);
+        families.get(fam)!.push(inst);
+      });
+      const sortedFamilies = Array.from(families.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+      tableContent = sortedFamilies.map(([family, installs]) => `
+        <div style="margin-top: 20px;">
+          <h3 style="font-size: 14px; font-weight: 700; color: #3b82f6; margin-bottom: 8px; padding: 6px 10px; background: #eff6ff; border-radius: 4px;">${family} (${installs.length})</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Produit</th>
+                <th>Fournisseur</th>
+                <th>Début</th>
+                <th>Durée</th>
+                <th>Fin garantie</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${installs.map((inst) => `
+                <tr>
+                  <td>${inst.product.name}</td>
+                  <td>${inst.supplier || "—"}</td>
+                  <td>${formatDate(inst.startDate)}</td>
+                  <td>${inst.durationMonths} mois</td>
+                  <td>${formatDate(inst.endDate)}</td>
+                  <td style="${getStatusStyle(inst.status, inst.endDate)}">${getReportStatusLabel(inst.status)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `).join("");
+    } else {
+      const sorted = [...client.installations].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
+      tableContent = `
+        <table>
+          <thead>
+            <tr>
+              <th>Produit</th>
+              <th>Famille</th>
+              <th>Fournisseur</th>
+              <th>Début</th>
+              <th>Durée</th>
+              <th>Fin garantie</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${buildInstRows(sorted)}
+          </tbody>
+        </table>
+      `;
+    }
+
+    const enParc = client.installations.filter(i => i.status === "EN_PARC_GARANTIE");
+    const horsParc = client.installations.filter(i => i.status === "EN_PARC_HORS_GARANTIE" || i.status === "RENOUVELE");
 
     const clientLogoHtml = client.logoUrl
       ? `<img src="${client.logoUrl}" alt="Logo client" style="max-width: 180px; max-height: 120px;" />`
@@ -157,7 +231,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   <meta charset="UTF-8" />
   <title>Rapport - ${client.name}</title>
   <style>
-    @media print { @page { margin: 15mm; } }
+    @media print {
+      @page { margin: 15mm; }
+      html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1a1a2e; }
 
@@ -169,29 +246,28 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       justify-content: center;
       text-align: center;
       page-break-after: always;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-      color: white;
+      background: #ffffff;
+      color: #1a1a2e;
       padding: 40px;
     }
     .cover-logos { display: flex; align-items: center; justify-content: center; gap: 40px; margin-bottom: 40px; }
-    .cover-logos img { border-radius: 12px; background: white; padding: 16px; }
-    .cover-page h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; }
-    .cover-page .client-name { font-size: 42px; font-weight: 800; color: #60a5fa; margin-bottom: 30px; }
-    .cover-page .subtitle { font-size: 18px; color: #94a3b8; margin-bottom: 8px; }
-    .cover-page .date { font-size: 16px; color: #64748b; margin-top: 40px; }
-    .cover-page .message { font-size: 14px; color: #94a3b8; margin-top: 20px; max-width: 500px; line-height: 1.6; }
+    .cover-logos img { border-radius: 12px; background: white; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .cover-page h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; color: #1e293b; }
+    .cover-page .client-name { font-size: 42px; font-weight: 800; color: #3b82f6; margin-bottom: 30px; }
+    .cover-page .subtitle { font-size: 18px; color: #64748b; margin-bottom: 8px; }
+    .cover-page .date { font-size: 16px; color: #94a3b8; margin-top: 40px; }
+    .cover-page .message { font-size: 14px; color: #64748b; margin-top: 20px; max-width: 500px; line-height: 1.6; }
 
     .report-content { padding: 20px 0; }
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; }
 
     .stats { display: flex; gap: 16px; margin-bottom: 30px; flex-wrap: wrap; }
-    .stat-card { flex: 1; min-width: 100px; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
+    .stat-card { flex: 1; min-width: 120px; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
     .stat-card .value { font-size: 28px; font-weight: 800; }
     .stat-card .label { font-size: 11px; color: #64748b; margin-top: 4px; }
     .stat-green { border-color: #10b981; } .stat-green .value { color: #10b981; }
     .stat-red { border-color: #ef4444; } .stat-red .value { color: #ef4444; }
     .stat-blue { border-color: #3b82f6; } .stat-blue .value { color: #3b82f6; }
-    .stat-gray { border-color: #9ca3af; } .stat-gray .value { color: #9ca3af; }
 
     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
     th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; }
@@ -235,41 +311,28 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div class="label">Total</div>
       </div>
       <div class="stat-card stat-green">
-        <div class="value">${client.installations.filter(i => i.status === "EN_PARC_GARANTIE").length}</div>
-        <div class="label">En garantie</div>
+        <div class="value">${enParc.length}</div>
+        <div class="label">En parc</div>
       </div>
       <div class="stat-card stat-red">
-        <div class="value">${client.installations.filter(i => i.status === "EN_PARC_HORS_GARANTIE").length}</div>
-        <div class="label">Sans garantie</div>
-      </div>
-      <div class="stat-card stat-blue">
-        <div class="value">${client.installations.filter(i => i.status === "RENOUVELE").length}</div>
-        <div class="label">Renouvelés</div>
-      </div>
-      <div class="stat-card stat-gray">
-        <div class="value">${client.installations.filter(i => i.status === "NON_DEFINI").length}</div>
-        <div class="label">Non défini</div>
+        <div class="value">${horsParc.length}</div>
+        <div class="label">Hors parc</div>
       </div>
     </div>
 
     <div class="section-title">Détail des installations</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Produit</th>
-          <th>Famille</th>
-          <th>Fournisseur</th>
-          <th>Début</th>
-          <th>Durée</th>
-          <th>Fin garantie</th>
-          <th>Statut</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${instRows}
-      </tbody>
-    </table>
+    ${tableContent}
   </div>
+
+  <script>
+    // Remove browser headers/footers during print
+    (function() {
+      var style = document.createElement('style');
+      style.textContent = '@page { margin: 15mm; } @media print { title { display: none; } }';
+      document.head.appendChild(style);
+      document.title = ' ';
+    })();
+  </script>
 </body>
 </html>`;
 
@@ -277,7 +340,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     if (printWindow) {
       printWindow.document.write(html);
       printWindow.document.close();
-      printWindow.onload = () => printWindow.print();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
     }
   }
 
@@ -293,10 +358,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const enGarantie = client.installations.filter((i) => i.status === "EN_PARC_GARANTIE");
-  const horsGarantie = client.installations.filter((i) => i.status === "EN_PARC_HORS_GARANTIE");
+  const enParc = client.installations.filter((i) => i.status === "EN_PARC_GARANTIE");
+  const horsParc = client.installations.filter((i) => i.status === "EN_PARC_HORS_GARANTIE");
   const renouvele = client.installations.filter((i) => i.status === "RENOUVELE");
-  const nonDefini = client.installations.filter((i) => i.status === "NON_DEFINI");
 
   return (
     <div className="space-y-6">
@@ -388,26 +452,22 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="rounded-xl border border-surface-800 bg-surface-900 p-4 text-center">
           <p className="text-2xl font-bold text-white">{client.installations.length}</p>
           <p className="text-xs text-surface-400 mt-1">Total</p>
         </div>
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-          <p className="text-2xl font-bold text-emerald-400">{enGarantie.length}</p>
-          <p className="text-xs text-surface-400 mt-1">En parc garantie</p>
+          <p className="text-2xl font-bold text-emerald-400">{enParc.length}</p>
+          <p className="text-xs text-surface-400 mt-1">En parc</p>
         </div>
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center">
-          <p className="text-2xl font-bold text-red-400">{horsGarantie.length}</p>
-          <p className="text-xs text-surface-400 mt-1">Sans garantie</p>
+          <p className="text-2xl font-bold text-red-400">{horsParc.length}</p>
+          <p className="text-xs text-surface-400 mt-1">Hors parc</p>
         </div>
         <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-center">
           <p className="text-2xl font-bold text-blue-400">{renouvele.length}</p>
           <p className="text-xs text-surface-400 mt-1">Renouvelés</p>
-        </div>
-        <div className="rounded-xl border border-gray-500/30 bg-gray-500/10 p-4 text-center">
-          <p className="text-2xl font-bold text-gray-400">{nonDefini.length}</p>
-          <p className="text-xs text-surface-400 mt-1">Non défini</p>
         </div>
       </div>
 
@@ -433,7 +493,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-800">
-              {client.installations.map((inst) => (
+              {client.installations.map((inst) => {
+                const expired = isWarrantyExpired(inst.endDate);
+                return (
                 <tr
                   key={inst.id}
                   className="hover:bg-surface-800/50 transition-colors"
@@ -455,55 +517,51 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   </td>
                   <td className="px-4 py-3 text-sm text-surface-300 whitespace-nowrap">{formatDate(inst.startDate)}</td>
                   <td className="px-4 py-3 text-sm text-surface-300 whitespace-nowrap font-medium">{inst.durationMonths} mois</td>
-                  <td className="px-4 py-3 text-sm text-surface-300 whitespace-nowrap">{formatDate(inst.endDate)}</td>
+                  <td className={`px-4 py-3 text-sm whitespace-nowrap ${expired ? "text-red-400 font-medium" : "text-surface-300"}`}>{formatDate(inst.endDate)}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`text-xs font-bold ${getCountdownColor(inst.endDate)}`}>
+                    <span className={`text-xs font-bold ${expired ? "text-red-400" : getCountdownColor(inst.endDate)}`}>
                       {inst.status === "RENOUVELE" ? "Renouvelé" : formatCountdown(inst.endDate)}
                     </span>
                   </td>
-                  <td className="px-4 py-3"><StatusBadge status={inst.status} /></td>
+                  <td className="px-4 py-3"><StatusBadge status={inst.status} expired={expired} /></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      {inst.status !== "EN_PARC_GARANTIE" && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "EN_PARC_GARANTIE"); }}
-                          disabled={updatingStatus === inst.id}
-                          title="En parc garantie"
-                          className="rounded p-1 text-surface-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
-                        >
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {inst.status !== "EN_PARC_HORS_GARANTIE" && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "EN_PARC_HORS_GARANTIE"); }}
-                          disabled={updatingStatus === inst.id}
-                          title="En parc sans garantie"
-                          className="rounded p-1 text-surface-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
-                        >
-                          <ShieldX className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {inst.status !== "RENOUVELE" && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "RENOUVELE"); }}
-                          disabled={updatingStatus === inst.id}
-                          title="Renouvelé"
-                          className="rounded p-1 text-surface-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
-                        >
-                          <RefreshCw className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {inst.status !== "NON_DEFINI" && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "NON_DEFINI"); }}
-                          disabled={updatingStatus === inst.id}
-                          title="Non défini"
-                          className="rounded p-1 text-surface-500 hover:text-gray-400 hover:bg-gray-500/10 transition-colors disabled:opacity-50"
-                        >
-                          <HelpCircle className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "EN_PARC_GARANTIE"); }}
+                        disabled={updatingStatus === inst.id}
+                        title="En parc"
+                        className={`rounded p-1 transition-colors disabled:opacity-50 ${
+                          inst.status === "EN_PARC_GARANTIE"
+                            ? "text-emerald-400 bg-emerald-500/10"
+                            : "text-surface-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                        }`}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "EN_PARC_HORS_GARANTIE"); }}
+                        disabled={updatingStatus === inst.id}
+                        title="Hors parc"
+                        className={`rounded p-1 transition-colors disabled:opacity-50 ${
+                          inst.status === "EN_PARC_HORS_GARANTIE"
+                            ? "text-red-400 bg-red-500/10"
+                            : "text-surface-500 hover:text-red-400 hover:bg-red-500/10"
+                        }`}
+                      >
+                        <ShieldX className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "RENOUVELE"); }}
+                        disabled={updatingStatus === inst.id}
+                        title="Renouvelé"
+                        className={`rounded p-1 transition-colors disabled:opacity-50 ${
+                          inst.status === "RENOUVELE"
+                            ? "text-blue-400 bg-blue-500/10"
+                            : "text-surface-500 hover:text-blue-400 hover:bg-blue-500/10"
+                        }`}
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); deleteInstallation(inst.id, inst.product.name); }}
                         title="Supprimer"
@@ -514,7 +572,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {client.installations.length === 0 && (
                 <tr>
                   <td colSpan={10} className="px-4 py-8 text-center text-sm text-surface-500">Aucune installation</td>
