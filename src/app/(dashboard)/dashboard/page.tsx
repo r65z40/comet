@@ -55,6 +55,12 @@ interface DashboardData {
 
 const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#14b8a6", "#f97316"];
 
+function formatMonthFr(label: unknown) {
+  if (typeof label !== "string") return String(label ?? "");
+  const [year, m] = label.split("-");
+  return `${m}/${year}`;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -145,7 +151,7 @@ export default function DashboardPage() {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data.byMonth}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 12 }} />
+              <XAxis dataKey="month" tickFormatter={formatMonthFr} tick={{ fill: "#94a3b8", fontSize: 12 }} />
               <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} />
               <Tooltip
                 contentStyle={{
@@ -154,6 +160,7 @@ export default function DashboardPage() {
                   borderRadius: "8px",
                   color: "#e2e8f0",
                 }}
+                labelFormatter={formatMonthFr}
               />
               <Bar
                 dataKey="count"

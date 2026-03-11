@@ -9,7 +9,7 @@ export async function GET() {
   const settings = await prisma.setting.findMany();
   const settingsMap: Record<string, string> = {};
   settings.forEach((s) => {
-    if (s.key === "axonaut_api_key") {
+    if (s.key === "axonaut_api_key" || s.key === "smtp_pass") {
       settingsMap[s.key] = s.value ? "••••••••" + s.value.slice(-4) : "";
     } else {
       settingsMap[s.key] = s.value;
@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest) {
   const body = await req.json();
 
   for (const [key, value] of Object.entries(body)) {
-    if (key === "axonaut_api_key" && (value as string).startsWith("••••")) continue;
+    if ((key === "axonaut_api_key" || key === "smtp_pass") && (value as string).startsWith("••••")) continue;
 
     await prisma.setting.upsert({
       where: { key },

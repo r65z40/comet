@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug } from "lucide-react";
 
 interface User {
   id: string;
@@ -18,6 +18,22 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [newApiKey, setNewApiKey] = useState("");
   const [apiUrl, setApiUrl] = useState("");
+
+  // SMTP settings
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("587");
+  const [smtpSecure, setSmtpSecure] = useState(false);
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [smtpFrom, setSmtpFrom] = useState("");
+  const [notifEmails, setNotifEmails] = useState("");
+  const [notifDelay, setNotifDelay] = useState("30");
+  const [savingSmtp, setSavingSmtp] = useState(false);
+  const [savedSmtp, setSavedSmtp] = useState(false);
+  const [testingSmtp, setTestingSmtp] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; error?: string } | null>(null);
+  const [sendingNotif, setSendingNotif] = useState(false);
+  const [notifResult, setNotifResult] = useState<string | null>(null);
 
   // User management
   const [users, setUsers] = useState<User[]>([]);
@@ -36,6 +52,14 @@ export default function SettingsPage() {
       .then((data) => {
         setSettings(data);
         setApiUrl(data.axonaut_api_url || "https://axonaut.com/api/v2");
+        setSmtpHost(data.smtp_host || "");
+        setSmtpPort(data.smtp_port || "587");
+        setSmtpSecure(data.smtp_secure === "true");
+        setSmtpUser(data.smtp_user || "");
+        setSmtpPass(data.smtp_pass || "");
+        setSmtpFrom(data.smtp_from || "");
+        setNotifEmails(data.notification_emails || "");
+        setNotifDelay(data.notification_delay_days || "30");
       })
       .finally(() => setLoading(false));
 
@@ -74,6 +98,63 @@ export default function SettingsPage() {
     setSaved(true);
     setNewApiKey("");
     setTimeout(() => setSaved(false), 3000);
+  }
+
+  async function handleSaveSmtp() {
+    setSavingSmtp(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        smtp_host: smtpHost,
+        smtp_port: smtpPort,
+        smtp_secure: smtpSecure ? "true" : "false",
+        smtp_user: smtpUser,
+        smtp_pass: smtpPass,
+        smtp_from: smtpFrom,
+        notification_emails: notifEmails,
+        notification_delay_days: notifDelay,
+      }),
+    });
+    setSavingSmtp(false);
+    setSavedSmtp(true);
+    setTimeout(() => setSavedSmtp(false), 3000);
+  }
+
+  async function handleTestSmtp() {
+    setTestingSmtp(true);
+    setSmtpTestResult(null);
+    const res = await fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "test" }),
+    });
+    const result = await res.json();
+    setSmtpTestResult(result);
+    setTestingSmtp(false);
+  }
+
+  async function handleSendNotif() {
+    setSendingNotif(true);
+    setNotifResult(null);
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send" }),
+      });
+      const result = await res.json();
+      if (result.sent) {
+        setNotifResult(`Email envoyé : ${result.count} installation(s) signalée(s)`);
+      } else if (result.error) {
+        setNotifResult(`Erreur : ${result.error}`);
+      } else {
+        setNotifResult(result.reason || "Aucune notification à envoyer");
+      }
+    } catch {
+      setNotifResult("Erreur lors de l'envoi");
+    }
+    setSendingNotif(false);
   }
 
   async function createUser() {
@@ -217,6 +298,184 @@ export default function SettingsPage() {
             <span className="text-xs text-emerald-400">Paramètres enregistrés</span>
           )}
         </div>
+      </div>
+
+      {/* Configuration SMTP */}
+      <div className="rounded-xl border border-surface-800 bg-surface-900 p-6 space-y-5">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="rounded-lg bg-primary-600/20 p-2">
+            <Mail className="h-4 w-4 text-primary-400" />
+          </div>
+          <h3 className="text-sm font-medium text-white">Configuration SMTP</h3>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-surface-300 mb-1.5">Serveur SMTP</label>
+            <input
+              type="text"
+              value={smtpHost}
+              onChange={(e) => setSmtpHost(e.target.value)}
+              placeholder="smtp.gmail.com"
+              className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1.5">Port</label>
+              <input
+                type="text"
+                value={smtpPort}
+                onChange={(e) => setSmtpPort(e.target.value)}
+                placeholder="587"
+                className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-surface-300 mb-1.5">SSL/TLS</label>
+              <button
+                onClick={() => setSmtpSecure(!smtpSecure)}
+                className={`w-full rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                  smtpSecure
+                    ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                    : "border-surface-700 bg-surface-800 text-surface-400"
+                }`}
+              >
+                {smtpSecure ? "Activé (465)" : "Désactivé (587)"}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-surface-300 mb-1.5">Identifiant</label>
+            <input
+              type="text"
+              value={smtpUser}
+              onChange={(e) => setSmtpUser(e.target.value)}
+              placeholder="user@exemple.com"
+              className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-surface-300 mb-1.5">Mot de passe</label>
+            <input
+              type="password"
+              value={smtpPass}
+              onChange={(e) => setSmtpPass(e.target.value)}
+              placeholder="Mot de passe SMTP..."
+              className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-surface-300 mb-1.5">Adresse expéditeur</label>
+            <input
+              type="text"
+              value={smtpFrom}
+              onChange={(e) => setSmtpFrom(e.target.value)}
+              placeholder="COMET CEDELIA <noreply@cedelia.fr>"
+              className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={handleSaveSmtp}
+            disabled={savingSmtp}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+          >
+            {savingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Enregistrer
+          </button>
+          <button
+            onClick={handleTestSmtp}
+            disabled={testingSmtp}
+            className="flex items-center gap-2 rounded-lg border border-surface-600 px-4 py-2.5 text-sm font-medium text-surface-300 hover:bg-surface-800 disabled:opacity-50 transition-colors"
+          >
+            {testingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+            Tester la connexion
+          </button>
+          {savedSmtp && <span className="text-xs text-emerald-400">Paramètres enregistrés</span>}
+        </div>
+
+        {smtpTestResult && (
+          <div className={`rounded-lg border px-4 py-2 text-sm ${
+            smtpTestResult.success
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+              : "border-red-500/30 bg-red-500/10 text-red-400"
+          }`}>
+            {smtpTestResult.success ? "Connexion SMTP réussie" : `Erreur : ${smtpTestResult.error}`}
+          </div>
+        )}
+      </div>
+
+      {/* Notifications par email */}
+      <div className="rounded-xl border border-surface-800 bg-surface-900 p-6 space-y-5">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="rounded-lg bg-primary-600/20 p-2">
+            <Bell className="h-4 w-4 text-primary-400" />
+          </div>
+          <h3 className="text-sm font-medium text-white">Notifications par email</h3>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+            Adresses de notification
+          </label>
+          <input
+            type="text"
+            value={notifEmails}
+            onChange={(e) => setNotifEmails(e.target.value)}
+            placeholder="email1@exemple.com, email2@exemple.com"
+            className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+          <p className="text-xs text-surface-500 mt-1">Séparer les adresses par des virgules</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+            Délai de prévention (jours avant échéance)
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              value={notifDelay}
+              onChange={(e) => setNotifDelay(e.target.value)}
+              min="1"
+              max="365"
+              className="w-32 rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+            <span className="text-sm text-surface-400">jours avant la fin de garantie</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={handleSaveSmtp}
+            disabled={savingSmtp}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+          >
+            {savingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Enregistrer
+          </button>
+          <button
+            onClick={handleSendNotif}
+            disabled={sendingNotif}
+            className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
+          >
+            {sendingNotif ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Envoyer maintenant
+          </button>
+        </div>
+
+        {notifResult && (
+          <div className={`rounded-lg border px-4 py-2 text-sm ${
+            notifResult.startsWith("Erreur")
+              ? "border-red-500/30 bg-red-500/10 text-red-400"
+              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+          }`}>
+            {notifResult}
+          </div>
+        )}
       </div>
 
       {/* Gestion des utilisateurs */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 
@@ -17,6 +18,7 @@ interface Product {
 }
 
 export default function ProductsPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -95,6 +97,7 @@ export default function ProductsPage() {
         page={page}
         totalPages={totalPages}
         onPageChange={setPage}
+        onRowClick={(p) => router.push(`/products/${p.id}`)}
         isLoading={loading}
       />
     </div>
