@@ -12,12 +12,6 @@ enum Role {
   USER
 }
 
-enum InstallationStatus {
-  EN_PARC_GARANTIE
-  EN_PARC_HORS_GARANTIE
-  RENOUVELE
-}
-
 model User {
   id            String    @id @default(cuid())
   name          String
@@ -108,13 +102,14 @@ model Installation {
   product         Product            @relation(fields: [productId], references: [id])
   invoiceId       String?
   invoice         Invoice?           @relation(fields: [invoiceId], references: [id])
+  invoiceLineId   String?            @unique
   supplier        String?
   family          String?
   quantity        Float              @default(1)
   startDate       DateTime
   durationMonths  Int
   endDate         DateTime
-  status          InstallationStatus @default(EN_PARC_GARANTIE)
+  status          String             @default("EN_PARC_GARANTIE")
   notes           String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt

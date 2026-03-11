@@ -9,9 +9,25 @@ async function getAxonautConfig() {
   };
 }
 
+// Délai entre les appels API pour éviter les 429
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+let lastApiCall = 0;
+const API_DELAY_MS = 600; // 600ms entre chaque appel
+
 async function axonautFetch(endpoint: string, page = 1) {
   const { apiKey, apiUrl } = await getAxonautConfig();
   if (!apiKey) throw new Error("Clé API Axonaut non configurée");
+
+  // Rate limiting: attendre entre les appels
+  const now = Date.now();
+  const elapsed = now - lastApiCall;
+  if (elapsed < API_DELAY_MS) {
+    await delay(API_DELAY_MS - elapsed);
+  }
+  lastApiCall = Date.now();
 
   const url = `${apiUrl}${endpoint}${endpoint.includes("?") ? "&" : "?"}page=${page}`;
   const res = await fetch(url, {
@@ -20,6 +36,22 @@ async function axonautFetch(endpoint: string, page = 1) {
       "Content-Type": "application/json",
     },
   });
+
+  if (res.status === 429) {
+    // Retry après 2 secondes en cas de 429
+    await delay(2000);
+    lastApiCall = Date.now();
+    const retry = await fetch(url, {
+      headers: {
+        "userApiKey": apiKey,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!retry.ok) {
+      throw new Error(`Axonaut API error: ${retry.status} ${retry.statusText}`);
+    }
+    return retry.json();
+  }
 
   if (!res.ok) {
     throw new Error(`Axonaut API error: ${res.status} ${res.statusText}`);
@@ -364,12 +396,9 @@ export async function generateInstallations() {
       if (!line.product.durationMonths || line.product.durationMonths <= 0) { skippedNoDuration++; continue; }
       if (!line.invoice?.client) { skippedNoClient++; continue; }
 
-      const existing = await prisma.installation.findFirst({
-        where: {
-          clientId: line.invoice.clientId,
-          productId: line.product.id,
-          invoiceId: line.invoiceId,
-        },
+      // Vérifier si une installation existe déjà pour cette ligne de facture
+      const existing = await prisma.installation.findUnique({
+        where: { invoiceLineId: line.id },
       });
 
       if (existing) { skippedExisting++; continue; }
@@ -380,13 +409,14 @@ export async function generateInstallations() {
 
       const now = new Date();
       const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      const status: "EN_PARC_GARANTIE" | "EN_PARC_HORS_GARANTIE" = diffDays > 0 ? "EN_PARC_GARANTIE" : "EN_PARC_HORS_GARANTIE";
+      const status = diffDays > 0 ? "EN_PARC_GARANTIE" : "EN_PARC_HORS_GARANTIE";
 
       await prisma.installation.create({
         data: {
           clientId: line.invoice.clientId,
           productId: line.product.id,
           invoiceId: line.invoiceId,
+          invoiceLineId: line.id,
           supplier: line.product.supplier,
           family: line.product.family,
           quantity: line.quantity,
