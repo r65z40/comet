@@ -87,9 +87,15 @@ export default function DashboardPage() {
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
           <p className="text-red-400 font-medium mb-2">Erreur de chargement</p>
           <p className="text-sm text-surface-400">{error || "Données indisponibles"}</p>
+          <button
+            onClick={() => { setError(null); setLoading(true); fetch("/api/dashboard/stats").then(r => { if (!r.ok) throw new Error(`Erreur ${r.status}`); return r.json(); }).then(setData).catch(e => setError(e.message)).finally(() => setLoading(false)); }}
+            className="mt-3 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-500 transition"
+          >
+            Réessayer
+          </button>
           <p className="text-xs text-surface-500 mt-3">
-            Si vous venez de mettre à jour, exécutez le script de migration :<br />
-            <code className="text-primary-400">bash scripts/migrate-statuses.sh</code>
+            Si le problème persiste, redémarrez les containers :<br />
+            <code className="text-primary-400">docker compose down && docker compose up -d</code>
           </p>
         </div>
       </div>
