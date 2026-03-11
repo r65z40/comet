@@ -5,7 +5,7 @@
 echo "=== Running database migrations ==="
 
 # Strip Prisma-specific query params (?schema=public) that psql doesn't understand
-DB_URL=$(echo "$DATABASE_URL" | sed 's/\?.*$//')
+DB_URL=$(echo "$DATABASE_URL" | cut -d'?' -f1)
 
 # Wait for database to be ready (max 30 seconds)
 RETRIES=15
