@@ -11,13 +11,33 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "20");
   const search = searchParams.get("search");
 
+  const showAll = searchParams.get("showAll") === "true";
+
   const where: Record<string, unknown> = {};
-  if (search) {
+
+  // By default only show clients (not fournisseurs/prospects)
+  if (!showAll) {
     where.OR = [
+      { clientType: "client" },
+      { clientType: null },
+    ];
+  }
+
+  if (search) {
+    const searchConditions = [
       { name: { contains: search, mode: "insensitive" } },
       { email: { contains: search, mode: "insensitive" } },
       { city: { contains: search, mode: "insensitive" } },
     ];
+    if (where.OR) {
+      where.AND = [
+        { OR: where.OR },
+        { OR: searchConditions },
+      ];
+      delete where.OR;
+    } else {
+      where.OR = searchConditions;
+    }
   }
 
   const [clients, total] = await Promise.all([

@@ -38,7 +38,7 @@ export default function InstallationsPage() {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("page", String(page));
-    params.set("limit", "20");
+    params.set("limit", "40");
     if (search) params.set("search", search);
     if (statusFilter) params.set("status", statusFilter);
     if (familyFilter) params.set("family", familyFilter);
@@ -148,6 +148,7 @@ export default function InstallationsPage() {
           <option value="EN_PARC_GARANTIE">En parc garantie</option>
           <option value="EN_PARC_HORS_GARANTIE">En parc sans garantie</option>
           <option value="RENOUVELE">Renouvelé</option>
+          <option value="NON_DEFINI">Non défini</option>
         </select>
 
         <input

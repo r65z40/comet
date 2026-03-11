@@ -28,7 +28,7 @@ export default function InvoicesPage() {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("page", String(page));
-    params.set("limit", "20");
+    params.set("limit", "40");
     if (search) params.set("search", search);
 
     const res = await fetch(`/api/invoices?${params}`);

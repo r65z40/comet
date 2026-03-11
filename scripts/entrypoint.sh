@@ -71,6 +71,28 @@ BEGIN
 END $$;
 SQL
 
+  # Add clientType and logoUrl columns to clients table
+  psql "$DB_URL" <<'SQL2' || echo "Client columns migration returned non-zero (may be OK)"
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'clients' AND column_name = 'clientType'
+  ) THEN
+    ALTER TABLE clients ADD COLUMN "clientType" TEXT;
+    RAISE NOTICE 'Added clientType column.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'clients' AND column_name = 'logoUrl'
+  ) THEN
+    ALTER TABLE clients ADD COLUMN "logoUrl" TEXT;
+    RAISE NOTICE 'Added logoUrl column.';
+  END IF;
+END $$;
+SQL2
+
   echo "=== Migrations done ==="
 else
   echo "WARNING: Could not connect to database, skipping migrations."

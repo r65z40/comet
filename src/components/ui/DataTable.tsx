@@ -1,10 +1,12 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 
 interface Column<T> {
   key: string;
   label: string;
+  sortable?: boolean;
   render?: (item: T) => React.ReactNode;
 }
 
@@ -18,6 +20,16 @@ interface DataTableProps<T> {
   isLoading?: boolean;
 }
 
+function getNestedValue(obj: unknown, key: string): unknown {
+  const parts = key.split(".");
+  let current: unknown = obj;
+  for (const part of parts) {
+    if (current == null || typeof current !== "object") return null;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
 export default function DataTable<T extends { id: string }>({
   columns,
   data,
@@ -27,6 +39,34 @@ export default function DataTable<T extends { id: string }>({
   onRowClick,
   isLoading,
 }: DataTableProps<T>) {
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  function handleSort(key: string) {
+    if (sortKey === key) {
+      if (sortDir === "asc") setSortDir("desc");
+      else { setSortKey(null); setSortDir("asc"); }
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  const sortedData = sortKey
+    ? [...data].sort((a, b) => {
+        const valA = getNestedValue(a, sortKey);
+        const valB = getNestedValue(b, sortKey);
+        const strA = valA != null ? String(valA).toLowerCase() : "";
+        const strB = valB != null ? String(valB).toLowerCase() : "";
+        const numA = Number(valA);
+        const numB = Number(valB);
+        if (!isNaN(numA) && !isNaN(numB) && strA !== "" && strB !== "") {
+          return sortDir === "asc" ? numA - numB : numB - numA;
+        }
+        return sortDir === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+      })
+    : data;
+
   if (isLoading) {
     return (
       <div className="rounded-xl border border-surface-800 bg-surface-900 p-8">
@@ -46,22 +86,34 @@ export default function DataTable<T extends { id: string }>({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500"
+                  className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500 ${
+                    col.sortable !== false ? "cursor-pointer select-none hover:text-surface-300 transition-colors" : ""
+                  }`}
+                  onClick={() => col.sortable !== false && handleSort(col.key)}
                 >
-                  {col.label}
+                  <span className="inline-flex items-center gap-1">
+                    {col.label}
+                    {col.sortable !== false && (
+                      sortKey === col.key ? (
+                        sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                      ) : (
+                        <ChevronsUpDown className="h-3 w-3 opacity-30" />
+                      )
+                    )}
+                  </span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-800">
-            {data.length === 0 ? (
+            {sortedData.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-surface-500">
                   Aucune donnée disponible
                 </td>
               </tr>
             ) : (
-              data.map((item) => (
+              sortedData.map((item) => (
                 <tr
                   key={item.id}
                   className={`transition-colors hover:bg-surface-800/50 ${onRowClick ? "cursor-pointer" : ""}`}

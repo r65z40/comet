@@ -201,6 +201,12 @@ export async function syncClients() {
       }
 
       for (const c of companies) {
+        // Determine client type from Axonaut flags
+        let clientType: string | null = null;
+        if (c.is_customer || c.customer) clientType = "client";
+        else if (c.is_supplier || c.supplier) clientType = "fournisseur";
+        else if (c.is_prospect || c.prospect) clientType = "prospect";
+
         await prisma.client.upsert({
           where: { axonautId: c.id },
           create: {
@@ -212,6 +218,7 @@ export async function syncClients() {
             city: c.address_city || null,
             zipCode: c.address_zip_code || null,
             country: c.address_country || null,
+            clientType,
           },
           update: {
             name: c.name || "Sans nom",
@@ -221,6 +228,7 @@ export async function syncClients() {
             city: c.address_city || null,
             zipCode: c.address_zip_code || null,
             country: c.address_country || null,
+            clientType,
           },
         });
         totalSynced++;
@@ -457,20 +465,20 @@ export async function generateInstallations() {
 export async function updateInstallationStatuses() {
   const now = new Date();
 
-  // Produits dont la garantie est encore valide
+  // Produits dont la garantie est encore valide (ne pas toucher Renouvelé ou Non défini)
   await prisma.installation.updateMany({
     where: {
       endDate: { gt: now },
-      status: { not: "RENOUVELE" },
+      status: { notIn: ["RENOUVELE", "NON_DEFINI"] },
     },
     data: { status: "EN_PARC_GARANTIE" },
   });
 
-  // Produits dont la garantie est expirée (ne pas toucher ceux marqués Renouvelé)
+  // Produits dont la garantie est expirée (ne pas toucher Renouvelé ou Non défini)
   await prisma.installation.updateMany({
     where: {
       endDate: { lte: now },
-      status: { not: "RENOUVELE" },
+      status: { notIn: ["RENOUVELE", "NON_DEFINI"] },
     },
     data: { status: "EN_PARC_HORS_GARANTIE" },
   });

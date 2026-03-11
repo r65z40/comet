@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, RefreshCw } from "lucide-react";
+import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, RefreshCw, HelpCircle } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
@@ -183,6 +183,14 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                   icon={RefreshCw}
                   color="blue"
                 />
+                <StatusButton
+                  label="Non défini"
+                  value="NON_DEFINI"
+                  current={status}
+                  onClick={setStatus}
+                  icon={HelpCircle}
+                  color="gray"
+                />
               </div>
             </div>
 
@@ -277,6 +285,7 @@ function StatusButton({
     emerald: isActive ? "border-emerald-500 bg-emerald-500/20 text-emerald-400" : "border-surface-700 text-surface-400 hover:border-emerald-500/50",
     red: isActive ? "border-red-500 bg-red-500/20 text-red-400" : "border-surface-700 text-surface-400 hover:border-red-500/50",
     blue: isActive ? "border-blue-500 bg-blue-500/20 text-blue-400" : "border-surface-700 text-surface-400 hover:border-blue-500/50",
+    gray: isActive ? "border-gray-500 bg-gray-500/20 text-gray-400" : "border-surface-700 text-surface-400 hover:border-gray-500/50",
   };
 
   return (

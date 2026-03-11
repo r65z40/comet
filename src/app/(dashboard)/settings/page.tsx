@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText } from "lucide-react";
 
 interface User {
   id: string;
@@ -35,6 +35,13 @@ export default function SettingsPage() {
   const [sendingNotif, setSendingNotif] = useState(false);
   const [notifResult, setNotifResult] = useState<string | null>(null);
 
+  // Report settings
+  const [reportTitle, setReportTitle] = useState("");
+  const [reportSubtitle, setReportSubtitle] = useState("");
+  const [reportMessage, setReportMessage] = useState("");
+  const [savingReport, setSavingReport] = useState(false);
+  const [savedReport, setSavedReport] = useState(false);
+
   // User management
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -60,6 +67,9 @@ export default function SettingsPage() {
         setSmtpFrom(data.smtp_from || "");
         setNotifEmails(data.notification_emails || "");
         setNotifDelay(data.notification_delay_days || "30");
+        setReportTitle(data.report_title || "");
+        setReportSubtitle(data.report_subtitle || "");
+        setReportMessage(data.report_message || "");
       })
       .finally(() => setLoading(false));
 
@@ -155,6 +165,22 @@ export default function SettingsPage() {
       setNotifResult("Erreur lors de l'envoi");
     }
     setSendingNotif(false);
+  }
+
+  async function handleSaveReport() {
+    setSavingReport(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        report_title: reportTitle,
+        report_subtitle: reportSubtitle,
+        report_message: reportMessage,
+      }),
+    });
+    setSavingReport(false);
+    setSavedReport(true);
+    setTimeout(() => setSavedReport(false), 3000);
   }
 
   async function createUser() {
@@ -476,6 +502,70 @@ export default function SettingsPage() {
             {notifResult}
           </div>
         )}
+      </div>
+
+      {/* Personnalisation du rapport */}
+      <div className="rounded-xl border border-surface-800 bg-surface-900 p-6 space-y-5">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="rounded-lg bg-primary-600/20 p-2">
+            <FileText className="h-4 w-4 text-primary-400" />
+          </div>
+          <h3 className="text-sm font-medium text-white">Personnalisation du rapport client</h3>
+        </div>
+        <p className="text-xs text-surface-500">
+          Ces paramètres personnalisent la première page du rapport imprimable depuis la fiche client.
+        </p>
+
+        <div>
+          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+            Titre du rapport
+          </label>
+          <input
+            type="text"
+            value={reportTitle}
+            onChange={(e) => setReportTitle(e.target.value)}
+            placeholder="Rapport de suivi des garanties"
+            className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+            Sous-titre
+          </label>
+          <input
+            type="text"
+            value={reportSubtitle}
+            onChange={(e) => setReportSubtitle(e.target.value)}
+            placeholder="Ex: CEDELIA - Solutions informatiques"
+            className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+            Message de la page de garde
+          </label>
+          <textarea
+            value={reportMessage}
+            onChange={(e) => setReportMessage(e.target.value)}
+            placeholder="Ex: Document confidentiel — Suivi des garanties et échéances de vos produits installés."
+            rows={3}
+            className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={handleSaveReport}
+            disabled={savingReport}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+          >
+            {savingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Enregistrer
+          </button>
+          {savedReport && <span className="text-xs text-emerald-400">Paramètres enregistrés</span>}
+        </div>
       </div>
 
       {/* Gestion des utilisateurs */}

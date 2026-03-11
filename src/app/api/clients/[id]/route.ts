@@ -34,3 +34,24 @@ export async function GET(
 
   return NextResponse.json(client);
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const { id } = await params;
+  const body = await req.json();
+
+  const data: Record<string, string | null> = {};
+  if (body.logoUrl !== undefined) data.logoUrl = body.logoUrl;
+
+  const client = await prisma.client.update({
+    where: { id },
+    data,
+  });
+
+  return NextResponse.json(client);
+}

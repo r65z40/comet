@@ -35,6 +35,8 @@ model Client {
   city            String?
   zipCode         String?
   country         String?
+  clientType      String?
+  logoUrl         String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   invoices        Invoice[]

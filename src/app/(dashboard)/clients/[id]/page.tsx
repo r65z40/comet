@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, Clock, ShieldCheck, ShieldX, RefreshCw } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, RefreshCw, HelpCircle, Upload, Printer, X, ImageIcon } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { formatDate, formatCountdown, getCountdownColor, formatCurrency } from "@/lib/utils";
+import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel } from "@/lib/utils";
 import Link from "next/link";
 
 interface Installation {
@@ -29,6 +29,7 @@ interface ClientDetail {
   address: string | null;
   city: string | null;
   zipCode: string | null;
+  logoUrl: string | null;
   installations: Installation[];
   invoices: {
     id: string;
@@ -45,12 +46,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [reportSettings, setReportSettings] = useState<Record<string, string>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`/api/clients/${id}`)
       .then((r) => r.json())
       .then(setClient)
       .finally(() => setLoading(false));
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then(setReportSettings);
   }, [id]);
 
   async function changeStatus(installId: string, newStatus: string) {
@@ -60,11 +67,192 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
-    // Refresh client data
     const res = await fetch(`/api/clients/${id}`);
     const data = await res.json();
     setClient(data);
     setUpdatingStatus(null);
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Le fichier est trop volumineux (max 2 Mo)");
+      return;
+    }
+    setUploadingLogo(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const logoUrl = reader.result as string;
+      await fetch(`/api/clients/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logoUrl }),
+      });
+      setClient((prev) => prev ? { ...prev, logoUrl } : prev);
+      setUploadingLogo(false);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function removeLogo() {
+    setUploadingLogo(true);
+    await fetch(`/api/clients/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ logoUrl: null }),
+    });
+    setClient((prev) => prev ? { ...prev, logoUrl: null } : prev);
+    setUploadingLogo(false);
+  }
+
+  function printReport() {
+    if (!client) return;
+
+    const title = reportSettings.report_title || "Rapport de suivi des garanties";
+    const subtitle = reportSettings.report_subtitle || "";
+    const message = reportSettings.report_message || "";
+    const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+
+    const instRows = client.installations.map((inst) => `
+      <tr>
+        <td>${inst.product.name}</td>
+        <td>${inst.family || "—"}</td>
+        <td>${inst.supplier || "—"}</td>
+        <td>${formatDate(inst.startDate)}</td>
+        <td>${inst.durationMonths} mois</td>
+        <td>${formatDate(inst.endDate)}</td>
+        <td>${getStatusLabel(inst.status)}</td>
+      </tr>
+    `).join("");
+
+    const logoHtml = client.logoUrl
+      ? `<img src="${client.logoUrl}" alt="Logo" style="max-width: 200px; max-height: 150px; margin-bottom: 30px;" />`
+      : "";
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rapport - ${client.name}</title>
+  <style>
+    @media print { @page { margin: 15mm; } }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1a1a2e; }
+
+    .cover-page {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      page-break-after: always;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+      color: white;
+      padding: 40px;
+    }
+    .cover-page .logo-container { margin-bottom: 40px; }
+    .cover-page .logo-container img { border-radius: 12px; background: white; padding: 20px; }
+    .cover-page h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; }
+    .cover-page .client-name { font-size: 42px; font-weight: 800; color: #60a5fa; margin-bottom: 30px; }
+    .cover-page .subtitle { font-size: 18px; color: #94a3b8; margin-bottom: 8px; }
+    .cover-page .date { font-size: 16px; color: #64748b; margin-top: 40px; }
+    .cover-page .message { font-size: 14px; color: #94a3b8; margin-top: 20px; max-width: 500px; line-height: 1.6; }
+
+    .report-content { padding: 20px 0; }
+    .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; }
+
+    .stats { display: flex; gap: 16px; margin-bottom: 30px; flex-wrap: wrap; }
+    .stat-card { flex: 1; min-width: 120px; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
+    .stat-card .value { font-size: 28px; font-weight: 800; }
+    .stat-card .label { font-size: 11px; color: #64748b; margin-top: 4px; }
+    .stat-green { border-color: #10b981; }
+    .stat-green .value { color: #10b981; }
+    .stat-red { border-color: #ef4444; }
+    .stat-red .value { color: #ef4444; }
+    .stat-blue { border-color: #3b82f6; }
+    .stat-blue .value { color: #3b82f6; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+    th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+    tr:nth-child(even) { background: #fafafa; }
+
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+    .header-bar .client-info h2 { font-size: 22px; font-weight: 700; }
+    .header-bar .client-info p { font-size: 12px; color: #64748b; }
+    .header-bar .report-date { font-size: 12px; color: #64748b; text-align: right; }
+  </style>
+</head>
+<body>
+  <div class="cover-page">
+    <div class="logo-container">${logoHtml}</div>
+    <h1>${title}</h1>
+    <div class="client-name">${client.name}</div>
+    ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ""}
+    <div class="date">${today}</div>
+    ${message ? `<div class="message">${message}</div>` : ""}
+  </div>
+
+  <div class="report-content">
+    <div class="header-bar">
+      <div class="client-info">
+        <h2>${client.name}</h2>
+        <p>${[client.email, client.phone, client.city].filter(Boolean).join(" • ")}</p>
+      </div>
+      <div class="report-date">
+        <p>Généré le ${today}</p>
+        <p>${client.installations.length} installation(s)</p>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="value">${client.installations.length}</div>
+        <div class="label">Total</div>
+      </div>
+      <div class="stat-card stat-green">
+        <div class="value">${client.installations.filter(i => i.status === "EN_PARC_GARANTIE").length}</div>
+        <div class="label">En garantie</div>
+      </div>
+      <div class="stat-card stat-red">
+        <div class="value">${client.installations.filter(i => i.status === "EN_PARC_HORS_GARANTIE").length}</div>
+        <div class="label">Sans garantie</div>
+      </div>
+      <div class="stat-card stat-blue">
+        <div class="value">${client.installations.filter(i => i.status === "RENOUVELE").length}</div>
+        <div class="label">Renouvelés</div>
+      </div>
+    </div>
+
+    <div class="section-title">Détail des installations</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Produit</th>
+          <th>Famille</th>
+          <th>Fournisseur</th>
+          <th>Début</th>
+          <th>Durée</th>
+          <th>Fin garantie</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${instRows}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => printWindow.print();
+    }
   }
 
   if (loading) return <LoadingSpinner />;
@@ -82,6 +270,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const enGarantie = client.installations.filter((i) => i.status === "EN_PARC_GARANTIE");
   const horsGarantie = client.installations.filter((i) => i.status === "EN_PARC_HORS_GARANTIE");
   const renouvele = client.installations.filter((i) => i.status === "RENOUVELE");
+  const nonDefini = client.installations.filter((i) => i.status === "NON_DEFINI");
 
   return (
     <div className="space-y-6">
@@ -92,29 +281,88 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div>
-          <h1 className="text-2xl font-bold text-white">{client.name}</h1>
-          <div className="flex items-center gap-4 mt-1">
-            {client.email && (
-              <span className="flex items-center gap-1 text-xs text-surface-400">
-                <Mail className="h-3 w-3" /> {client.email}
-              </span>
+        <div className="flex items-center gap-4 flex-1">
+          {/* Logo */}
+          <div className="relative group">
+            {client.logoUrl ? (
+              <div className="relative">
+                <img
+                  src={client.logoUrl}
+                  alt={`Logo ${client.name}`}
+                  className="h-14 w-14 rounded-lg object-contain bg-white p-1 border border-surface-700"
+                />
+                <button
+                  onClick={removeLogo}
+                  disabled={uploadingLogo}
+                  className="absolute -top-1.5 -right-1.5 rounded-full bg-red-500 p-0.5 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingLogo}
+                className="flex h-14 w-14 items-center justify-center rounded-lg border-2 border-dashed border-surface-700 text-surface-500 hover:border-primary-500 hover:text-primary-400 transition-colors"
+              >
+                {uploadingLogo ? (
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+                ) : (
+                  <ImageIcon className="h-5 w-5" />
+                )}
+              </button>
             )}
-            {client.phone && (
-              <span className="flex items-center gap-1 text-xs text-surface-400">
-                <Phone className="h-3 w-3" /> {client.phone}
-              </span>
-            )}
-            {client.city && (
-              <span className="flex items-center gap-1 text-xs text-surface-400">
-                <MapPin className="h-3 w-3" /> {client.city}
-              </span>
-            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleLogoUpload}
+            />
           </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white">{client.name}</h1>
+            <div className="flex items-center gap-4 mt-1">
+              {client.email && (
+                <span className="flex items-center gap-1 text-xs text-surface-400">
+                  <Mail className="h-3 w-3" /> {client.email}
+                </span>
+              )}
+              {client.phone && (
+                <span className="flex items-center gap-1 text-xs text-surface-400">
+                  <Phone className="h-3 w-3" /> {client.phone}
+                </span>
+              )}
+              {client.city && (
+                <span className="flex items-center gap-1 text-xs text-surface-400">
+                  <MapPin className="h-3 w-3" /> {client.city}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {client.logoUrl && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingLogo}
+              className="flex items-center gap-2 rounded-lg border border-surface-700 px-3 py-2 text-xs font-medium text-surface-400 hover:bg-surface-800 transition-colors"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Changer le logo
+            </button>
+          )}
+          <button
+            onClick={printReport}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-xs font-medium text-white hover:bg-primary-700 transition-colors"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Imprimer le rapport
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <div className="rounded-xl border border-surface-800 bg-surface-900 p-4 text-center">
           <p className="text-2xl font-bold text-white">{client.installations.length}</p>
           <p className="text-xs text-surface-400 mt-1">Total</p>
@@ -130,6 +378,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-center">
           <p className="text-2xl font-bold text-blue-400">{renouvele.length}</p>
           <p className="text-xs text-surface-400 mt-1">Renouvelés</p>
+        </div>
+        <div className="rounded-xl border border-gray-500/30 bg-gray-500/10 p-4 text-center">
+          <p className="text-2xl font-bold text-gray-400">{nonDefini.length}</p>
+          <p className="text-xs text-surface-400 mt-1">Non défini</p>
         </div>
       </div>
 
@@ -214,6 +466,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                           className="rounded p-1 text-surface-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
                         >
                           <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {inst.status !== "NON_DEFINI" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "NON_DEFINI"); }}
+                          disabled={updatingStatus === inst.id}
+                          title="Non défini"
+                          className="rounded p-1 text-surface-500 hover:text-gray-400 hover:bg-gray-500/10 transition-colors disabled:opacity-50"
+                        >
+                          <HelpCircle className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>
