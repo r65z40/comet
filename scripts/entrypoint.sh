@@ -1,5 +1,6 @@
 #!/bin/sh
-set -e
+# Entrypoint: run DB migrations then start the app
+# Never let migration errors prevent the app from starting
 
 echo "=== Running database migrations ==="
 
@@ -8,27 +9,28 @@ DB_URL=$(echo "$DATABASE_URL" | sed 's/\?.*$//')
 
 # Wait for database to be ready (max 30 seconds)
 RETRIES=15
-until psql "$DB_URL" -c "SELECT 1" > /dev/null 2>&1; do
-  RETRIES=$((RETRIES - 1))
-  if [ "$RETRIES" -le 0 ]; then
-    echo "WARNING: Could not connect to database, starting app anyway..."
-    exec node server.js
+DB_READY=0
+while [ "$RETRIES" -gt 0 ]; do
+  if psql "$DB_URL" -c "SELECT 1" > /dev/null 2>&1; then
+    DB_READY=1
+    break
   fi
+  RETRIES=$((RETRIES - 1))
   echo "Waiting for database... ($RETRIES retries left)"
   sleep 2
 done
 
-echo "Database is ready. Running migrations..."
+if [ "$DB_READY" = "1" ]; then
+  echo "Database is ready. Running migrations..."
 
-# Check if status column is still an enum type and convert to text
-psql "$DB_URL" -v ON_ERROR_STOP=0 <<'SQL'
+  # Run migration - ignore all errors (best effort)
+  psql "$DB_URL" <<'SQL' || echo "Migration SQL returned non-zero (may be OK)"
 DO $$
 BEGIN
   -- Check if InstallationStatus enum type exists
   IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'InstallationStatus') THEN
     RAISE NOTICE 'Found InstallationStatus enum, migrating to text...';
 
-    -- Rename old enum values if needed (ignore errors if already renamed)
     BEGIN
       ALTER TYPE "InstallationStatus" RENAME VALUE 'ACTIF' TO 'EN_PARC_GARANTIE';
     EXCEPTION WHEN others THEN
@@ -45,15 +47,11 @@ BEGIN
       NULL;
     END;
 
-    -- Convert column from enum to text
     ALTER TABLE installations ALTER COLUMN status SET DEFAULT NULL;
     ALTER TABLE installations ALTER COLUMN status TYPE TEXT USING status::TEXT;
     ALTER TABLE installations ALTER COLUMN status SET DEFAULT 'EN_PARC_GARANTIE';
-
-    -- Drop the old enum type
     DROP TYPE "InstallationStatus";
 
-    -- Recalculate statuses based on endDate
     UPDATE installations SET status = 'EN_PARC_GARANTIE' WHERE "endDate" > NOW();
     UPDATE installations SET status = 'EN_PARC_HORS_GARANTIE' WHERE "endDate" <= NOW();
 
@@ -62,7 +60,6 @@ BEGIN
     RAISE NOTICE 'No enum migration needed.';
   END IF;
 
-  -- Ensure invoiceLineId column exists
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'installations' AND column_name = 'invoiceLineId'
@@ -74,6 +71,10 @@ BEGIN
 END $$;
 SQL
 
-echo "=== Migrations complete ==="
+  echo "=== Migrations done ==="
+else
+  echo "WARNING: Could not connect to database, skipping migrations."
+fi
+
 echo "=== Starting application ==="
 exec node server.js
