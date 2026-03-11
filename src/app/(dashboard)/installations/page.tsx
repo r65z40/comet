@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
@@ -31,6 +31,8 @@ export default function InstallationsPage() {
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "");
   const [familyFilter, setFamilyFilter] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("");
+  const [expiringFilter, setExpiringFilter] = useState(searchParams.get("expiring") || "");
+  const [monthFilter, setMonthFilter] = useState(searchParams.get("month") || "");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -41,13 +43,15 @@ export default function InstallationsPage() {
     if (statusFilter) params.set("status", statusFilter);
     if (familyFilter) params.set("family", familyFilter);
     if (supplierFilter) params.set("supplier", supplierFilter);
+    if (expiringFilter) params.set("expiring", expiringFilter);
+    if (monthFilter) params.set("month", monthFilter);
 
     const res = await fetch(`/api/installations?${params}`);
     const data = await res.json();
     setInstallations(data.installations || []);
     setTotalPages(data.pagination?.totalPages || 1);
     setLoading(false);
-  }, [page, search, statusFilter, familyFilter, supplierFilter]);
+  }, [page, search, statusFilter, familyFilter, supplierFilter, expiringFilter, monthFilter]);
 
   useEffect(() => {
     fetchData();
@@ -100,6 +104,28 @@ export default function InstallationsPage() {
         <h1 className="text-2xl font-bold text-white">Installations</h1>
         <p className="text-sm text-surface-400 mt-1">Suivi des garanties sur les produits installés</p>
       </div>
+
+      {(expiringFilter || monthFilter) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-surface-500">Filtre actif :</span>
+          {expiringFilter && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-600/20 px-3 py-1 text-xs font-medium text-primary-400">
+              Expire dans {expiringFilter} jours
+              <button onClick={() => { setExpiringFilter(""); setPage(1); }} className="hover:text-white">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {monthFilter && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-600/20 px-3 py-1 text-xs font-medium text-primary-400">
+              Mois : {monthFilter}
+              <button onClick={() => { setMonthFilter(""); setPage(1); }} className="hover:text-white">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">

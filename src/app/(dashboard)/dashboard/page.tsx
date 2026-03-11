@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Monitor, ShieldCheck, ShieldX, RefreshCw, Users, Package, Clock, AlertTriangle } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -55,6 +56,7 @@ interface DashboardData {
 const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#14b8a6", "#f97316"];
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,44 +98,45 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total installations" value={data.counts.total} icon={Monitor} color="blue" />
-        <StatCard title="En parc garantie" value={data.counts.enGarantie} icon={ShieldCheck} color="green" />
+        <StatCard title="Total installations" value={data.counts.total} icon={Monitor} color="blue" href="/installations" />
+        <StatCard title="En parc garantie" value={data.counts.enGarantie} icon={ShieldCheck} color="green" href="/installations?status=EN_PARC_GARANTIE" />
         <StatCard
           title="En parc sans garantie"
           value={data.counts.horsGarantie}
           icon={ShieldX}
           color="red"
+          href="/installations?status=EN_PARC_HORS_GARANTIE"
         />
-        <StatCard title="Renouvelés" value={data.counts.renouvele} icon={RefreshCw} color="blue" />
+        <StatCard title="Renouvelés" value={data.counts.renouvele} icon={RefreshCw} color="blue" href="/installations?status=RENOUVELE" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+        <Link href="/installations?expiring=30" className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 hover:bg-red-500/20 transition-colors">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle className="h-4 w-4 text-red-400" />
             <span className="text-sm font-medium text-red-400">Expire dans 30 jours</span>
           </div>
           <p className="text-2xl font-bold text-white">{data.counts.expiring30}</p>
-        </div>
-        <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
+        </Link>
+        <Link href="/installations?expiring=60" className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4 hover:bg-orange-500/20 transition-colors">
           <div className="flex items-center gap-2 mb-1">
             <Clock className="h-4 w-4 text-orange-400" />
             <span className="text-sm font-medium text-orange-400">Expire dans 60 jours</span>
           </div>
           <p className="text-2xl font-bold text-white">{data.counts.expiring60}</p>
-        </div>
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+        </Link>
+        <Link href="/installations?expiring=90" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 hover:bg-amber-500/20 transition-colors">
           <div className="flex items-center gap-2 mb-1">
             <Clock className="h-4 w-4 text-amber-400" />
             <span className="text-sm font-medium text-amber-400">Expire dans 90 jours</span>
           </div>
           <p className="text-2xl font-bold text-white">{data.counts.expiring90}</p>
-        </div>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard title="Clients" value={data.counts.totalClients} icon={Users} color="blue" />
-        <StatCard title="Produits" value={data.counts.totalProducts} icon={Package} color="blue" />
+        <StatCard title="Clients" value={data.counts.totalClients} icon={Users} color="blue" href="/clients" />
+        <StatCard title="Produits" value={data.counts.totalProducts} icon={Package} color="blue" href="/products" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -152,7 +155,17 @@ export default function DashboardPage() {
                   color: "#e2e8f0",
                 }}
               />
-              <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Fins de garantie" />
+              <Bar
+                dataKey="count"
+                fill="#3b82f6"
+                radius={[4, 4, 0, 0]}
+                name="Fins de garantie"
+                cursor="pointer"
+                onClick={(_: unknown, index: number) => {
+                  const month = data.byMonth[index]?.month;
+                  if (month) router.push(`/installations?month=${month}`);
+                }}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>

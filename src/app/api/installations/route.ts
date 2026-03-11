@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
   const family = searchParams.get("family");
   const supplier = searchParams.get("supplier");
   const search = searchParams.get("search");
+  const expiring = searchParams.get("expiring");
+  const month = searchParams.get("month");
   const sortBy = searchParams.get("sortBy") || "endDate";
   const sortOrder = searchParams.get("sortOrder") || "asc";
 
@@ -23,6 +25,27 @@ export async function GET(req: NextRequest) {
   if (clientId) where.clientId = clientId;
   if (family) where.family = family;
   if (supplier) where.supplier = supplier;
+
+  // Filter by expiring within N days
+  if (expiring) {
+    const days = parseInt(expiring);
+    if (!isNaN(days)) {
+      const now = new Date();
+      const future = new Date(now);
+      future.setDate(future.getDate() + days);
+      where.endDate = { gte: now, lte: future };
+      where.status = { not: "RENOUVELE" };
+    }
+  }
+
+  // Filter by month (YYYY-MM)
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [year, m] = month.split("-").map(Number);
+    const start = new Date(year, m - 1, 1);
+    const end = new Date(year, m, 0, 23, 59, 59, 999);
+    where.endDate = { gte: start, lte: end };
+  }
+
   if (search) {
     where.OR = [
       { product: { name: { contains: search, mode: "insensitive" } } },

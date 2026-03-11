@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { type LucideIcon } from "lucide-react";
+import Link from "next/link";
 
 interface StatCardProps {
   title: string;
@@ -7,6 +8,7 @@ interface StatCardProps {
   icon: LucideIcon;
   trend?: string;
   color?: "blue" | "green" | "amber" | "red";
+  href?: string;
 }
 
 const colorMap = {
@@ -16,9 +18,12 @@ const colorMap = {
   red: "bg-red-500/20 text-red-400",
 };
 
-export default function StatCard({ title, value, icon: Icon, trend, color = "blue" }: StatCardProps) {
-  return (
-    <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
+export default function StatCard({ title, value, icon: Icon, trend, color = "blue", href }: StatCardProps) {
+  const content = (
+    <div className={cn(
+      "rounded-xl border border-surface-800 bg-surface-900 p-6",
+      href && "hover:border-surface-600 hover:bg-surface-800/80 transition-colors cursor-pointer"
+    )}>
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-surface-400">{title}</p>
         <div className={cn("rounded-lg p-2", colorMap[color])}>
@@ -29,4 +34,10 @@ export default function StatCard({ title, value, icon: Icon, trend, color = "blu
       {trend && <p className="mt-1 text-xs text-surface-500">{trend}</p>}
     </div>
   );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+
+  return content;
 }
