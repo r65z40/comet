@@ -96,9 +96,13 @@ export async function sendEmail(to: string[], subject: string, html: string) {
   });
 }
 
-export async function testSmtpConnection(): Promise<{ success: boolean; error?: string }> {
-  const config = await getSmtpConfig();
+export async function testSmtpConnection(providedConfig?: SmtpConfig): Promise<{ success: boolean; error?: string }> {
+  const config = providedConfig || await getSmtpConfig();
   if (!config) return { success: false, error: "SMTP non configuré" };
+
+  if (!config.host || !config.user || !config.pass) {
+    return { success: false, error: "Serveur, identifiant et mot de passe sont requis" };
+  }
 
   try {
     const transporter = createTransporter(config);

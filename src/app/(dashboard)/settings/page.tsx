@@ -139,10 +139,37 @@ export default function SettingsPage() {
   async function handleTestSmtp() {
     setTestingSmtp(true);
     setSmtpTestResult(null);
+
+    // Save settings first, then test with current form values
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        smtp_host: smtpHost,
+        smtp_port: smtpPort,
+        smtp_secure: smtpSecure ? "true" : "false",
+        smtp_user: smtpUser,
+        smtp_pass: smtpPass,
+        smtp_from: smtpFrom,
+        notification_emails: notifEmails,
+        notification_delay_days: notifDelay,
+      }),
+    });
+
     const res = await fetch("/api/notifications", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "test" }),
+      body: JSON.stringify({
+        action: "test",
+        smtp: {
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpSecure,
+          user: smtpUser,
+          pass: smtpPass,
+          from: smtpFrom,
+        },
+      }),
     });
     const result = await res.json();
     setSmtpTestResult(result);

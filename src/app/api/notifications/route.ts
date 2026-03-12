@@ -10,7 +10,19 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
 
   if (body.action === "test") {
-    const result = await testSmtpConnection();
+    // Use provided SMTP config from form if available
+    const config = body.smtp
+      ? {
+          host: body.smtp.host,
+          port: parseInt(body.smtp.port || "587"),
+          secure: body.smtp.secure === true || body.smtp.secure === "true",
+          user: body.smtp.user,
+          pass: body.smtp.pass,
+          from: body.smtp.from || body.smtp.user,
+        }
+      : undefined;
+
+    const result = await testSmtpConnection(config);
     return NextResponse.json(result);
   }
 
