@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Search, Bell, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Search, Bell, AlertTriangle, X, CheckCheck } from "lucide-react";
 import Link from "next/link";
 
 interface SearchResult {
@@ -28,9 +28,22 @@ export default function Header() {
 
   // Notifications state
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifCount, setNotifCount] = useState(0);
-  const [notifItems, setNotifItems] = useState<ExpiringItem[]>([]);
+  const [allItems, setAllItems] = useState<ExpiringItem[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const stored = localStorage.getItem("comet_dismissed_notifs");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return new Set(parsed.ids as string[]);
+      }
+    } catch { /* ignore */ }
+    return new Set();
+  });
   const notifRef = useRef<HTMLDivElement>(null);
+
+  const notifItems = allItems.filter((i) => !dismissed.has(i.id));
+  const notifCount = notifItems.length;
 
   // Search logic
   useEffect(() => {
@@ -61,6 +74,26 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // Persist dismissed notifications
+  const saveDismissed = useCallback((ids: Set<string>) => {
+    setDismissed(ids);
+    try {
+      localStorage.setItem("comet_dismissed_notifs", JSON.stringify({ ids: Array.from(ids) }));
+    } catch { /* ignore */ }
+  }, []);
+
+  function dismissOne(id: string) {
+    const next = new Set(dismissed);
+    next.add(id);
+    saveDismissed(next);
+  }
+
+  function dismissAll() {
+    const next = new Set(dismissed);
+    allItems.forEach((i) => next.add(i.id));
+    saveDismissed(next);
+  }
+
   // Fetch expiring notifications
   useEffect(() => {
     async function fetchNotifs() {
@@ -68,15 +101,14 @@ export default function Header() {
         const res = await fetch("/api/notifications/expiring");
         if (res.ok) {
           const data = await res.json();
-          setNotifCount(data.count || 0);
-          setNotifItems(data.items || []);
+          setAllItems(data.items || []);
         }
       } catch {
         // silently fail
       }
     }
     fetchNotifs();
-    const interval = setInterval(fetchNotifs, 5 * 60 * 1000); // refresh every 5 min
+    const interval = setInterval(fetchNotifs, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -143,11 +175,22 @@ export default function Header() {
           <div className="absolute right-0 top-full mt-2 w-96 rounded-lg border border-slate-200 bg-white shadow-lg">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <h3 className="text-sm font-semibold text-slate-900">Garanties expirantes</h3>
-              {notifCount > 0 && (
-                <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
-                  {notifCount}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {notifCount > 0 && (
+                  <>
+                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
+                      {notifCount}
+                    </span>
+                    <button
+                      onClick={dismissAll}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                      title="Tout effacer"
+                    >
+                      <CheckCheck className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="max-h-80 overflow-y-auto">
@@ -165,21 +208,29 @@ export default function Header() {
                         : "text-yellow-600 bg-yellow-50";
 
                   return (
-                    <Link
-                      key={item.id}
-                      href={`/installations/${item.id}`}
-                      className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
-                      onClick={() => setNotifOpen(false)}
-                    >
-                      <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${item.daysLeft <= 7 ? "text-red-500" : item.daysLeft <= 14 ? "text-orange-500" : "text-yellow-500"}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">{item.clientName}</p>
-                        <p className="text-xs text-slate-500 truncate">{item.productName}</p>
-                      </div>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${urgencyColor}`}>
-                        {item.daysLeft}j
-                      </span>
-                    </Link>
+                    <div key={item.id} className="flex items-start gap-0 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                      <Link
+                        href={`/installations/${item.id}`}
+                        className="flex flex-1 items-start gap-3 px-4 py-3"
+                        onClick={() => setNotifOpen(false)}
+                      >
+                        <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${item.daysLeft <= 7 ? "text-red-500" : item.daysLeft <= 14 ? "text-orange-500" : "text-yellow-500"}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{item.clientName}</p>
+                          <p className="text-xs text-slate-500 truncate">{item.productName}</p>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${urgencyColor}`}>
+                          {item.daysLeft}j
+                        </span>
+                      </Link>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); dismissOne(item.id); }}
+                        className="shrink-0 p-2 mt-2 mr-1 rounded text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                        title="Masquer"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   );
                 })
               )}
