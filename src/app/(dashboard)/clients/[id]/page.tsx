@@ -216,7 +216,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
 
     const enParc = client.installations.filter(i => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
-    const horsParc = client.installations.filter(i => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE" || i.status === "RENOUVELE");
+    const horsParc = client.installations.filter(i => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
+    const renouvelePrint = client.installations.filter(i => i.status === "RENOUVELE");
 
     const clientLogoHtml = client.logoUrl
       ? `<img src="${client.logoUrl}" alt="Logo client" style="max-width: 180px; max-height: 120px;" />`
@@ -317,6 +318,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       <div class="stat-card stat-red">
         <div class="value">${horsParc.length}</div>
         <div class="label">Hors parc</div>
+      </div>
+      <div class="stat-card stat-blue">
+        <div class="value">${renouvelePrint.length}</div>
+        <div class="label">Renouvelé</div>
       </div>
     </div>
 

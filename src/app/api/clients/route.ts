@@ -15,9 +15,9 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = {};
 
-  // By default exclude fournisseurs and prospects
+  // By default exclude fournisseurs and prospects (null is treated as client)
   if (!showAll) {
-    where.clientType = { notIn: ["fournisseur", "prospect"] };
+    where.NOT = { clientType: { in: ["fournisseur", "prospect"] } };
   }
 
   if (search) {
