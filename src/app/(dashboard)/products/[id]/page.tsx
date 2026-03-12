@@ -51,8 +51,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   if (!product) {
     return (
       <div className="text-center py-12">
-        <p className="text-surface-400">Produit non trouvé</p>
-        <button onClick={() => router.back()} className="mt-4 text-primary-400 hover:text-primary-300 text-sm">Retour</button>
+        <p className="text-slate-500">Produit non trouvé</p>
+        <button onClick={() => router.back()} className="mt-4 text-primary-600 hover:text-primary-700 text-sm">Retour</button>
       </div>
     );
   }
@@ -66,13 +66,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.back()}
-          className="rounded-lg border border-surface-700 p-2 text-surface-400 hover:bg-surface-800 transition-colors"
+          className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white">{product.name}</h1>
-          {product.code && <p className="text-sm text-surface-400 mt-1">Code: {product.code}</p>}
+          <h1 className="text-2xl font-bold text-slate-900">{product.name}</h1>
+          {product.code && <p className="text-sm text-slate-500 mt-1">Code: {product.code}</p>}
         </div>
         <button
           onClick={async () => {
@@ -80,7 +80,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             await fetch(`/api/products/${product.id}`, { method: "DELETE" });
             router.push("/products");
           }}
-          className="flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+          className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Supprimer
@@ -89,8 +89,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Infos produit */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
-          <h3 className="text-sm font-medium text-surface-400 mb-4">Informations</h3>
+        <div className="rounded-xl border border-slate-200 bg-white p-6">
+          <h3 className="text-sm font-medium text-slate-500 mb-4">Informations</h3>
           <div className="space-y-3">
             <InfoItem icon={Tag} label="Famille" value={product.family || "—"} />
             <InfoItem icon={Truck} label="Fournisseur" value={product.supplier || "—"} />
@@ -100,52 +100,52 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             )}
             {product.description && (
               <div>
-                <p className="text-xs text-surface-500 mb-1">Description</p>
-                <p className="text-sm text-surface-300">{product.description}</p>
+                <p className="text-xs text-slate-400 mb-1">Description</p>
+                <p className="text-sm text-slate-600">{product.description}</p>
               </div>
             )}
           </div>
         </div>
 
         <div className="lg:col-span-2 grid grid-cols-3 gap-4">
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-            <p className="text-sm text-emerald-400 mb-1">En parc</p>
-            <p className="text-3xl font-bold text-white">{activeInstalls.length}</p>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+            <p className="text-sm text-emerald-600 mb-1">En parc</p>
+            <p className="text-3xl font-bold text-slate-900">{activeInstalls.length}</p>
           </div>
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center">
-            <p className="text-sm text-red-400 mb-1">Hors parc</p>
-            <p className="text-3xl font-bold text-white">{expiredInstalls.length}</p>
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
+            <p className="text-sm text-red-600 mb-1">Hors parc</p>
+            <p className="text-3xl font-bold text-slate-900">{expiredInstalls.length}</p>
           </div>
-          <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-center">
-            <p className="text-sm text-blue-400 mb-1">Renouvelés</p>
-            <p className="text-3xl font-bold text-white">{renewedInstalls.length}</p>
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
+            <p className="text-sm text-blue-600 mb-1">Renouvelés</p>
+            <p className="text-3xl font-bold text-slate-900">{renewedInstalls.length}</p>
           </div>
         </div>
       </div>
 
       {/* Liste des installations */}
-      <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Monitor className="h-4 w-4 text-primary-400" />
-          <h3 className="text-sm font-medium text-surface-400">
+          <Monitor className="h-4 w-4 text-primary-600" />
+          <h3 className="text-sm font-medium text-slate-500">
             Installations ({product.installations.length})
           </h3>
         </div>
 
         {product.installations.length === 0 ? (
-          <p className="text-sm text-surface-500 text-center py-8">Aucune installation pour ce produit</p>
+          <p className="text-sm text-slate-400 text-center py-8">Aucune installation pour ce produit</p>
         ) : (
           <div className="space-y-2">
             {product.installations.map((inst) => (
               <Link
                 key={inst.id}
                 href={`/installations/${inst.id}`}
-                className="flex items-center justify-between rounded-lg border border-surface-700 p-3 hover:bg-surface-800/50 transition-colors"
+                className="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors"
               >
                 <div className="flex items-center gap-4 min-w-0 flex-1">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{inst.client.name}</p>
-                    <p className="text-xs text-surface-500">
+                    <p className="text-sm font-medium text-slate-900 truncate">{inst.client.name}</p>
+                    <p className="text-xs text-slate-400">
                       {formatDate(inst.startDate)} &rarr; {formatDate(inst.endDate)}
                       {inst.invoice?.invoiceNumber && ` | ${inst.invoice.invoiceNumber}`}
                     </p>
@@ -171,12 +171,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 function InfoItem({ icon: Icon, label, value }: { icon: typeof Package; label: string; value: string }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="rounded-lg bg-surface-800 p-2">
-        <Icon className="h-4 w-4 text-surface-400" />
+      <div className="rounded-lg bg-slate-100 p-2">
+        <Icon className="h-4 w-4 text-slate-500" />
       </div>
       <div>
-        <p className="text-xs text-surface-500">{label}</p>
-        <p className="text-sm font-medium text-surface-200">{value}</p>
+        <p className="text-xs text-slate-400">{label}</p>
+        <p className="text-sm font-medium text-slate-800">{value}</p>
       </div>
     </div>
   );

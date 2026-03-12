@@ -29,14 +29,14 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-surface-800 bg-surface-950 flex flex-col">
-      <div className="flex h-16 items-center gap-2 border-b border-surface-800 px-6">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-slate-200 bg-white flex flex-col">
+      <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-6">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600">
           <Zap className="h-4 w-4 text-white" />
         </div>
         <div>
-          <span className="text-base font-bold tracking-tight text-white">COMET</span>
-          <span className="ml-1 text-base font-light tracking-tight text-primary-400">CEDELIA</span>
+          <span className="text-base font-bold tracking-tight text-slate-900">COMET</span>
+          <span className="ml-1 text-base font-light tracking-tight text-primary-600">CEDELIA</span>
         </div>
       </div>
 
@@ -50,8 +50,8 @@ export default function Sidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-primary-600/20 text-primary-400"
-                  : "text-surface-400 hover:bg-surface-800 hover:text-surface-200"
+                  ? "bg-primary-50 text-primary-600"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -61,10 +61,10 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-surface-800 p-3">
+      <div className="border-t border-slate-200 p-3">
         <Link
           href="/api/auth/signout"
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-surface-400 hover:bg-surface-800 hover:text-surface-200 transition-colors"
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-colors"
         >
           <LogOut className="h-4 w-4" />
           Déconnexion

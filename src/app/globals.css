@@ -5,36 +5,36 @@
   --color-primary-100: #dbeafe;
   --color-primary-200: #bfdbfe;
   --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
+  --color-primary-400: #3b82f6;
+  --color-primary-500: #2563eb;
   --color-primary-600: #2563eb;
   --color-primary-700: #1d4ed8;
   --color-primary-800: #1e40af;
   --color-primary-900: #1e3a8a;
   --color-primary-950: #172554;
 
-  --color-surface-50: #f8fafc;
-  --color-surface-100: #f1f5f9;
-  --color-surface-200: #e2e8f0;
-  --color-surface-300: #cbd5e1;
+  --color-surface-50: #ffffff;
+  --color-surface-100: #f8fafc;
+  --color-surface-200: #f1f5f9;
+  --color-surface-300: #e2e8f0;
   --color-surface-400: #94a3b8;
   --color-surface-500: #64748b;
-  --color-surface-600: #4f6278;
-  --color-surface-700: #3d5068;
-  --color-surface-800: #263545;
-  --color-surface-900: #182838;
-  --color-surface-950: #0f1f2e;
+  --color-surface-600: #475569;
+  --color-surface-700: #e2e8f0;
+  --color-surface-800: #e2e8f0;
+  --color-surface-900: #ffffff;
+  --color-surface-950: #f8fafc;
 }
 
 body {
   background-color: var(--color-surface-950);
-  color: var(--color-surface-100);
+  color: var(--color-surface-600);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 @layer base {
   * {
-    border-color: var(--color-surface-800);
+    border-color: var(--color-surface-300);
   }
 
   ::-webkit-scrollbar {
@@ -43,15 +43,15 @@ body {
   }
 
   ::-webkit-scrollbar-track {
-    background: var(--color-surface-900);
+    background: var(--color-surface-200);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--color-surface-700);
+    background: var(--color-surface-400);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-surface-600);
+    background: var(--color-surface-500);
   }
 }

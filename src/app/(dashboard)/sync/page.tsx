@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RefreshCw, CheckCircle, XCircle, Loader2, Play, Zap, Bug } from "lucide-react";
+import { RefreshCw, CheckCircle, XCircle, Loader2, Play, Zap, Bug, Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 interface SyncLog {
@@ -45,6 +45,7 @@ export default function SyncPage() {
   const [debug, setDebug] = useState<DebugData | null>(null);
   const [showDebug, setShowDebug] = useState(false);
   const [loadingDebug, setLoadingDebug] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function fetchLogs() {
     const res = await fetch("/api/sync");
@@ -95,6 +96,18 @@ export default function SyncPage() {
     setSyncing(null);
   }
 
+  async function handleDeleteLogs() {
+    if (!confirm("Supprimer tout l'historique de synchronisation ?")) return;
+    setDeleting(true);
+    try {
+      await fetch("/api/sync/logs", { method: "DELETE" });
+      await fetchLogs();
+    } catch {
+      alert("Erreur lors de la suppression de l'historique");
+    }
+    setDeleting(false);
+  }
+
   async function fetchDebug() {
     setLoadingDebug(true);
     try {
@@ -112,14 +125,14 @@ export default function SyncPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Synchronisation</h1>
-          <p className="text-sm text-surface-400 mt-1">Gérer la synchronisation avec Axonaut</p>
+          <h1 className="text-2xl font-bold text-slate-900">Synchronisation</h1>
+          <p className="text-sm text-slate-500 mt-1">Gérer la synchronisation avec Axonaut</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={fetchDebug}
             disabled={loadingDebug}
-            className="flex items-center gap-2 rounded-lg border border-surface-700 px-4 py-2.5 text-sm font-medium text-surface-300 hover:bg-surface-800 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
           >
             {loadingDebug ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bug className="h-4 w-4" />}
             Diagnostic
@@ -141,10 +154,10 @@ export default function SyncPage() {
 
       {/* Panneau de diagnostic */}
       {showDebug && debug && (
-        <div className="rounded-xl border border-amber-500/30 bg-surface-900 p-6 space-y-4">
+        <div className="rounded-xl border border-amber-200 bg-white p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-amber-400">Diagnostic de la base de données</h3>
-            <button onClick={() => setShowDebug(false)} className="text-xs text-surface-400 hover:text-surface-200">
+            <h3 className="text-sm font-medium text-amber-600">Diagnostic de la base de données</h3>
+            <button onClick={() => setShowDebug(false)} className="text-xs text-slate-500 hover:text-slate-900">
               Fermer
             </button>
           </div>
@@ -158,18 +171,18 @@ export default function SyncPage() {
           </div>
 
           {debug.database.products.withDuration === 0 && (
-            <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3">
-              <p className="text-sm text-red-400 font-medium">Aucun produit n&apos;a de durée en mois renseignée !</p>
-              <p className="text-xs text-surface-400 mt-1">
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+              <p className="text-sm text-red-600 font-medium">Aucun produit n&apos;a de durée en mois renseignée !</p>
+              <p className="text-xs text-slate-500 mt-1">
                 Vérifiez que vos produits dans Axonaut ont un champ personnalisé &quot;Durée en mois&quot; rempli.
               </p>
             </div>
           )}
 
           {debug.database.invoiceLines.withoutProduct > 0 && (
-            <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3">
-              <p className="text-sm text-amber-400 font-medium">{debug.database.invoiceLines.withoutProduct} ligne(s) de facture sans produit lié</p>
-              <p className="text-xs text-surface-400 mt-1">
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+              <p className="text-sm text-amber-600 font-medium">{debug.database.invoiceLines.withoutProduct} ligne(s) de facture sans produit lié</p>
+              <p className="text-xs text-slate-500 mt-1">
                 Ces lignes ne généreront pas d&apos;installation. Vérifiez que les produits Axonaut ont un ID cohérent.
               </p>
             </div>
@@ -177,10 +190,10 @@ export default function SyncPage() {
 
           {debug.axonautApiStructure && (
             <details className="text-xs">
-              <summary className="text-surface-400 cursor-pointer hover:text-surface-200">
+              <summary className="text-slate-500 cursor-pointer hover:text-slate-900">
                 Structure API Axonaut (données brutes)
               </summary>
-              <pre className="mt-2 rounded-lg bg-surface-800 p-3 text-surface-300 overflow-auto max-h-80">
+              <pre className="mt-2 rounded-lg bg-slate-100 p-3 text-slate-600 overflow-auto max-h-80">
                 {JSON.stringify(debug.axonautApiStructure, null, 2)}
               </pre>
             </details>
@@ -188,10 +201,10 @@ export default function SyncPage() {
 
           {debug.samples.productsWithDuration.length > 0 && (
             <details className="text-xs">
-              <summary className="text-surface-400 cursor-pointer hover:text-surface-200">
+              <summary className="text-slate-500 cursor-pointer hover:text-slate-900">
                 Produits avec durée ({debug.database.products.withDuration})
               </summary>
-              <pre className="mt-2 rounded-lg bg-surface-800 p-3 text-surface-300 overflow-auto max-h-40">
+              <pre className="mt-2 rounded-lg bg-slate-100 p-3 text-slate-600 overflow-auto max-h-40">
                 {JSON.stringify(debug.samples.productsWithDuration, null, 2)}
               </pre>
             </details>
@@ -201,13 +214,13 @@ export default function SyncPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {syncTypes.map((st) => (
-          <div key={st.type} className="rounded-xl border border-surface-800 bg-surface-900 p-5">
+          <div key={st.type} className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-white">{st.label}</h3>
+              <h3 className="text-sm font-medium text-slate-900">{st.label}</h3>
               <button
                 onClick={() => handleSync(st.type)}
                 disabled={syncing !== null}
-                className="rounded-lg border border-surface-700 p-2 text-surface-400 hover:bg-surface-800 hover:text-primary-400 disabled:opacity-50 transition-colors"
+                className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 hover:text-primary-600 disabled:opacity-50 transition-colors"
               >
                 {syncing === st.type ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -216,14 +229,22 @@ export default function SyncPage() {
                 )}
               </button>
             </div>
-            <p className="text-xs text-surface-400">{st.description}</p>
+            <p className="text-xs text-slate-500">{st.description}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-xl border border-surface-800 bg-surface-900 overflow-hidden">
-        <div className="px-6 py-4 border-b border-surface-800">
-          <h3 className="text-sm font-medium text-surface-400">Historique de synchronisation</h3>
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h3 className="text-sm font-medium text-slate-500">Historique de synchronisation</h3>
+          <button
+            onClick={handleDeleteLogs}
+            disabled={deleting}
+            className="flex items-center gap-1.5 border border-red-200 text-red-600 hover:bg-red-50 px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-50 transition-colors"
+          >
+            {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            Supprimer l&apos;historique
+          </button>
         </div>
 
         {loading ? (
@@ -233,45 +254,45 @@ export default function SyncPage() {
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-surface-800">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Statut</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Message</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Éléments</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Date</th>
+              <tr className="border-b border-slate-200">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Statut</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Message</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Éléments</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-800">
+            <tbody className="divide-y divide-slate-200">
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-surface-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
                     Aucun historique de synchronisation
                   </td>
                 </tr>
               ) : (
                 logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-surface-800/50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-surface-200 capitalize">{log.type}</td>
+                  <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3 text-sm text-slate-800 capitalize">{log.type}</td>
                     <td className="px-4 py-3">
                       {log.status === "success" ? (
-                        <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                        <span className="flex items-center gap-1.5 text-xs text-emerald-600">
                           <CheckCircle className="h-3.5 w-3.5" /> Succès
                         </span>
                       ) : log.status === "error" ? (
-                        <span className="flex items-center gap-1.5 text-xs text-red-400">
+                        <span className="flex items-center gap-1.5 text-xs text-red-600">
                           <XCircle className="h-3.5 w-3.5" /> Erreur
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1.5 text-xs text-amber-400">
+                        <span className="flex items-center gap-1.5 text-xs text-amber-600">
                           <RefreshCw className="h-3.5 w-3.5 animate-spin" /> En cours
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-surface-400 max-w-md">
+                    <td className="px-4 py-3 text-sm text-slate-500 max-w-md">
                       <span className="block truncate" title={log.message || ""}>{log.message}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-surface-300">{log.itemCount}</td>
-                    <td className="px-4 py-3 text-sm text-surface-400">{formatDate(log.startedAt)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{log.itemCount}</td>
+                    <td className="px-4 py-3 text-sm text-slate-500">{formatDate(log.startedAt)}</td>
                   </tr>
                 ))
               )}
@@ -285,10 +306,10 @@ export default function SyncPage() {
 
 function DiagCard({ label, value, sub }: { label: string; value: number; sub?: string }) {
   return (
-    <div className="rounded-lg bg-surface-800 p-3 text-center">
-      <p className="text-xl font-bold text-white">{value}</p>
-      <p className="text-xs text-surface-400">{label}</p>
-      {sub && <p className="text-[10px] text-surface-500 mt-0.5">{sub}</p>}
+    <div className="rounded-lg bg-slate-100 p-3 text-center">
+      <p className="text-xl font-bold text-slate-900">{value}</p>
+      <p className="text-xs text-slate-500">{label}</p>
+      {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
     </div>
   );
 }

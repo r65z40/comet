@@ -75,8 +75,8 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
   if (!installation) {
     return (
       <div className="text-center py-12">
-        <p className="text-surface-400">Installation non trouvée</p>
-        <button onClick={() => router.back()} className="mt-4 text-primary-400 hover:text-primary-300 text-sm">
+        <p className="text-slate-500">Installation non trouvée</p>
+        <button onClick={() => router.back()} className="mt-4 text-primary-600 hover:text-primary-700 text-sm">
           Retour
         </button>
       </div>
@@ -93,14 +93,14 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.back()}
-          className="rounded-lg border border-surface-700 p-2 text-surface-400 hover:bg-surface-800 transition-colors"
+          className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white">{installation.product.name}</h1>
-          <p className="text-sm text-surface-400 mt-1">
-            Installé chez <Link href={`/clients/${installation.client.id}`} className="text-primary-400 hover:text-primary-300">{installation.client.name}</Link>
+          <h1 className="text-2xl font-bold text-slate-900">{installation.product.name}</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Installé chez <Link href={`/clients/${installation.client.id}`} className="text-primary-600 hover:text-primary-700">{installation.client.name}</Link>
           </p>
         </div>
         <StatusBadge status={installation.status} expired={expired} />
@@ -110,7 +110,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
             await fetch(`/api/installations/${installation.id}`, { method: "DELETE" });
             router.push("/installations");
           }}
-          className="flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+          className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Supprimer
@@ -120,28 +120,28 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
       {/* Compte à rebours principal */}
       <div className={`rounded-xl border p-6 text-center ${
         isRenewed
-          ? "border-blue-500/30 bg-blue-500/10"
+          ? "border-blue-200 bg-blue-50"
           : expired
-            ? "border-red-500/30 bg-red-500/10"
+            ? "border-red-200 bg-red-50"
             : countdownColor === "text-orange-400"
-              ? "border-orange-500/30 bg-orange-500/10"
+              ? "border-orange-200 bg-orange-50"
               : countdownColor === "text-amber-400"
-                ? "border-amber-500/30 bg-amber-500/10"
-                : "border-emerald-500/30 bg-emerald-500/10"
+                ? "border-amber-200 bg-amber-50"
+                : "border-emerald-200 bg-emerald-50"
       }`}>
         {isRenewed ? (
           <div className="flex items-center justify-center gap-3">
-            <RefreshCw className="h-6 w-6 text-blue-400" />
-            <span className="text-2xl font-bold text-blue-400">Renouvelé</span>
+            <RefreshCw className="h-6 w-6 text-blue-600" />
+            <span className="text-2xl font-bold text-blue-600">Renouvelé</span>
           </div>
         ) : (
           <>
             <div className="flex items-center justify-center gap-2 mb-2">
               <Clock className={`h-5 w-5 ${countdownColor}`} />
-              <span className="text-sm text-surface-400">Garantie restante</span>
+              <span className="text-sm text-slate-500">Garantie restante</span>
             </div>
             <p className={`text-3xl font-bold ${countdownColor}`}>{countdown}</p>
-            <p className="text-sm text-surface-400 mt-2">
+            <p className="text-sm text-slate-500 mt-2">
               Début : {formatDate(installation.startDate)} — Fin : {formatDate(installation.endDate)} ({installation.durationMonths} mois)
             </p>
           </>
@@ -150,8 +150,8 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
-            <h3 className="text-sm font-medium text-surface-400 mb-4">Détails de l&apos;installation</h3>
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
+            <h3 className="text-sm font-medium text-slate-500 mb-4">Détails de l&apos;installation</h3>
             <div className="grid grid-cols-2 gap-4">
               <InfoItem icon={Building2} label="Client" value={installation.client.name} />
               <InfoItem icon={Package} label="Produit" value={installation.product.name} />
@@ -159,18 +159,18 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
               <InfoItem icon={Tag} label="Famille" value={installation.family || "—"} />
               <InfoItem icon={Calendar} label="Début garantie" value={formatDate(installation.startDate)} />
               <div className="flex items-start gap-3">
-                <div className="rounded-lg bg-surface-800 p-2">
-                  <Calendar className="h-4 w-4 text-surface-400" />
+                <div className="rounded-lg bg-slate-100 p-2">
+                  <Calendar className="h-4 w-4 text-slate-500" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs text-surface-500">Fin garantie</p>
+                  <p className="text-xs text-slate-400">Fin garantie</p>
                   {editingEndDate ? (
                     <div className="flex items-center gap-2 mt-1">
                       <input
                         type="date"
                         value={newEndDate}
                         onChange={(e) => setNewEndDate(e.target.value)}
-                        className="rounded-lg border border-surface-700 bg-surface-800 px-2 py-1 text-sm text-surface-200 focus:border-primary-500 focus:outline-none"
+                        className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-sm text-slate-800 focus:border-primary-500 focus:outline-none"
                       />
                       <button
                         onClick={saveEndDate}
@@ -181,20 +181,20 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                       </button>
                       <button
                         onClick={() => setEditingEndDate(false)}
-                        className="rounded px-2 py-1 text-xs border border-surface-700 text-surface-400 hover:bg-surface-800"
+                        className="rounded px-2 py-1 text-xs border border-slate-200 text-slate-500 hover:bg-slate-50"
                       >
                         Annuler
                       </button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <p className={`text-sm font-medium ${expired ? "text-red-400" : "text-surface-200"}`}>{formatDate(installation.endDate)}</p>
+                      <p className={`text-sm font-medium ${expired ? "text-red-600" : "text-slate-800"}`}>{formatDate(installation.endDate)}</p>
                       <button
                         onClick={() => {
                           setNewEndDate(new Date(installation.endDate).toISOString().split("T")[0]);
                           setEditingEndDate(true);
                         }}
-                        className="rounded p-0.5 text-surface-500 hover:text-primary-400 transition-colors"
+                        className="rounded p-0.5 text-slate-400 hover:text-primary-600 transition-colors"
                         title="Modifier la date de fin"
                       >
                         <Pencil className="h-3 w-3" />
@@ -216,9 +216,9 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
           </div>
 
           {/* Changement de statut + Notes */}
-          <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-surface-400">Statut et notes</h3>
+              <h3 className="text-sm font-medium text-slate-500">Statut et notes</h3>
               <button
                 onClick={saveData}
                 disabled={saving}
@@ -230,7 +230,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs text-surface-500 mb-2">Statut</label>
+              <label className="block text-xs text-slate-400 mb-2">Statut</label>
               <div className="flex gap-2 flex-wrap">
                 <StatusButton
                   label="En parc"
@@ -260,53 +260,53 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
             </div>
 
             <div>
-              <label className="block text-xs text-surface-500 mb-2">Notes</label>
+              <label className="block text-xs text-slate-400 mb-2">Notes</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ajouter des notes..."
                 rows={4}
-                className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-3 text-sm text-surface-200 placeholder-surface-500 focus:border-primary-500 focus:outline-none resize-none"
+                className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none resize-none"
               />
             </div>
           </div>
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
-            <h3 className="text-sm font-medium text-surface-400 mb-4">Client</h3>
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
+            <h3 className="text-sm font-medium text-slate-500 mb-4">Client</h3>
             <div className="space-y-3">
-              <p className="text-sm font-medium text-white">{installation.client.name}</p>
+              <p className="text-sm font-medium text-slate-900">{installation.client.name}</p>
               {installation.client.email && (
-                <p className="text-xs text-surface-400">{installation.client.email}</p>
+                <p className="text-xs text-slate-500">{installation.client.email}</p>
               )}
               {installation.client.phone && (
-                <p className="text-xs text-surface-400">{installation.client.phone}</p>
+                <p className="text-xs text-slate-500">{installation.client.phone}</p>
               )}
               {installation.client.address && (
-                <p className="text-xs text-surface-400">
+                <p className="text-xs text-slate-500">
                   {installation.client.address}
                   {installation.client.city && `, ${installation.client.city}`}
                 </p>
               )}
               <Link
                 href={`/clients/${installation.client.id}`}
-                className="inline-block text-xs text-primary-400 hover:text-primary-300"
+                className="inline-block text-xs text-primary-600 hover:text-primary-700"
               >
                 Voir le client
               </Link>
             </div>
           </div>
 
-          <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
-            <h3 className="text-sm font-medium text-surface-400 mb-4">Produit</h3>
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
+            <h3 className="text-sm font-medium text-slate-500 mb-4">Produit</h3>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-white">{installation.product.name}</p>
+              <p className="text-sm font-medium text-slate-900">{installation.product.name}</p>
               {installation.product.code && (
-                <p className="text-xs text-surface-400">Code: {installation.product.code}</p>
+                <p className="text-xs text-slate-500">Code: {installation.product.code}</p>
               )}
               {installation.product.description && (
-                <p className="text-xs text-surface-400">{installation.product.description}</p>
+                <p className="text-xs text-slate-500">{installation.product.description}</p>
               )}
             </div>
           </div>
@@ -319,12 +319,12 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
 function InfoItem({ icon: Icon, label, value }: { icon: typeof Calendar; label: string; value: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="rounded-lg bg-surface-800 p-2">
-        <Icon className="h-4 w-4 text-surface-400" />
+      <div className="rounded-lg bg-slate-100 p-2">
+        <Icon className="h-4 w-4 text-slate-500" />
       </div>
       <div>
-        <p className="text-xs text-surface-500">{label}</p>
-        <p className="text-sm font-medium text-surface-200">{value}</p>
+        <p className="text-xs text-slate-400">{label}</p>
+        <p className="text-sm font-medium text-slate-800">{value}</p>
       </div>
     </div>
   );
@@ -347,9 +347,9 @@ function StatusButton({
 }) {
   const isActive = current === value;
   const colorClasses: Record<string, string> = {
-    emerald: isActive ? "border-emerald-500 bg-emerald-500/20 text-emerald-400" : "border-surface-700 text-surface-400 hover:border-emerald-500/50",
-    red: isActive ? "border-red-500 bg-red-500/20 text-red-400" : "border-surface-700 text-surface-400 hover:border-red-500/50",
-    blue: isActive ? "border-blue-500 bg-blue-500/20 text-blue-400" : "border-surface-700 text-surface-400 hover:border-blue-500/50",
+    emerald: isActive ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-slate-200 text-slate-500 hover:border-emerald-500/50",
+    red: isActive ? "border-red-500 bg-red-50 text-red-600" : "border-slate-200 text-slate-500 hover:border-red-500/50",
+    blue: isActive ? "border-blue-500 bg-blue-500/20 text-blue-600" : "border-slate-200 text-slate-500 hover:border-blue-500/50",
   };
 
   return (

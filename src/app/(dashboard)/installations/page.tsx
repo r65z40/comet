@@ -62,7 +62,7 @@ export default function InstallationsPage() {
       key: "client",
       label: "Client",
       render: (i: Installation) => (
-        <span className="font-medium text-white">{i.client.name}</span>
+        <span className="font-medium text-slate-900">{i.client.name}</span>
       ),
     },
     {
@@ -101,25 +101,25 @@ export default function InstallationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Installations</h1>
-        <p className="text-sm text-surface-400 mt-1">Suivi des garanties sur les produits installés</p>
+        <h1 className="text-2xl font-bold text-slate-900">Installations</h1>
+        <p className="text-sm text-slate-500 mt-1">Suivi des garanties sur les produits installés</p>
       </div>
 
       {(expiringFilter || monthFilter) && (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-surface-500">Filtre actif :</span>
+          <span className="text-xs text-slate-400">Filtre actif :</span>
           {expiringFilter && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary-600/20 px-3 py-1 text-xs font-medium text-primary-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-600/20 px-3 py-1 text-xs font-medium text-primary-600">
               Expire dans {expiringFilter} jours
-              <button onClick={() => { setExpiringFilter(""); setPage(1); }} className="hover:text-white">
+              <button onClick={() => { setExpiringFilter(""); setPage(1); }} className="hover:text-slate-900">
                 <X className="h-3 w-3" />
               </button>
             </span>
           )}
           {monthFilter && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary-600/20 px-3 py-1 text-xs font-medium text-primary-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-600/20 px-3 py-1 text-xs font-medium text-primary-600">
               Mois : {monthFilter}
-              <button onClick={() => { setMonthFilter(""); setPage(1); }} className="hover:text-white">
+              <button onClick={() => { setMonthFilter(""); setPage(1); }} className="hover:text-slate-900">
                 <X className="h-3 w-3" />
               </button>
             </span>
@@ -129,20 +129,20 @@ export default function InstallationsPage() {
 
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Rechercher..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full rounded-lg border border-surface-700 bg-surface-900 py-2 pl-10 pr-4 text-sm text-surface-200 placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </div>
 
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="rounded-lg border border-surface-700 bg-surface-900 px-3 py-2 text-sm text-surface-300 focus:border-primary-500 focus:outline-none"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-primary-500 focus:outline-none"
         >
           <option value="">Tous les statuts</option>
           <option value="EN_PARC_GARANTIE">En parc</option>
@@ -155,7 +155,7 @@ export default function InstallationsPage() {
           placeholder="Famille..."
           value={familyFilter}
           onChange={(e) => { setFamilyFilter(e.target.value); setPage(1); }}
-          className="rounded-lg border border-surface-700 bg-surface-900 px-3 py-2 text-sm text-surface-300 placeholder-surface-500 focus:border-primary-500 focus:outline-none w-40"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 placeholder-slate-400 focus:border-primary-500 focus:outline-none w-40"
         />
 
         <input
@@ -163,7 +163,7 @@ export default function InstallationsPage() {
           placeholder="Fournisseur..."
           value={supplierFilter}
           onChange={(e) => { setSupplierFilter(e.target.value); setPage(1); }}
-          className="rounded-lg border border-surface-700 bg-surface-900 px-3 py-2 text-sm text-surface-300 placeholder-surface-500 focus:border-primary-500 focus:outline-none w-40"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 placeholder-slate-400 focus:border-primary-500 focus:outline-none w-40"
         />
       </div>
 

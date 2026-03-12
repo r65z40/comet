@@ -47,7 +47,7 @@ export default function ProductsPage() {
     {
       key: "name",
       label: "Produit",
-      render: (p: Product) => <span className="font-medium text-white">{p.name}</span>,
+      render: (p: Product) => <span className="font-medium text-slate-900">{p.name}</span>,
     },
     { key: "code", label: "Code" },
     { key: "family", label: "Famille" },
@@ -66,7 +66,7 @@ export default function ProductsPage() {
       key: "installations",
       label: "Installations",
       render: (p: Product) => (
-        <span className="rounded-full bg-primary-600/20 px-2.5 py-0.5 text-xs font-medium text-primary-400">
+        <span className="rounded-full bg-primary-600/20 px-2.5 py-0.5 text-xs font-medium text-primary-600">
           {p._count.installations}
         </span>
       ),
@@ -76,18 +76,18 @@ export default function ProductsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Produits</h1>
-        <p className="text-sm text-surface-400 mt-1">Catalogue des produits synchronisés</p>
+        <h1 className="text-2xl font-bold text-slate-900">Produits</h1>
+        <p className="text-sm text-slate-500 mt-1">Catalogue des produits synchronisés</p>
       </div>
 
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder="Rechercher un produit..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="w-full rounded-lg border border-surface-700 bg-surface-900 py-2 pl-10 pr-4 text-sm text-surface-200 placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </div>
 

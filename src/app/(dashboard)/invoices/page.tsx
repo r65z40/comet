@@ -47,7 +47,7 @@ export default function InvoicesPage() {
       key: "invoiceNumber",
       label: "N° Facture",
       render: (inv: Invoice) => (
-        <span className="font-medium text-white">{inv.invoiceNumber || "—"}</span>
+        <span className="font-medium text-slate-900">{inv.invoiceNumber || "—"}</span>
       ),
     },
     {
@@ -69,7 +69,7 @@ export default function InvoicesPage() {
       key: "status",
       label: "Statut",
       render: (inv: Invoice) => inv.status ? (
-        <span className="rounded-full bg-surface-800 px-2.5 py-0.5 text-xs font-medium text-surface-300">
+        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
           {inv.status}
         </span>
       ) : "—",
@@ -78,7 +78,7 @@ export default function InvoicesPage() {
       key: "lines",
       label: "Lignes",
       render: (inv: Invoice) => (
-        <span className="rounded-full bg-surface-800 px-2.5 py-0.5 text-xs font-medium text-surface-300">
+        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
           {inv._count.lines}
         </span>
       ),
@@ -89,8 +89,8 @@ export default function InvoicesPage() {
       render: (inv: Invoice) => (
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
           inv._count.installations > 0
-            ? "bg-primary-600/20 text-primary-400"
-            : "bg-surface-800 text-surface-500"
+            ? "bg-primary-600/20 text-primary-600"
+            : "bg-slate-100 text-slate-400"
         }`}>
           {inv._count.installations}
         </span>
@@ -101,18 +101,18 @@ export default function InvoicesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Factures</h1>
-        <p className="text-sm text-surface-400 mt-1">Liste des factures synchronisées depuis Axonaut</p>
+        <h1 className="text-2xl font-bold text-slate-900">Factures</h1>
+        <p className="text-sm text-slate-500 mt-1">Liste des factures synchronisées depuis Axonaut</p>
       </div>
 
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder="Rechercher par numéro ou client..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="w-full rounded-lg border border-surface-700 bg-surface-900 py-2 pl-10 pr-4 text-sm text-surface-200 placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </div>
 

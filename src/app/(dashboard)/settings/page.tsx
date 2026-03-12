@@ -264,30 +264,30 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-white">Paramètres</h1>
-        <p className="text-sm text-surface-400 mt-1">Configuration de l&apos;application</p>
+        <h1 className="text-2xl font-bold text-slate-900">Paramètres</h1>
+        <p className="text-sm text-slate-500 mt-1">Configuration de l&apos;application</p>
       </div>
 
       {/* API Axonaut */}
-      <div className="rounded-xl border border-surface-800 bg-surface-900 p-6 space-y-5">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
         <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg bg-primary-600/20 p-2">
-            <Key className="h-4 w-4 text-primary-400" />
+          <div className="rounded-lg bg-primary-50 p-2">
+            <Key className="h-4 w-4 text-primary-600" />
           </div>
-          <h3 className="text-sm font-medium text-white">API Axonaut</h3>
+          <h3 className="text-sm font-medium text-slate-900">API Axonaut</h3>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Clé API actuelle
           </label>
-          <p className="text-sm text-surface-500 font-mono">
+          <p className="text-sm text-slate-400 font-mono">
             {settings.axonaut_api_key || "Non configurée"}
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Nouvelle clé API
           </label>
           <input
@@ -295,21 +295,21 @@ export default function SettingsPage() {
             value={newApiKey}
             onChange={(e) => setNewApiKey(e.target.value)}
             placeholder="Entrer une nouvelle clé API..."
-            className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             URL de l&apos;API
           </label>
           <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-surface-500" />
+            <Globe className="h-4 w-4 text-slate-400" />
             <input
               type="text"
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
-              className="flex-1 rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="flex-1 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </div>
         </div>
@@ -328,50 +328,50 @@ export default function SettingsPage() {
             Enregistrer
           </button>
           {saved && (
-            <span className="text-xs text-emerald-400">Paramètres enregistrés</span>
+            <span className="text-xs text-emerald-600">Paramètres enregistrés</span>
           )}
         </div>
       </div>
 
       {/* Configuration SMTP */}
-      <div className="rounded-xl border border-surface-800 bg-surface-900 p-6 space-y-5">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
         <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg bg-primary-600/20 p-2">
-            <Mail className="h-4 w-4 text-primary-400" />
+          <div className="rounded-lg bg-primary-50 p-2">
+            <Mail className="h-4 w-4 text-primary-600" />
           </div>
-          <h3 className="text-sm font-medium text-white">Configuration SMTP</h3>
+          <h3 className="text-sm font-medium text-slate-900">Configuration SMTP</h3>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-surface-300 mb-1.5">Serveur SMTP</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Serveur SMTP</label>
             <input
               type="text"
               value={smtpHost}
               onChange={(e) => setSmtpHost(e.target.value)}
               placeholder="smtp.gmail.com"
-              className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-surface-300 mb-1.5">Port</label>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">Port</label>
               <input
                 type="text"
                 value={smtpPort}
                 onChange={(e) => setSmtpPort(e.target.value)}
                 placeholder="587"
-                className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-surface-300 mb-1.5">SSL/TLS</label>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">SSL/TLS</label>
               <button
                 onClick={() => setSmtpSecure(!smtpSecure)}
                 className={`w-full rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
                   smtpSecure
-                    ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
-                    : "border-surface-700 bg-surface-800 text-surface-400"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-600"
+                    : "border-slate-200 bg-slate-100 text-slate-500"
                 }`}
               >
                 {smtpSecure ? "Activé (465)" : "Désactivé (587)"}
@@ -379,33 +379,33 @@ export default function SettingsPage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-surface-300 mb-1.5">Identifiant</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Identifiant</label>
             <input
               type="text"
               value={smtpUser}
               onChange={(e) => setSmtpUser(e.target.value)}
               placeholder="user@exemple.com"
-              className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-surface-300 mb-1.5">Mot de passe</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Mot de passe</label>
             <input
               type="password"
               value={smtpPass}
               onChange={(e) => setSmtpPass(e.target.value)}
               placeholder="Mot de passe SMTP..."
-              className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-surface-300 mb-1.5">Adresse expéditeur</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Adresse expéditeur</label>
             <input
               type="text"
               value={smtpFrom}
               onChange={(e) => setSmtpFrom(e.target.value)}
               placeholder="COMET CEDELIA <noreply@cedelia.fr>"
-              className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </div>
         </div>
@@ -422,19 +422,19 @@ export default function SettingsPage() {
           <button
             onClick={handleTestSmtp}
             disabled={testingSmtp}
-            className="flex items-center gap-2 rounded-lg border border-surface-600 px-4 py-2.5 text-sm font-medium text-surface-300 hover:bg-surface-800 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
           >
             {testingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
             Tester la connexion
           </button>
-          {savedSmtp && <span className="text-xs text-emerald-400">Paramètres enregistrés</span>}
+          {savedSmtp && <span className="text-xs text-emerald-600">Paramètres enregistrés</span>}
         </div>
 
         {smtpTestResult && (
           <div className={`rounded-lg border px-4 py-2 text-sm ${
             smtpTestResult.success
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-              : "border-red-500/30 bg-red-500/10 text-red-400"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+              : "border-red-200 bg-red-50 text-red-600"
           }`}>
             {smtpTestResult.success ? "Connexion SMTP réussie" : `Erreur : ${smtpTestResult.error}`}
           </div>
@@ -442,16 +442,16 @@ export default function SettingsPage() {
       </div>
 
       {/* Notifications par email */}
-      <div className="rounded-xl border border-surface-800 bg-surface-900 p-6 space-y-5">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
         <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg bg-primary-600/20 p-2">
-            <Bell className="h-4 w-4 text-primary-400" />
+          <div className="rounded-lg bg-primary-50 p-2">
+            <Bell className="h-4 w-4 text-primary-600" />
           </div>
-          <h3 className="text-sm font-medium text-white">Notifications par email</h3>
+          <h3 className="text-sm font-medium text-slate-900">Notifications par email</h3>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Adresses de notification
           </label>
           <input
@@ -459,13 +459,13 @@ export default function SettingsPage() {
             value={notifEmails}
             onChange={(e) => setNotifEmails(e.target.value)}
             placeholder="email1@exemple.com, email2@exemple.com"
-            className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
-          <p className="text-xs text-surface-500 mt-1">Séparer les adresses par des virgules</p>
+          <p className="text-xs text-slate-400 mt-1">Séparer les adresses par des virgules</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Délai de prévention (jours avant échéance)
           </label>
           <div className="flex items-center gap-3">
@@ -475,9 +475,9 @@ export default function SettingsPage() {
               onChange={(e) => setNotifDelay(e.target.value)}
               min="1"
               max="365"
-              className="w-32 rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-32 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
-            <span className="text-sm text-surface-400">jours avant la fin de garantie</span>
+            <span className="text-sm text-slate-500">jours avant la fin de garantie</span>
           </div>
         </div>
 
@@ -503,8 +503,8 @@ export default function SettingsPage() {
         {notifResult && (
           <div className={`rounded-lg border px-4 py-2 text-sm ${
             notifResult.startsWith("Erreur")
-              ? "border-red-500/30 bg-red-500/10 text-red-400"
-              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+              ? "border-red-200 bg-red-50 text-red-600"
+              : "border-emerald-200 bg-emerald-50 text-emerald-600"
           }`}>
             {notifResult}
           </div>
@@ -512,19 +512,19 @@ export default function SettingsPage() {
       </div>
 
       {/* Personnalisation du rapport */}
-      <div className="rounded-xl border border-surface-800 bg-surface-900 p-6 space-y-5">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
         <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg bg-primary-600/20 p-2">
-            <FileText className="h-4 w-4 text-primary-400" />
+          <div className="rounded-lg bg-primary-50 p-2">
+            <FileText className="h-4 w-4 text-primary-600" />
           </div>
-          <h3 className="text-sm font-medium text-white">Personnalisation du rapport client</h3>
+          <h3 className="text-sm font-medium text-slate-900">Personnalisation du rapport client</h3>
         </div>
-        <p className="text-xs text-surface-500">
+        <p className="text-xs text-slate-400">
           Ces paramètres personnalisent la première page du rapport imprimable depuis la fiche client.
         </p>
 
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Logo de votre société
           </label>
           <div className="flex items-center gap-4">
@@ -533,7 +533,7 @@ export default function SettingsPage() {
                 <img
                   src={companyLogo}
                   alt="Logo société"
-                  className="h-20 w-auto max-w-[200px] rounded-lg bg-white p-2 border border-surface-700 object-contain"
+                  className="h-20 w-auto max-w-[200px] rounded-lg bg-white p-2 border border-slate-200 object-contain"
                 />
                 <button
                   onClick={() => setCompanyLogo("")}
@@ -545,7 +545,7 @@ export default function SettingsPage() {
             ) : (
               <button
                 onClick={() => companyLogoRef.current?.click()}
-                className="flex h-20 w-40 items-center justify-center gap-2 rounded-lg border-2 border-dashed border-surface-700 text-surface-500 hover:border-primary-500 hover:text-primary-400 transition-colors"
+                className="flex h-20 w-40 items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 text-slate-400 hover:border-primary-500 hover:text-primary-600 transition-colors"
               >
                 <ImageIcon className="h-5 w-5" />
                 <span className="text-xs">Ajouter un logo</span>
@@ -554,7 +554,7 @@ export default function SettingsPage() {
             {companyLogo && (
               <button
                 onClick={() => companyLogoRef.current?.click()}
-                className="flex items-center gap-2 rounded-lg border border-surface-700 px-3 py-2 text-xs font-medium text-surface-400 hover:bg-surface-800 transition-colors"
+                className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
               >
                 <Upload className="h-3.5 w-3.5" />
                 Changer
@@ -575,11 +575,11 @@ export default function SettingsPage() {
               reader.readAsDataURL(file);
             }}
           />
-          <p className="text-xs text-surface-500 mt-1">Ce logo apparaîtra sur la page de garde du rapport (max 2 Mo)</p>
+          <p className="text-xs text-slate-400 mt-1">Ce logo apparaîtra sur la page de garde du rapport (max 2 Mo)</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Titre du rapport
           </label>
           <input
@@ -587,12 +587,12 @@ export default function SettingsPage() {
             value={reportTitle}
             onChange={(e) => setReportTitle(e.target.value)}
             placeholder="Rapport de suivi des garanties"
-            className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Sous-titre
           </label>
           <input
@@ -600,12 +600,12 @@ export default function SettingsPage() {
             value={reportSubtitle}
             onChange={(e) => setReportSubtitle(e.target.value)}
             placeholder="Ex: CEDELIA - Solutions informatiques"
-            className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Message de la page de garde
           </label>
           <textarea
@@ -613,12 +613,12 @@ export default function SettingsPage() {
             onChange={(e) => setReportMessage(e.target.value)}
             placeholder="Ex: Document confidentiel — Suivi des garanties et échéances de vos produits installés."
             rows={3}
-            className="w-full rounded-lg border border-surface-700 bg-surface-800 px-4 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+            className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-surface-300 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Classement des produits dans le rapport
           </label>
           <div className="flex gap-3">
@@ -626,8 +626,8 @@ export default function SettingsPage() {
               onClick={() => setReportGroupMode("date")}
               className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
                 reportGroupMode === "date"
-                  ? "border-primary-500 bg-primary-500/20 text-primary-400"
-                  : "border-surface-700 bg-surface-800 text-surface-400 hover:border-surface-600"
+                  ? "border-primary-500 bg-primary-50 text-primary-600"
+                  : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"
               }`}
             >
               Par date de fin
@@ -636,14 +636,14 @@ export default function SettingsPage() {
               onClick={() => setReportGroupMode("family")}
               className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
                 reportGroupMode === "family"
-                  ? "border-primary-500 bg-primary-500/20 text-primary-400"
-                  : "border-surface-700 bg-surface-800 text-surface-400 hover:border-surface-600"
+                  ? "border-primary-500 bg-primary-50 text-primary-600"
+                  : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"
               }`}
             >
               Par famille
             </button>
           </div>
-          <p className="text-xs text-surface-500 mt-1">Détermine comment les produits sont organisés dans le rapport imprimé</p>
+          <p className="text-xs text-slate-400 mt-1">Détermine comment les produits sont organisés dans le rapport imprimé</p>
         </div>
 
         <div className="flex items-center gap-3 pt-2">
@@ -655,18 +655,18 @@ export default function SettingsPage() {
             {savingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Enregistrer
           </button>
-          {savedReport && <span className="text-xs text-emerald-400">Paramètres enregistrés</span>}
+          {savedReport && <span className="text-xs text-emerald-600">Paramètres enregistrés</span>}
         </div>
       </div>
 
       {/* Gestion des utilisateurs */}
-      <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary-600/20 p-2">
-              <Users className="h-4 w-4 text-primary-400" />
+            <div className="rounded-lg bg-primary-50 p-2">
+              <Users className="h-4 w-4 text-primary-600" />
             </div>
-            <h3 className="text-sm font-medium text-white">Gestion des utilisateurs</h3>
+            <h3 className="text-sm font-medium text-slate-900">Gestion des utilisateurs</h3>
           </div>
           <button
             onClick={() => { setShowCreateForm(!showCreateForm); setUserError(""); }}
@@ -678,29 +678,29 @@ export default function SettingsPage() {
         </div>
 
         {userError && (
-          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
             {userError}
           </div>
         )}
 
         {/* Create form */}
         {showCreateForm && (
-          <div className="mb-4 rounded-lg border border-surface-700 bg-surface-800 p-4 space-y-3">
-            <h4 className="text-sm font-medium text-surface-300">Créer un utilisateur</h4>
+          <div className="mb-4 rounded-lg border border-slate-200 bg-slate-100 p-4 space-y-3">
+            <h4 className="text-sm font-medium text-slate-600">Créer un utilisateur</h4>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
                 type="text"
                 placeholder="Nom"
                 value={userForm.name}
                 onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
-                className="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none"
               />
               <input
                 type="email"
                 placeholder="Email"
                 value={userForm.email}
                 onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                className="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none"
               />
               <div className="relative">
                 <input
@@ -708,12 +708,12 @@ export default function SettingsPage() {
                   placeholder="Mot de passe"
                   value={userForm.password}
                   onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                  className="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 pr-10 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-300"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -721,7 +721,7 @@ export default function SettingsPage() {
               <select
                 value={userForm.role}
                 onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
-                className="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-sm text-surface-300 focus:border-primary-500 focus:outline-none"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 focus:border-primary-500 focus:outline-none"
               >
                 <option value="USER">Utilisateur</option>
                 <option value="ADMIN">Administrateur</option>
@@ -738,7 +738,7 @@ export default function SettingsPage() {
               </button>
               <button
                 onClick={() => { setShowCreateForm(false); setUserError(""); }}
-                className="flex items-center gap-1.5 rounded-lg border border-surface-600 px-3 py-1.5 text-xs font-medium text-surface-400 hover:bg-surface-700 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 transition-colors"
               >
                 <X className="h-3 w-3" />
                 Annuler
@@ -753,13 +753,13 @@ export default function SettingsPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
           </div>
         ) : users.length === 0 ? (
-          <p className="text-sm text-surface-500 text-center py-6">Aucun utilisateur trouvé</p>
+          <p className="text-sm text-slate-400 text-center py-6">Aucun utilisateur trouvé</p>
         ) : (
           <div className="space-y-2">
             {users.map((user) => (
               <div
                 key={user.id}
-                className="rounded-lg border border-surface-700 bg-surface-800/50 p-3"
+                className="rounded-lg border border-slate-200 bg-slate-50 p-3"
               >
                 {editingUser === user.id ? (
                   <div className="space-y-3">
@@ -769,14 +769,14 @@ export default function SettingsPage() {
                         placeholder="Nom"
                         value={editForm.name}
                         onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                        className="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none"
                       />
                       <input
                         type="email"
                         placeholder="Email"
                         value={editForm.email}
                         onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                        className="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none"
                       />
                       <div className="relative">
                         <input
@@ -784,12 +784,12 @@ export default function SettingsPage() {
                           placeholder="Nouveau mot de passe (laisser vide pour ne pas changer)"
                           value={editForm.password}
                           onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                          className="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 pr-10 text-sm text-white placeholder-surface-500 focus:border-primary-500 focus:outline-none"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none"
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-300"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
@@ -797,7 +797,7 @@ export default function SettingsPage() {
                       <select
                         value={editForm.role}
                         onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                        className="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-sm text-surface-300 focus:border-primary-500 focus:outline-none"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 focus:border-primary-500 focus:outline-none"
                       >
                         <option value="USER">Utilisateur</option>
                         <option value="ADMIN">Administrateur</option>
@@ -814,7 +814,7 @@ export default function SettingsPage() {
                       </button>
                       <button
                         onClick={() => { setEditingUser(null); setUserError(""); }}
-                        className="flex items-center gap-1.5 rounded-lg border border-surface-600 px-3 py-1.5 text-xs font-medium text-surface-400 hover:bg-surface-700 transition-colors"
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 transition-colors"
                       >
                         <X className="h-3 w-3" />
                         Annuler
@@ -824,17 +824,17 @@ export default function SettingsPage() {
                 ) : (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-600/20 text-sm font-bold text-primary-400">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-bold text-primary-600">
                         {user.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-white">{user.name}</p>
-                        <p className="text-xs text-surface-500">{user.email}</p>
+                        <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                        <p className="text-xs text-slate-400">{user.email}</p>
                       </div>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                         user.role === "ADMIN"
-                          ? "bg-amber-500/20 text-amber-400"
-                          : "bg-surface-700 text-surface-400"
+                          ? "bg-amber-50 text-amber-600"
+                          : "bg-slate-100 text-slate-500"
                       }`}>
                         {user.role === "ADMIN" ? "Admin" : "Utilisateur"}
                       </span>
@@ -847,14 +847,14 @@ export default function SettingsPage() {
                           setUserError("");
                           setShowPassword(false);
                         }}
-                        className="rounded-lg p-2 text-surface-400 hover:bg-surface-700 hover:text-white transition-colors"
+                        className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
                         title="Modifier"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => deleteUser(user.id, user.name)}
-                        className="rounded-lg p-2 text-surface-400 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                        className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
                         title="Supprimer"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

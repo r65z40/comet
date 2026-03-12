@@ -61,8 +61,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   if (!invoice) {
     return (
       <div className="text-center py-12">
-        <p className="text-surface-400">Facture non trouvée</p>
-        <button onClick={() => router.back()} className="mt-4 text-primary-400 hover:text-primary-300 text-sm">
+        <p className="text-slate-500">Facture non trouvée</p>
+        <button onClick={() => router.back()} className="mt-4 text-primary-600 hover:text-primary-700 text-sm">
           Retour
         </button>
       </div>
@@ -74,16 +74,16 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.back()}
-          className="rounded-lg border border-surface-700 p-2 text-surface-400 hover:bg-surface-800 transition-colors"
+          className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-slate-900">
             Facture {invoice.invoiceNumber || "—"}
           </h1>
-          <p className="text-sm text-surface-400 mt-1">
-            <Link href={`/clients/${invoice.client.id}`} className="text-primary-400 hover:text-primary-300">
+          <p className="text-sm text-slate-500 mt-1">
+            <Link href={`/clients/${invoice.client.id}`} className="text-primary-600 hover:text-primary-700">
               {invoice.client.name}
             </Link>
             {" — "}
@@ -91,7 +91,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </p>
         </div>
         {invoice.status && (
-          <span className="rounded-full bg-surface-800 px-3 py-1 text-xs font-medium text-surface-300">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
             {invoice.status}
           </span>
         )}
@@ -100,58 +100,58 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           {/* Lignes de facture */}
-          <div className="rounded-xl border border-surface-800 bg-surface-900 overflow-hidden">
-            <div className="px-6 py-4 border-b border-surface-800">
-              <h3 className="text-sm font-medium text-white">Lignes de facture ({invoice.lines.length})</h3>
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-sm font-medium text-slate-900">Lignes de facture ({invoice.lines.length})</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-surface-800">
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Produit</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Famille</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Fournisseur</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-surface-500">Qté</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-surface-500">Prix unit.</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-surface-500">Total</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-surface-500">Durée</th>
+                  <tr className="border-b border-slate-200">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Produit</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Famille</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Fournisseur</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Qté</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Prix unit.</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Total</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Durée</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-surface-800">
+                <tbody className="divide-y divide-slate-200">
                   {invoice.lines.map((line) => (
-                    <tr key={line.id} className="hover:bg-surface-800/50">
+                    <tr key={line.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 text-sm">
                         <div>
-                          <p className="font-medium text-white">
+                          <p className="font-medium text-slate-900">
                             {line.product?.name || line.description || "—"}
                           </p>
                           {line.product?.code && (
-                            <p className="text-xs text-surface-500">{line.product.code}</p>
+                            <p className="text-xs text-slate-400">{line.product.code}</p>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-surface-300">
+                      <td className="px-4 py-3 text-sm text-slate-600">
                         {line.product?.family || "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-surface-300">
+                      <td className="px-4 py-3 text-sm text-slate-600">
                         {line.product?.supplier || "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-surface-300 text-right">
+                      <td className="px-4 py-3 text-sm text-slate-600 text-right">
                         {line.quantity}
                       </td>
-                      <td className="px-4 py-3 text-sm text-surface-300 text-right">
+                      <td className="px-4 py-3 text-sm text-slate-600 text-right">
                         {line.unitPrice != null ? formatCurrency(line.unitPrice) : "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-white font-medium text-right">
+                      <td className="px-4 py-3 text-sm text-slate-900 font-medium text-right">
                         {line.totalPrice != null ? formatCurrency(line.totalPrice) : "—"}
                       </td>
                       <td className="px-4 py-3 text-sm text-right">
                         {line.product?.durationMonths ? (
-                          <span className="rounded-full bg-primary-600/20 px-2 py-0.5 text-xs font-medium text-primary-400">
+                          <span className="rounded-full bg-primary-600/20 px-2 py-0.5 text-xs font-medium text-primary-600">
                             {line.product.durationMonths} mois
                           </span>
                         ) : (
-                          <span className="text-surface-500">—</span>
+                          <span className="text-slate-400">—</span>
                         )}
                       </td>
                     </tr>
@@ -159,11 +159,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 </tbody>
                 {invoice.totalAmount != null && (
                   <tfoot>
-                    <tr className="border-t border-surface-700">
-                      <td colSpan={5} className="px-4 py-3 text-sm font-medium text-surface-400 text-right">
+                    <tr className="border-t border-slate-200">
+                      <td colSpan={5} className="px-4 py-3 text-sm font-medium text-slate-500 text-right">
                         Total
                       </td>
-                      <td className="px-4 py-3 text-sm font-bold text-white text-right">
+                      <td className="px-4 py-3 text-sm font-bold text-slate-900 text-right">
                         {formatCurrency(invoice.totalAmount)}
                       </td>
                       <td />
@@ -176,24 +176,24 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
           {/* Installations générées */}
           {invoice.installations.length > 0 && (
-            <div className="rounded-xl border border-surface-800 bg-surface-900 overflow-hidden">
-              <div className="px-6 py-4 border-b border-surface-800">
-                <h3 className="text-sm font-medium text-white">
+            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-200">
+                <h3 className="text-sm font-medium text-slate-900">
                   Installations générées ({invoice.installations.length})
                 </h3>
               </div>
-              <div className="divide-y divide-surface-800">
+              <div className="divide-y divide-slate-200">
                 {invoice.installations.map((inst) => (
                   <Link
                     key={inst.id}
                     href={`/installations/${inst.id}`}
-                    className="flex items-center justify-between px-6 py-3 hover:bg-surface-800/50 transition-colors"
+                    className="flex items-center justify-between px-6 py-3 hover:bg-slate-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <Package className="h-4 w-4 text-surface-500" />
+                      <Package className="h-4 w-4 text-slate-400" />
                       <div>
-                        <p className="text-sm font-medium text-white">{inst.product.name}</p>
-                        <p className="text-xs text-surface-500">
+                        <p className="text-sm font-medium text-slate-900">{inst.product.name}</p>
+                        <p className="text-xs text-slate-400">
                           {formatDate(inst.startDate)} — {formatDate(inst.endDate)} ({inst.durationMonths} mois)
                         </p>
                       </div>
@@ -208,55 +208,55 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
         {/* Sidebar info */}
         <div className="space-y-6">
-          <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
-            <h3 className="text-sm font-medium text-surface-400 mb-4">Informations</h3>
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
+            <h3 className="text-sm font-medium text-slate-500 mb-4">Informations</h3>
             <div className="space-y-4">
               <div className="flex items-start gap-3">
-                <div className="rounded-lg bg-surface-800 p-2">
-                  <FileText className="h-4 w-4 text-surface-400" />
+                <div className="rounded-lg bg-slate-100 p-2">
+                  <FileText className="h-4 w-4 text-slate-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-surface-500">N° Facture</p>
-                  <p className="text-sm font-medium text-surface-200">{invoice.invoiceNumber || "—"}</p>
+                  <p className="text-xs text-slate-400">N° Facture</p>
+                  <p className="text-sm font-medium text-slate-800">{invoice.invoiceNumber || "—"}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <div className="rounded-lg bg-surface-800 p-2">
-                  <Calendar className="h-4 w-4 text-surface-400" />
+                <div className="rounded-lg bg-slate-100 p-2">
+                  <Calendar className="h-4 w-4 text-slate-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-surface-500">Date</p>
-                  <p className="text-sm font-medium text-surface-200">{formatDate(invoice.invoiceDate)}</p>
+                  <p className="text-xs text-slate-400">Date</p>
+                  <p className="text-sm font-medium text-slate-800">{formatDate(invoice.invoiceDate)}</p>
                 </div>
               </div>
               {invoice.totalAmount != null && (
                 <div className="flex items-start gap-3">
-                  <div className="rounded-lg bg-surface-800 p-2">
-                    <FileText className="h-4 w-4 text-surface-400" />
+                  <div className="rounded-lg bg-slate-100 p-2">
+                    <FileText className="h-4 w-4 text-slate-500" />
                   </div>
                   <div>
-                    <p className="text-xs text-surface-500">Montant total</p>
-                    <p className="text-sm font-bold text-white">{formatCurrency(invoice.totalAmount)}</p>
+                    <p className="text-xs text-slate-400">Montant total</p>
+                    <p className="text-sm font-bold text-slate-900">{formatCurrency(invoice.totalAmount)}</p>
                   </div>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="rounded-xl border border-surface-800 bg-surface-900 p-6">
-            <h3 className="text-sm font-medium text-surface-400 mb-4">Client</h3>
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
+            <h3 className="text-sm font-medium text-slate-500 mb-4">Client</h3>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-white">{invoice.client.name}</p>
-              {invoice.client.email && <p className="text-xs text-surface-400">{invoice.client.email}</p>}
-              {invoice.client.phone && <p className="text-xs text-surface-400">{invoice.client.phone}</p>}
+              <p className="text-sm font-medium text-slate-900">{invoice.client.name}</p>
+              {invoice.client.email && <p className="text-xs text-slate-500">{invoice.client.email}</p>}
+              {invoice.client.phone && <p className="text-xs text-slate-500">{invoice.client.phone}</p>}
               {invoice.client.address && (
-                <p className="text-xs text-surface-400">
+                <p className="text-xs text-slate-500">
                   {invoice.client.address}{invoice.client.city && `, ${invoice.client.city}`}
                 </p>
               )}
               <Link
                 href={`/clients/${invoice.client.id}`}
-                className="inline-block text-xs text-primary-400 hover:text-primary-300 mt-1"
+                className="inline-block text-xs text-primary-600 hover:text-primary-700 mt-1"
               >
                 Voir le client
               </Link>

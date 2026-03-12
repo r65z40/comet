@@ -350,8 +350,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   if (!client) {
     return (
       <div className="text-center py-12">
-        <p className="text-surface-400">Client non trouvé</p>
-        <button onClick={() => router.back()} className="mt-4 text-primary-400 hover:text-primary-300 text-sm">
+        <p className="text-slate-500">Client non trouvé</p>
+        <button onClick={() => router.back()} className="mt-4 text-primary-600 hover:text-primary-700 text-sm">
           Retour
         </button>
       </div>
@@ -367,7 +367,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.back()}
-          className="rounded-lg border border-surface-700 p-2 text-surface-400 hover:bg-surface-800 transition-colors"
+          className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
@@ -379,7 +379,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <img
                   src={client.logoUrl}
                   alt={`Logo ${client.name}`}
-                  className="h-14 w-14 rounded-lg object-contain bg-white p-1 border border-surface-700"
+                  className="h-14 w-14 rounded-lg object-contain bg-white p-1 border border-slate-200"
                 />
                 <button
                   onClick={removeLogo}
@@ -393,7 +393,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingLogo}
-                className="flex h-14 w-14 items-center justify-center rounded-lg border-2 border-dashed border-surface-700 text-surface-500 hover:border-primary-500 hover:text-primary-400 transition-colors"
+                className="flex h-14 w-14 items-center justify-center rounded-lg border-2 border-dashed border-slate-200 text-slate-400 hover:border-primary-500 hover:text-primary-600 transition-colors"
               >
                 {uploadingLogo ? (
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
@@ -411,20 +411,20 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">{client.name}</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{client.name}</h1>
             <div className="flex items-center gap-4 mt-1">
               {client.email && (
-                <span className="flex items-center gap-1 text-xs text-surface-400">
+                <span className="flex items-center gap-1 text-xs text-slate-500">
                   <Mail className="h-3 w-3" /> {client.email}
                 </span>
               )}
               {client.phone && (
-                <span className="flex items-center gap-1 text-xs text-surface-400">
+                <span className="flex items-center gap-1 text-xs text-slate-500">
                   <Phone className="h-3 w-3" /> {client.phone}
                 </span>
               )}
               {client.city && (
-                <span className="flex items-center gap-1 text-xs text-surface-400">
+                <span className="flex items-center gap-1 text-xs text-slate-500">
                   <MapPin className="h-3 w-3" /> {client.city}
                 </span>
               )}
@@ -436,7 +436,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingLogo}
-              className="flex items-center gap-2 rounded-lg border border-surface-700 px-3 py-2 text-xs font-medium text-surface-400 hover:bg-surface-800 transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
             >
               <Upload className="h-3.5 w-3.5" />
               Changer le logo
@@ -453,73 +453,73 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <div className="rounded-xl border border-surface-800 bg-surface-900 p-4 text-center">
-          <p className="text-2xl font-bold text-white">{client.installations.length}</p>
-          <p className="text-xs text-surface-400 mt-1">Total</p>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
+          <p className="text-2xl font-bold text-slate-900">{client.installations.length}</p>
+          <p className="text-xs text-slate-500 mt-1">Total</p>
         </div>
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-          <p className="text-2xl font-bold text-emerald-400">{enParc.length}</p>
-          <p className="text-xs text-surface-400 mt-1">En parc</p>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+          <p className="text-2xl font-bold text-emerald-600">{enParc.length}</p>
+          <p className="text-xs text-slate-500 mt-1">En parc</p>
         </div>
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center">
-          <p className="text-2xl font-bold text-red-400">{horsParc.length}</p>
-          <p className="text-xs text-surface-400 mt-1">Hors parc</p>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
+          <p className="text-2xl font-bold text-red-600">{horsParc.length}</p>
+          <p className="text-xs text-slate-500 mt-1">Hors parc</p>
         </div>
-        <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-center">
-          <p className="text-2xl font-bold text-blue-400">{renouvele.length}</p>
-          <p className="text-xs text-surface-400 mt-1">Renouvelés</p>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
+          <p className="text-2xl font-bold text-blue-600">{renouvele.length}</p>
+          <p className="text-xs text-slate-500 mt-1">Renouvelés</p>
         </div>
       </div>
 
       {/* Tableau principal des installations avec toutes les infos */}
-      <div className="rounded-xl border border-surface-800 bg-surface-900 overflow-hidden">
-        <div className="px-6 py-4 border-b border-surface-800">
-          <h3 className="text-sm font-medium text-white">Produits installés — Suivi des garanties</h3>
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200">
+          <h3 className="text-sm font-medium text-slate-900">Produits installés — Suivi des garanties</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-surface-800">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Produit</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Famille</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Fournisseur</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Facture</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Début</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Durée</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Fin garantie</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Compte à rebours</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Statut</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Actions</th>
+              <tr className="border-b border-slate-200">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Produit</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Famille</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Fournisseur</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Facture</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Début</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Durée</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Fin garantie</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Compte à rebours</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Statut</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-800">
+            <tbody className="divide-y divide-slate-200">
               {client.installations.map((inst) => {
                 const expired = isWarrantyExpired(inst.endDate);
                 return (
                 <tr
                   key={inst.id}
-                  className="hover:bg-surface-800/50 transition-colors"
+                  className="hover:bg-slate-50 transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <Link href={`/installations/${inst.id}`} className="text-sm font-medium text-primary-400 hover:text-primary-300">
+                    <Link href={`/installations/${inst.id}`} className="text-sm font-medium text-primary-600 hover:text-primary-700">
                       {inst.product.name}
                     </Link>
-                    {inst.product.code && <p className="text-[10px] text-surface-500">{inst.product.code}</p>}
+                    {inst.product.code && <p className="text-[10px] text-slate-400">{inst.product.code}</p>}
                   </td>
-                  <td className="px-4 py-3 text-sm text-surface-300">{inst.family || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-surface-300">{inst.supplier || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-surface-400">
+                  <td className="px-4 py-3 text-sm text-slate-600">{inst.family || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{inst.supplier || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-slate-500">
                     {inst.invoice ? (
-                      <Link href={`/invoices/${inst.invoice.id}`} className="text-primary-400 hover:text-primary-300">
+                      <Link href={`/invoices/${inst.invoice.id}`} className="text-primary-600 hover:text-primary-700">
                         {inst.invoice.invoiceNumber || formatDate(inst.invoice.invoiceDate)}
                       </Link>
                     ) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-surface-300 whitespace-nowrap">{formatDate(inst.startDate)}</td>
-                  <td className="px-4 py-3 text-sm text-surface-300 whitespace-nowrap font-medium">{inst.durationMonths} mois</td>
-                  <td className={`px-4 py-3 text-sm whitespace-nowrap ${expired ? "text-red-400 font-medium" : "text-surface-300"}`}>{formatDate(inst.endDate)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{formatDate(inst.startDate)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap font-medium">{inst.durationMonths} mois</td>
+                  <td className={`px-4 py-3 text-sm whitespace-nowrap ${expired ? "text-red-600 font-medium" : "text-slate-600"}`}>{formatDate(inst.endDate)}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`text-xs font-bold ${expired ? "text-red-400" : getCountdownColor(inst.endDate)}`}>
+                    <span className={`text-xs font-bold ${expired ? "text-red-600" : getCountdownColor(inst.endDate)}`}>
                       {inst.status === "RENOUVELE" ? "Renouvelé" : formatCountdown(inst.endDate)}
                     </span>
                   </td>
@@ -532,8 +532,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         title="En parc"
                         className={`rounded p-1 transition-colors disabled:opacity-50 ${
                           inst.status === "EN_PARC_GARANTIE"
-                            ? "text-emerald-400 bg-emerald-500/10"
-                            : "text-surface-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                            ? "text-emerald-600 bg-emerald-50"
+                            : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
                         }`}
                       >
                         <ShieldCheck className="h-3.5 w-3.5" />
@@ -544,8 +544,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         title="Hors parc"
                         className={`rounded p-1 transition-colors disabled:opacity-50 ${
                           inst.status === "EN_PARC_HORS_GARANTIE"
-                            ? "text-red-400 bg-red-500/10"
-                            : "text-surface-500 hover:text-red-400 hover:bg-red-500/10"
+                            ? "text-red-600 bg-red-50"
+                            : "text-slate-400 hover:text-red-600 hover:bg-red-50"
                         }`}
                       >
                         <ShieldX className="h-3.5 w-3.5" />
@@ -556,8 +556,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         title="Renouvelé"
                         className={`rounded p-1 transition-colors disabled:opacity-50 ${
                           inst.status === "RENOUVELE"
-                            ? "text-blue-400 bg-blue-500/10"
-                            : "text-surface-500 hover:text-blue-400 hover:bg-blue-500/10"
+                            ? "text-blue-600 bg-blue-50"
+                            : "text-slate-400 hover:text-blue-600 hover:bg-blue-50"
                         }`}
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
@@ -565,7 +565,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       <button
                         onClick={(e) => { e.stopPropagation(); deleteInstallation(inst.id, inst.product.name); }}
                         title="Supprimer"
-                        className="rounded p-1 text-surface-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        className="rounded p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -576,7 +576,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               })}
               {client.installations.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-sm text-surface-500">Aucune installation</td>
+                  <td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-400">Aucune installation</td>
                 </tr>
               )}
             </tbody>
@@ -585,28 +585,28 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       {client.invoices.length > 0 && (
-        <div className="rounded-xl border border-surface-800 bg-surface-900 overflow-hidden">
-          <div className="px-6 py-4 border-b border-surface-800">
-            <h3 className="text-sm font-medium text-surface-400">Historique des factures</h3>
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200">
+            <h3 className="text-sm font-medium text-slate-500">Historique des factures</h3>
           </div>
           <table className="w-full">
             <thead>
-              <tr className="border-b border-surface-800">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Numéro</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500">Montant</th>
+              <tr className="border-b border-slate-200">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Numéro</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Montant</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-800">
+            <tbody className="divide-y divide-slate-200">
               {client.invoices.map((inv) => (
                 <tr
                   key={inv.id}
-                  className="hover:bg-surface-800/50 cursor-pointer transition-colors"
+                  className="hover:bg-slate-50 cursor-pointer transition-colors"
                   onClick={() => router.push(`/invoices/${inv.id}`)}
                 >
-                  <td className="px-4 py-3 text-sm text-surface-200">{inv.invoiceNumber || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-surface-300">{formatDate(inv.invoiceDate)}</td>
-                  <td className="px-4 py-3 text-sm text-surface-300">{inv.totalAmount ? formatCurrency(inv.totalAmount) : "—"}</td>
+                  <td className="px-4 py-3 text-sm text-slate-800">{inv.invoiceNumber || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{formatDate(inv.invoiceDate)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{inv.totalAmount ? formatCurrency(inv.totalAmount) : "—"}</td>
                 </tr>
               ))}
             </tbody>

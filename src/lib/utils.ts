@@ -34,10 +34,10 @@ export function getStatusLabel(status: string): string {
 
 export function getStatusColor(status: string): string {
   switch (status) {
-    case "EN_PARC_GARANTIE": return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-    case "EN_PARC_HORS_GARANTIE": return "bg-red-500/20 text-red-400 border-red-500/30";
-    case "RENOUVELE": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-    default: return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+    case "EN_PARC_GARANTIE": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    case "EN_PARC_HORS_GARANTIE": return "bg-red-50 text-red-700 border-red-200";
+    case "RENOUVELE": return "bg-blue-50 text-blue-700 border-blue-200";
+    default: return "bg-gray-50 text-gray-700 border-gray-200";
   }
 }
 
@@ -74,9 +74,9 @@ export function formatCountdown(endDate: Date | string): string {
 
 export function getCountdownColor(endDate: Date | string): string {
   const days = daysUntil(endDate);
-  if (days <= 0) return "text-red-400";
-  if (days <= 30) return "text-red-400";
-  if (days <= 60) return "text-orange-400";
-  if (days <= 90) return "text-amber-400";
-  return "text-emerald-400";
+  if (days <= 0) return "text-red-600";
+  if (days <= 30) return "text-red-600";
+  if (days <= 60) return "text-orange-600";
+  if (days <= 90) return "text-amber-600";
+  return "text-emerald-600";
 }

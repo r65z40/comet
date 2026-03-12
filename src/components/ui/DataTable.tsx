@@ -69,7 +69,7 @@ export default function DataTable<T extends { id: string }>({
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-surface-800 bg-surface-900 p-8">
+      <div className="rounded-xl border border-slate-200 bg-white p-8">
         <div className="flex items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
         </div>
@@ -78,16 +78,16 @@ export default function DataTable<T extends { id: string }>({
   }
 
   return (
-    <div className="rounded-xl border border-surface-800 bg-surface-900 overflow-hidden">
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-surface-800">
+            <tr className="border-b border-slate-200">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-surface-500 ${
-                    col.sortable !== false ? "cursor-pointer select-none hover:text-surface-300 transition-colors" : ""
+                  className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500 ${
+                    col.sortable !== false ? "cursor-pointer select-none hover:text-slate-700 transition-colors" : ""
                   }`}
                   onClick={() => col.sortable !== false && handleSort(col.key)}
                 >
@@ -105,10 +105,10 @@ export default function DataTable<T extends { id: string }>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-surface-800">
+          <tbody className="divide-y divide-slate-100">
             {sortedData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-surface-500">
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-slate-500">
                   Aucune donnée disponible
                 </td>
               </tr>
@@ -116,11 +116,11 @@ export default function DataTable<T extends { id: string }>({
               sortedData.map((item) => (
                 <tr
                   key={item.id}
-                  className={`transition-colors hover:bg-surface-800/50 ${onRowClick ? "cursor-pointer" : ""}`}
+                  className={`transition-colors hover:bg-slate-50 ${onRowClick ? "cursor-pointer" : ""}`}
                   onClick={() => onRowClick?.(item)}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className="whitespace-nowrap px-4 py-3 text-sm text-surface-300">
+                    <td key={col.key} className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">
                       {col.render
                         ? col.render(item)
                         : String((item as Record<string, unknown>)[col.key] ?? "")}
@@ -134,22 +134,22 @@ export default function DataTable<T extends { id: string }>({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-surface-800 px-4 py-3">
-          <p className="text-sm text-surface-500">
+        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+          <p className="text-sm text-slate-500">
             Page {page} sur {totalPages}
           </p>
           <div className="flex gap-2">
             <button
               onClick={() => onPageChange(page - 1)}
               disabled={page <= 1}
-              className="rounded-lg border border-surface-700 p-1.5 text-surface-400 hover:bg-surface-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => onPageChange(page + 1)}
               disabled={page >= totalPages}
-              className="rounded-lg border border-surface-700 p-1.5 text-surface-400 hover:bg-surface-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

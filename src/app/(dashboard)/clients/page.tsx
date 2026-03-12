@@ -44,7 +44,7 @@ export default function ClientsPage() {
     {
       key: "name",
       label: "Nom",
-      render: (c: Client) => <span className="font-medium text-white">{c.name}</span>,
+      render: (c: Client) => <span className="font-medium text-slate-900">{c.name}</span>,
     },
     { key: "email", label: "Email" },
     { key: "phone", label: "Téléphone" },
@@ -53,7 +53,7 @@ export default function ClientsPage() {
       key: "installations",
       label: "Installations",
       render: (c: Client) => (
-        <span className="rounded-full bg-primary-600/20 px-2.5 py-0.5 text-xs font-medium text-primary-400">
+        <span className="rounded-full bg-primary-600/20 px-2.5 py-0.5 text-xs font-medium text-primary-600">
           {c._count.installations}
         </span>
       ),
@@ -63,18 +63,18 @@ export default function ClientsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Clients</h1>
-        <p className="text-sm text-surface-400 mt-1">Liste de tous les clients</p>
+        <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
+        <p className="text-sm text-slate-500 mt-1">Liste de tous les clients</p>
       </div>
 
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder="Rechercher un client..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="w-full rounded-lg border border-surface-700 bg-surface-900 py-2 pl-10 pr-4 text-sm text-surface-200 placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </div>
 

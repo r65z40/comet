@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Meteorite body -->
+  <circle cx="28" cy="28" r="18" fill="url(#grad1)" />
+  <ellipse cx="22" cy="24" rx="6" ry="4" fill="#93c5fd" opacity="0.6" />
+  <ellipse cx="32" cy="20" rx="3" ry="2" fill="#bfdbfe" opacity="0.4" />
+  <!-- Tail/trail -->
+  <path d="M42 18 L58 4 L54 12 L62 8 L48 22" stroke="url(#grad2)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <path d="M40 14 L50 2" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round" opacity="0.6" />
+  <path d="M44 24 L56 14" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round" opacity="0.4" />
+  <!-- Sparkles -->
+  <circle cx="54" cy="6" r="1.5" fill="#93c5fd" />
+  <circle cx="60" cy="10" r="1" fill="#bfdbfe" />
+  <circle cx="48" cy="4" r="1" fill="#dbeafe" />
+  <defs>
+    <radialGradient id="grad1" cx="0.4" cy="0.4">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="60%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1e40af" />
+    </radialGradient>
+    <linearGradient id="grad2" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#93c5fd" stop-opacity="0.3" />
+    </linearGradient>
+  </defs>
+</svg>

@@ -3,7 +3,7 @@ import { cn, getStatusLabel, getStatusColor } from "@/lib/utils";
 export default function StatusBadge({ status, expired }: { status: string; expired?: boolean }) {
   const baseColor = getStatusColor(status);
   const expiredOverride = expired && status === "EN_PARC_GARANTIE"
-    ? "bg-red-500/20 text-red-400 border-red-500/30"
+    ? "bg-red-50 text-red-700 border-red-200"
     : baseColor;
 
   return (
@@ -15,7 +15,7 @@ export default function StatusBadge({ status, expired }: { status: string; expir
     >
       {getStatusLabel(status)}
       {status === "RENOUVELE" && (
-        <span className="ml-1 text-blue-400">(Renouvelé)</span>
+        <span className="ml-1 text-blue-600">(Renouvelé)</span>
       )}
     </span>
   );

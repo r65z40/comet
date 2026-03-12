@@ -12,26 +12,26 @@ interface StatCardProps {
 }
 
 const colorMap = {
-  blue: "bg-primary-600/20 text-primary-400",
-  green: "bg-emerald-500/20 text-emerald-400",
-  amber: "bg-amber-500/20 text-amber-400",
-  red: "bg-red-500/20 text-red-400",
+  blue: "bg-primary-50 text-primary-600",
+  green: "bg-emerald-50 text-emerald-600",
+  amber: "bg-amber-50 text-amber-600",
+  red: "bg-red-50 text-red-600",
 };
 
 export default function StatCard({ title, value, icon: Icon, trend, color = "blue", href }: StatCardProps) {
   const content = (
     <div className={cn(
-      "rounded-xl border border-surface-800 bg-surface-900 p-6",
-      href && "hover:border-surface-600 hover:bg-surface-800/80 transition-colors cursor-pointer"
+      "rounded-xl border border-slate-200 bg-white p-6",
+      href && "hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
     )}>
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-surface-400">{title}</p>
+        <p className="text-sm font-medium text-slate-500">{title}</p>
         <div className={cn("rounded-lg p-2", colorMap[color])}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className="mt-3 text-3xl font-bold text-white">{value}</p>
-      {trend && <p className="mt-1 text-xs text-surface-500">{trend}</p>}
+      <p className="mt-3 text-3xl font-bold text-slate-900">{value}</p>
+      {trend && <p className="mt-1 text-xs text-slate-500">{trend}</p>}
     </div>
   );
 
