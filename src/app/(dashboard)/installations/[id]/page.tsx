@@ -49,16 +49,27 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
       .finally(() => setLoading(false));
   }, [id]);
 
-  async function saveData() {
+  async function saveNotes() {
     setSaving(true);
     const res = await fetch(`/api/installations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes, status }),
+      body: JSON.stringify({ notes }),
     });
     const updated = await res.json();
-    setInstallation((prev) => prev ? { ...prev, status: updated.status, notes: updated.notes } : prev);
+    setInstallation((prev) => prev ? { ...prev, notes: updated.notes } : prev);
     setSaving(false);
+  }
+
+  async function changeStatus(newStatus: string) {
+    setStatus(newStatus);
+    const res = await fetch(`/api/installations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    const updated = await res.json();
+    setInstallation((prev) => prev ? { ...prev, status: updated.status } : prev);
   }
 
   async function saveEndDate() {
@@ -228,17 +239,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
 
           {/* Changement de statut + Notes */}
           <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-slate-500">Statut et notes</h3>
-              <button
-                onClick={saveData}
-                disabled={saving}
-                className="flex items-center gap-2 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
-              >
-                <Save className="h-3 w-3" />
-                {saving ? "Enregistrement..." : "Enregistrer"}
-              </button>
-            </div>
+            <h3 className="text-sm font-medium text-slate-500 mb-4">Statut</h3>
 
             <div className="mb-4">
               <label className="block text-xs text-slate-400 mb-2">Statut principal</label>
@@ -246,7 +247,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                 <ToggleButton
                   label="En parc"
                   active={isEnParc}
-                  onClick={() => setStatus(isEnParc ? "HORS_PARC" : "EN_PARC")}
+                  onClick={() => changeStatus(isEnParc ? "HORS_PARC" : "EN_PARC")}
                   icon={isEnParc ? ShieldCheck : ShieldX}
                   activeColor="emerald"
                 />
@@ -274,7 +275,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                   <ToggleButton
                     label="Renouvelé"
                     active={isRenewed}
-                    onClick={() => setStatus("RENOUVELE")}
+                    onClick={() => changeStatus("RENOUVELE")}
                     icon={RefreshCw}
                     activeColor="blue"
                   />
@@ -290,7 +291,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                       Renouvelé
                     </span>
                     <button
-                      onClick={() => setStatus("EN_PARC")}
+                      onClick={() => changeStatus("EN_PARC")}
                       className="text-xs text-slate-400 hover:text-slate-600 underline"
                     >
                       Annuler le renouvellement
@@ -301,7 +302,17 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
             </div>
 
             <div>
-              <label className="block text-xs text-slate-400 mb-2">Notes</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs text-slate-400">Notes</label>
+                <button
+                  onClick={saveNotes}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                >
+                  <Save className="h-3 w-3" />
+                  {saving ? "Enregistrement..." : "Enregistrer"}
+                </button>
+              </div>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
