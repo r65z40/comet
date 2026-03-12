@@ -71,27 +71,29 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.back()}
-          className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-slate-900">
-            Facture {invoice.invoiceNumber || "—"}
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            <Link href={`/clients/${invoice.client.id}`} className="text-primary-600 hover:text-primary-700">
-              {invoice.client.name}
-            </Link>
-            {" — "}
-            {formatDate(invoice.invoiceDate)}
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button
+            onClick={() => router.back()}
+            className="shrink-0 rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
+              Facture {invoice.invoiceNumber || "—"}
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              <Link href={`/clients/${invoice.client.id}`} className="text-primary-600 hover:text-primary-700">
+                {invoice.client.name}
+              </Link>
+              {" — "}
+              {formatDate(invoice.invoiceDate)}
+            </p>
+          </div>
         </div>
         {invoice.status && (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+          <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
             {invoice.status}
           </span>
         )}

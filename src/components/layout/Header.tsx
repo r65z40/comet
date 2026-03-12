@@ -125,12 +125,14 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-sm px-6">
-      <div ref={ref} className="relative w-96">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-sm px-4 sm:px-6">
+      {/* Spacer for hamburger on mobile */}
+      <div className="w-10 lg:hidden" />
+      <div ref={ref} className="relative flex-1 max-w-96">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
-          placeholder="Rechercher clients, produits, installations..."
+          placeholder="Rechercher..."
           className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:bg-white"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -172,7 +174,7 @@ export default function Header() {
         </button>
 
         {notifOpen && (
-          <div className="absolute right-0 top-full mt-2 w-96 rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-96 rounded-lg border border-slate-200 bg-white shadow-lg">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <h3 className="text-sm font-semibold text-slate-900">Garanties expirantes</h3>
               <div className="flex items-center gap-2">

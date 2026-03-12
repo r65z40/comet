@@ -123,31 +123,32 @@ export default function SyncPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Synchronisation</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Synchronisation</h1>
           <p className="text-sm text-slate-500 mt-1">Gérer la synchronisation avec Axonaut</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <button
             onClick={fetchDebug}
             disabled={loadingDebug}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 sm:px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
           >
             {loadingDebug ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bug className="h-4 w-4" />}
-            Diagnostic
+            <span className="hidden sm:inline">Diagnostic</span>
           </button>
           <button
             onClick={handleFullSync}
             disabled={syncing !== null}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-3 sm:px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
           >
             {syncing === "full" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Zap className="h-4 w-4" />
             )}
-            Synchronisation complète
+            <span className="hidden sm:inline">Synchronisation complète</span>
+            <span className="sm:hidden">Sync</span>
           </button>
         </div>
       </div>
@@ -162,7 +163,7 @@ export default function SyncPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             <DiagCard label="Produits" value={debug.database.products.total} sub={`${debug.database.products.withDuration} avec durée`} />
             <DiagCard label="Clients" value={debug.database.clients.total} />
             <DiagCard label="Factures" value={debug.database.invoices.total} />
@@ -235,8 +236,8 @@ export default function SyncPage() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-slate-500">Historique de synchronisation</h3>
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+          <h3 className="text-sm font-medium text-slate-500">Historique</h3>
           <button
             onClick={handleDeleteLogs}
             disabled={deleting}
@@ -252,6 +253,7 @@ export default function SyncPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200">
@@ -298,6 +300,7 @@ export default function SyncPage() {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

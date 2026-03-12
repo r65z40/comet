@@ -107,31 +107,35 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className={`space-y-6 ${isRenewed ? "opacity-60" : ""}`}>
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.back()}
-          className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-slate-900">{installation.product.name}</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Installé chez <Link href={`/clients/${installation.client.id}`} className="text-primary-600 hover:text-primary-700">{installation.client.name}</Link>
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button
+            onClick={() => router.back()}
+            className="shrink-0 rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">{installation.product.name}</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Installé chez <Link href={`/clients/${installation.client.id}`} className="text-primary-600 hover:text-primary-700">{installation.client.name}</Link>
+            </p>
+          </div>
         </div>
-        <StatusBadge status={status} endDate={installation.endDate} />
-        <button
-          onClick={async () => {
-            if (!confirm("Supprimer cette installation ?")) return;
-            await fetch(`/api/installations/${installation.id}`, { method: "DELETE" });
-            router.push("/installations");
-          }}
-          className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Supprimer
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <StatusBadge status={status} endDate={installation.endDate} />
+          <button
+            onClick={async () => {
+              if (!confirm("Supprimer cette installation ?")) return;
+              await fetch(`/api/installations/${installation.id}`, { method: "DELETE" });
+              router.push("/installations");
+            }}
+            className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Supprimer</span>
+          </button>
+        </div>
       </div>
 
       {/* Compte à rebours principal */}
@@ -174,7 +178,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
         <div className="lg:col-span-2 space-y-6">
           <div className="rounded-xl border border-slate-200 bg-white p-6">
             <h3 className="text-sm font-medium text-slate-500 mb-4">Détails de l&apos;installation</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem icon={Building2} label="Client" value={installation.client.name} />
               <InfoItem icon={Package} label="Produit" value={installation.product.name} />
               <InfoItem icon={Truck} label="Fournisseur" value={installation.supplier || "—"} />

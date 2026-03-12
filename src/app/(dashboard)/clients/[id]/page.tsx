@@ -369,16 +369,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.back()}
-          className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="flex items-center gap-4 flex-1">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button
+            onClick={() => router.back()}
+            className="shrink-0 rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
           {/* Logo */}
-          <div className="relative group">
+          <div className="relative group shrink-0">
             {client.logoUrl ? (
               <div className="relative">
                 <img
@@ -415,28 +415,28 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               onChange={handleLogoUpload}
             />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">{client.name}</h1>
-            <div className="flex items-center gap-4 mt-1">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">{client.name}</h1>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
               {client.email && (
                 <span className="flex items-center gap-1 text-xs text-slate-500">
-                  <Mail className="h-3 w-3" /> {client.email}
+                  <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{client.email}</span>
                 </span>
               )}
               {client.phone && (
                 <span className="flex items-center gap-1 text-xs text-slate-500">
-                  <Phone className="h-3 w-3" /> {client.phone}
+                  <Phone className="h-3 w-3 shrink-0" /> {client.phone}
                 </span>
               )}
               {client.city && (
                 <span className="flex items-center gap-1 text-xs text-slate-500">
-                  <MapPin className="h-3 w-3" /> {client.city}
+                  <MapPin className="h-3 w-3 shrink-0" /> {client.city}
                 </span>
               )}
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           {client.logoUrl && (
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -444,7 +444,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
             >
               <Upload className="h-3.5 w-3.5" />
-              Changer le logo
+              <span className="hidden sm:inline">Changer le logo</span>
             </button>
           )}
           <button
@@ -452,12 +452,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-xs font-medium text-white hover:bg-primary-700 transition-colors"
           >
             <Printer className="h-3.5 w-3.5" />
-            Imprimer le rapport
+            <span className="hidden sm:inline">Imprimer le rapport</span>
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
           <p className="text-2xl font-bold text-slate-900">{client.installations.length}</p>
           <p className="text-xs text-slate-500 mt-1">Total</p>

@@ -63,16 +63,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.back()}
-          className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-slate-900">{product.name}</h1>
-          {product.code && <p className="text-sm text-slate-500 mt-1">Code: {product.code}</p>}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button
+            onClick={() => router.back()}
+            className="shrink-0 rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">{product.name}</h1>
+            {product.code && <p className="text-sm text-slate-500 mt-1">Code: {product.code}</p>}
+          </div>
         </div>
         <button
           onClick={async () => {
@@ -80,7 +82,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             await fetch(`/api/products/${product.id}`, { method: "DELETE" });
             router.push("/products");
           }}
-          className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+          className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors shrink-0"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Supprimer
