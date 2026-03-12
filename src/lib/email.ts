@@ -62,19 +62,31 @@ export async function getNotificationConfig() {
   };
 }
 
-export async function sendEmail(to: string[], subject: string, html: string) {
-  const config = await getSmtpConfig();
-  if (!config) throw new Error("SMTP non configuré");
+function createTransporter(config: SmtpConfig) {
+  // Port 465 = implicit TLS (secure: true)
+  // Port 587/other = STARTTLS (secure: false, upgrade via STARTTLS)
+  const isImplicitTLS = config.port === 465;
 
-  const transporter = nodemailer.createTransport({
+  return nodemailer.createTransport({
     host: config.host,
     port: config.port,
-    secure: config.secure,
+    secure: isImplicitTLS,
     auth: {
       user: config.user,
       pass: config.pass,
     },
+    tls: {
+      // Allow STARTTLS upgrade on non-465 ports
+      rejectUnauthorized: true,
+    },
   });
+}
+
+export async function sendEmail(to: string[], subject: string, html: string) {
+  const config = await getSmtpConfig();
+  if (!config) throw new Error("SMTP non configuré");
+
+  const transporter = createTransporter(config);
 
   await transporter.sendMail({
     from: config.from,
@@ -89,16 +101,7 @@ export async function testSmtpConnection(): Promise<{ success: boolean; error?: 
   if (!config) return { success: false, error: "SMTP non configuré" };
 
   try {
-    const transporter = nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      auth: {
-        user: config.user,
-        pass: config.pass,
-      },
-    });
-
+    const transporter = createTransporter(config);
     await transporter.verify();
     return { success: true };
   } catch (err) {
