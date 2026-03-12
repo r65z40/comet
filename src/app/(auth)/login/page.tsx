@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
@@ -36,7 +35,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
       <div className="w-full max-w-md space-y-8 px-4">
         <div className="text-center">
-          <Image src="/logo.png" alt="COMET" width={56} height={56} className="mx-auto h-14 w-14" />
+          <img src="/logo.png" alt="COMET" width={56} height={56} className="mx-auto h-14 w-14" />
           <h1 className="mt-6 text-2xl font-bold text-slate-900">
             COMET <span className="font-light text-primary-600">- CEDELIA</span>
           </h1>

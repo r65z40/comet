@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
 import {
   LayoutDashboard,
   Monitor,
@@ -50,7 +49,7 @@ export default function Sidebar() {
   const sidebarContent = (
     <>
       <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-6">
-        <Image src="/logo.png" alt="COMET" width={32} height={32} className="h-8 w-8" />
+        <img src="/logo.png" alt="COMET" width={32} height={32} className="h-8 w-8" />
         <div>
           <span className="text-base font-bold tracking-tight text-slate-900">COMET</span>
           <span className="ml-0.5 text-base font-light tracking-tight text-primary-600">- CEDELIA</span>
