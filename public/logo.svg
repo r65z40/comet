@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="core" cx="35%" cy="65%" r="40%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="30%" stop-color="#7dd3fc"/>
+      <stop offset="70%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </radialGradient>
+    <linearGradient id="tail" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#7dd3fc" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="tail2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e3a5f" stop-opacity="0.8"/>
+      <stop offset="60%" stop-color="#0c4a6e" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#164e63" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Outer tail -->
+  <path d="M28 40 Q18 32 12 24 Q8 18 10 14 Q14 8 22 12 Q30 16 38 22 Q44 26 48 18 Q52 10 56 6"
+        stroke="url(#tail2)" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <!-- Main tail -->
+  <path d="M30 38 Q22 30 16 22 Q12 16 16 12 Q20 10 26 16 Q34 22 42 20 Q50 14 56 8"
+        stroke="url(#tail)" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <!-- Inner bright tail -->
+  <path d="M32 36 Q26 30 22 24 Q18 18 22 16 Q28 18 34 22 Q42 18 50 12"
+        stroke="#7dd3fc" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <!-- Comet core glow -->
+  <circle cx="30" cy="40" r="14" fill="#0ea5e9" opacity="0.15"/>
+  <circle cx="30" cy="40" r="10" fill="#0ea5e9" opacity="0.2"/>
+  <!-- Comet core -->
+  <circle cx="30" cy="40" r="8" fill="url(#core)"/>
+  <circle cx="30" cy="40" r="4" fill="#ffffff" opacity="0.8"/>
+  <!-- Sparkle particles -->
+  <rect x="48" y="10" width="2" height="2" fill="#38bdf8" opacity="0.8" rx="0.5"/>
+  <rect x="52" y="14" width="1.5" height="1.5" fill="#7dd3fc" opacity="0.6" rx="0.3"/>
+  <rect x="44" y="16" width="1.5" height="1.5" fill="#0ea5e9" opacity="0.7" rx="0.3"/>
+  <rect x="56" y="8" width="1" height="1" fill="#bae6fd" opacity="0.5" rx="0.2"/>
+  <rect x="40" y="12" width="1" height="1" fill="#38bdf8" opacity="0.5" rx="0.2"/>
+  <rect x="54" y="18" width="1" height="1" fill="#0ea5e9" opacity="0.4" rx="0.2"/>
+  <rect x="14" y="28" width="1.5" height="1.5" fill="#38bdf8" opacity="0.4" rx="0.3"/>
+  <rect x="20" y="14" width="1" height="1" fill="#7dd3fc" opacity="0.5" rx="0.2"/>
+</svg>

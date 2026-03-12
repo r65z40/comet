@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Zap, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,11 +36,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
       <div className="w-full max-w-md space-y-8 px-4">
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600">
-            <Zap className="h-7 w-7 text-white" />
-          </div>
+          <Image src="/logo.png" alt="COMET" width={56} height={56} className="mx-auto h-14 w-14" />
           <h1 className="mt-6 text-2xl font-bold text-slate-900">
-            COMET <span className="font-light text-primary-600">CEDELIA</span>
+            COMET <span className="font-light text-primary-600">- CEDELIA</span>
           </h1>
           <p className="mt-2 text-sm text-slate-500">
             Connectez-vous pour accéder à votre espace

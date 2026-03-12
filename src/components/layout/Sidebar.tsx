@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   LayoutDashboard,
   Monitor,
@@ -12,7 +13,6 @@ import {
   RefreshCw,
   Settings,
   LogOut,
-  Zap,
   Menu,
   X,
 } from "lucide-react";
@@ -50,12 +50,10 @@ export default function Sidebar() {
   const sidebarContent = (
     <>
       <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600">
-          <Zap className="h-4 w-4 text-white" />
-        </div>
+        <Image src="/logo.png" alt="COMET" width={32} height={32} className="h-8 w-8" />
         <div>
           <span className="text-base font-bold tracking-tight text-slate-900">COMET</span>
-          <span className="ml-1 text-base font-light tracking-tight text-primary-600">CEDELIA</span>
+          <span className="ml-0.5 text-base font-light tracking-tight text-primary-600">- CEDELIA</span>
         </div>
         <button
           onClick={() => setOpen(false)}

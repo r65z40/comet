@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "COMET CEDELIA",
+  title: "COMET - CEDELIA",
   description: "Suivi des équipements, produits et services installés chez les clients",
   icons: {
-    icon: "/favicon.svg",
+    icon: "/favicon.ico",
+    apple: "/logo-192.png",
   },
 };
 
