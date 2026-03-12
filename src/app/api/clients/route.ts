@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -13,20 +14,31 @@ export async function GET(req: NextRequest) {
 
   const showAll = searchParams.get("showAll") === "true";
 
-  const where: Record<string, unknown> = {};
+  const conditions: Prisma.ClientWhereInput[] = [];
 
   // By default exclude fournisseurs and prospects (null is treated as client)
   if (!showAll) {
-    where.NOT = { clientType: { in: ["fournisseur", "prospect"] } };
+    conditions.push({
+      OR: [
+        { clientType: "client" },
+        { clientType: null },
+      ],
+    });
   }
 
   if (search) {
-    where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { email: { contains: search, mode: "insensitive" } },
-      { city: { contains: search, mode: "insensitive" } },
-    ];
+    conditions.push({
+      OR: [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { city: { contains: search, mode: "insensitive" } },
+      ],
+    });
   }
+
+  const where: Prisma.ClientWhereInput = conditions.length > 0
+    ? { AND: conditions }
+    : {};
 
   const [clients, total] = await Promise.all([
     prisma.client.findMany({
