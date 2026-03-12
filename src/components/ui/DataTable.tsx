@@ -18,6 +18,7 @@ interface DataTableProps<T> {
   onPageChange: (page: number) => void;
   onRowClick?: (item: T) => void;
   isLoading?: boolean;
+  rowClassName?: (item: T) => string;
 }
 
 function getNestedValue(obj: unknown, key: string): unknown {
@@ -38,6 +39,7 @@ export default function DataTable<T extends { id: string }>({
   onPageChange,
   onRowClick,
   isLoading,
+  rowClassName,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -116,7 +118,7 @@ export default function DataTable<T extends { id: string }>({
               sortedData.map((item) => (
                 <tr
                   key={item.id}
-                  className={`transition-colors hover:bg-slate-50 ${onRowClick ? "cursor-pointer" : ""}`}
+                  className={`transition-colors hover:bg-slate-50 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName ? rowClassName(item) : ""}`}
                   onClick={() => onRowClick?.(item)}
                 >
                   {columns.map((col) => (

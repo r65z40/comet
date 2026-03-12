@@ -100,7 +100,7 @@ export default function SyncPage() {
     if (!confirm("Supprimer tout l'historique de synchronisation ?")) return;
     setDeleting(true);
     try {
-      await fetch("/api/sync/logs", { method: "DELETE" });
+      await fetch("/api/sync", { method: "DELETE" });
       await fetchLogs();
     } catch {
       alert("Erreur lors de la suppression de l'historique");

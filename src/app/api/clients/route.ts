@@ -17,27 +17,15 @@ export async function GET(req: NextRequest) {
 
   // By default only show clients (not fournisseurs/prospects)
   if (!showAll) {
-    where.OR = [
-      { clientType: "client" },
-      { clientType: null },
-    ];
+    where.clientType = "client";
   }
 
   if (search) {
-    const searchConditions = [
+    where.OR = [
       { name: { contains: search, mode: "insensitive" } },
       { email: { contains: search, mode: "insensitive" } },
       { city: { contains: search, mode: "insensitive" } },
     ];
-    if (where.OR) {
-      where.AND = [
-        { OR: where.OR },
-        { OR: searchConditions },
-      ];
-      delete where.OR;
-    } else {
-      where.OR = searchConditions;
-    }
   }
 
   const [clients, total] = await Promise.all([

@@ -75,3 +75,12 @@ export async function GET() {
 
   return NextResponse.json({ logs });
 }
+
+export async function DELETE() {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  await prisma.syncLog.deleteMany({});
+
+  return NextResponse.json({ success: true });
+}

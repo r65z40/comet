@@ -111,13 +111,13 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total installations" value={data.counts.total} icon={Monitor} color="blue" href="/installations" />
-        <StatCard title="En parc" value={data.counts.enGarantie} icon={ShieldCheck} color="green" href="/installations?status=EN_PARC_GARANTIE" />
+        <StatCard title="En parc" value={data.counts.enGarantie} icon={ShieldCheck} color="green" href="/installations?status=EN_PARC" />
         <StatCard
           title="Hors parc"
           value={data.counts.horsGarantie}
           icon={ShieldX}
           color="red"
-          href="/installations?status=EN_PARC_HORS_GARANTIE"
+          href="/installations?status=HORS_PARC"
         />
         <StatCard title="Renouvelés" value={data.counts.renouvele} icon={RefreshCw} color="blue" href="/installations?status=RENOUVELE" />
       </div>
@@ -248,7 +248,7 @@ export default function DashboardPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-slate-500">Prochaines fins de garantie</h3>
-            <Link href="/installations?status=EN_PARC_GARANTIE" className="text-xs text-primary-600 hover:text-primary-700">
+            <Link href="/installations?status=EN_PARC" className="text-xs text-primary-600 hover:text-primary-700">
               Voir tout
             </Link>
           </div>
@@ -290,7 +290,7 @@ export default function DashboardPage() {
               <ShieldX className="h-4 w-4 text-red-600" />
               <h3 className="text-sm font-medium text-red-600">Hors parc</h3>
             </div>
-            <Link href="/installations?status=EN_PARC_HORS_GARANTIE" className="text-xs text-primary-600 hover:text-primary-700">
+            <Link href="/installations?status=HORS_PARC" className="text-xs text-primary-600 hover:text-primary-700">
               Voir tout
             </Link>
           </div>

@@ -30,8 +30,8 @@ export async function GET() {
     totalProducts,
   ] = await Promise.all([
     prisma.installation.count(),
-    prisma.installation.count({ where: { status: "EN_PARC_GARANTIE" } }),
-    prisma.installation.count({ where: { status: "EN_PARC_HORS_GARANTIE" } }),
+    prisma.installation.count({ where: { status: { in: ["EN_PARC", "EN_PARC_GARANTIE"] } } }),
+    prisma.installation.count({ where: { status: { in: ["HORS_PARC", "EN_PARC_HORS_GARANTIE"] } } }),
     prisma.installation.count({ where: { status: "RENOUVELE" } }),
     prisma.installation.count({
       where: { endDate: { gte: now, lte: thirtyDays }, status: { not: "RENOUVELE" } },
@@ -86,7 +86,7 @@ export async function GET() {
 
   const recentlyExpired = await prisma.installation.findMany({
     where: {
-      status: "EN_PARC_HORS_GARANTIE",
+      status: { in: ["HORS_PARC", "EN_PARC_HORS_GARANTIE"] },
     },
     include: {
       client: { select: { id: true, name: true } },

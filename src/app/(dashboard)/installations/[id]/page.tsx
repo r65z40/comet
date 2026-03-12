@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, RefreshCw, Trash2, Pencil } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired } from "@/lib/utils";
+import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired, getWarrantyLabel } from "@/lib/utils";
 import Link from "next/link";
 
 interface InstallationDetail {
@@ -40,7 +40,11 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
       .then((data) => {
         setInstallation(data);
         setNotes(data.notes || "");
-        setStatus(data.status);
+        // Migrate old statuses on the fly for display
+        let s = data.status;
+        if (s === "EN_PARC_GARANTIE") s = "EN_PARC";
+        if (s === "EN_PARC_HORS_GARANTIE") s = "HORS_PARC";
+        setStatus(s);
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -83,13 +87,15 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
     );
   }
 
+  const isEnParc = status === "EN_PARC";
+  const isRenewed = status === "RENOUVELE";
+  const isHorsParc = status === "HORS_PARC";
+  const expired = isWarrantyExpired(installation.endDate);
   const countdown = formatCountdown(installation.endDate);
   const countdownColor = getCountdownColor(installation.endDate);
-  const expired = isWarrantyExpired(installation.endDate);
-  const isRenewed = installation.status === "RENOUVELE";
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isRenewed ? "opacity-60" : ""}`}>
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.back()}
@@ -103,7 +109,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
             Installé chez <Link href={`/clients/${installation.client.id}`} className="text-primary-600 hover:text-primary-700">{installation.client.name}</Link>
           </p>
         </div>
-        <StatusBadge status={installation.status} expired={expired} />
+        <StatusBadge status={status} endDate={installation.endDate} />
         <button
           onClick={async () => {
             if (!confirm("Supprimer cette installation ?")) return;
@@ -118,35 +124,40 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
       </div>
 
       {/* Compte à rebours principal */}
-      <div className={`rounded-xl border p-6 text-center ${
-        isRenewed
-          ? "border-blue-200 bg-blue-50"
-          : expired
-            ? "border-red-200 bg-red-50"
-            : countdownColor === "text-orange-400"
-              ? "border-orange-200 bg-orange-50"
-              : countdownColor === "text-amber-400"
-                ? "border-amber-200 bg-amber-50"
-                : "border-emerald-200 bg-emerald-50"
-      }`}>
-        {isRenewed ? (
+      {isRenewed ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-6 text-center">
           <div className="flex items-center justify-center gap-3">
             <RefreshCw className="h-6 w-6 text-blue-600" />
             <span className="text-2xl font-bold text-blue-600">Renouvelé</span>
           </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Clock className={`h-5 w-5 ${countdownColor}`} />
-              <span className="text-sm text-slate-500">Garantie restante</span>
-            </div>
-            <p className={`text-3xl font-bold ${countdownColor}`}>{countdown}</p>
-            <p className="text-sm text-slate-500 mt-2">
-              Début : {formatDate(installation.startDate)} — Fin : {formatDate(installation.endDate)} ({installation.durationMonths} mois)
-            </p>
-          </>
-        )}
-      </div>
+        </div>
+      ) : isHorsParc ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
+          <div className="flex items-center justify-center gap-3">
+            <ShieldX className="h-6 w-6 text-slate-500" />
+            <span className="text-2xl font-bold text-slate-500">Hors parc</span>
+          </div>
+        </div>
+      ) : (
+        <div className={`rounded-xl border p-6 text-center ${
+          expired
+            ? "border-red-200 bg-red-50"
+            : countdownColor === "text-orange-600"
+              ? "border-orange-200 bg-orange-50"
+              : countdownColor === "text-amber-600"
+                ? "border-amber-200 bg-amber-50"
+                : "border-emerald-200 bg-emerald-50"
+        }`}>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Clock className={`h-5 w-5 ${countdownColor}`} />
+            <span className="text-sm text-slate-500">{getWarrantyLabel(installation.endDate)}</span>
+          </div>
+          <p className={`text-3xl font-bold ${countdownColor}`}>{countdown}</p>
+          <p className="text-sm text-slate-500 mt-2">
+            Début : {formatDate(installation.startDate)} — Fin : {formatDate(installation.endDate)} ({installation.durationMonths} mois)
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
@@ -230,33 +241,63 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs text-slate-400 mb-2">Statut</label>
+              <label className="block text-xs text-slate-400 mb-2">Statut principal</label>
               <div className="flex gap-2 flex-wrap">
-                <StatusButton
+                <ToggleButton
                   label="En parc"
-                  value="EN_PARC_GARANTIE"
-                  current={status}
-                  onClick={setStatus}
-                  icon={ShieldCheck}
-                  color="emerald"
-                />
-                <StatusButton
-                  label="Hors parc"
-                  value="EN_PARC_HORS_GARANTIE"
-                  current={status}
-                  onClick={setStatus}
-                  icon={ShieldX}
-                  color="red"
-                />
-                <StatusButton
-                  label="Renouvelé"
-                  value="RENOUVELE"
-                  current={status}
-                  onClick={setStatus}
-                  icon={RefreshCw}
-                  color="blue"
+                  active={isEnParc}
+                  onClick={() => setStatus(isEnParc ? "HORS_PARC" : "EN_PARC")}
+                  icon={isEnParc ? ShieldCheck : ShieldX}
+                  activeColor="emerald"
                 />
               </div>
+
+              {isEnParc && (
+                <div className="mt-3 ml-1">
+                  <p className="text-xs text-slate-400 mb-1.5">Garantie</p>
+                  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                    expired
+                      ? "bg-red-50 text-red-700 border-red-200"
+                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  }`}>
+                    {expired ? "Hors garantie" : "Sous garantie"}
+                  </span>
+                  <span className={`ml-2 text-xs font-medium ${getCountdownColor(installation.endDate)}`}>
+                    {countdown}
+                  </span>
+                </div>
+              )}
+
+              {!isRenewed && (
+                <div className="mt-3">
+                  <label className="block text-xs text-slate-400 mb-1.5">Renouvellement</label>
+                  <ToggleButton
+                    label="Renouvelé"
+                    active={isRenewed}
+                    onClick={() => setStatus("RENOUVELE")}
+                    icon={RefreshCw}
+                    activeColor="blue"
+                  />
+                </div>
+              )}
+
+              {isRenewed && (
+                <div className="mt-3">
+                  <label className="block text-xs text-slate-400 mb-1.5">Renouvellement</label>
+                  <div className="flex gap-2 items-center">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-600">
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Renouvelé
+                    </span>
+                    <button
+                      onClick={() => setStatus("EN_PARC")}
+                      className="text-xs text-slate-400 hover:text-slate-600 underline"
+                    >
+                      Annuler le renouvellement
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -330,32 +371,29 @@ function InfoItem({ icon: Icon, label, value }: { icon: typeof Calendar; label: 
   );
 }
 
-function StatusButton({
+function ToggleButton({
   label,
-  value,
-  current,
+  active,
   onClick,
   icon: Icon,
-  color,
+  activeColor,
 }: {
   label: string;
-  value: string;
-  current: string;
-  onClick: (v: string) => void;
+  active: boolean;
+  onClick: () => void;
   icon: typeof ShieldCheck;
-  color: string;
+  activeColor: string;
 }) {
-  const isActive = current === value;
   const colorClasses: Record<string, string> = {
-    emerald: isActive ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-slate-200 text-slate-500 hover:border-emerald-500/50",
-    red: isActive ? "border-red-500 bg-red-50 text-red-600" : "border-slate-200 text-slate-500 hover:border-red-500/50",
-    blue: isActive ? "border-blue-500 bg-blue-500/20 text-blue-600" : "border-slate-200 text-slate-500 hover:border-blue-500/50",
+    emerald: active ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-slate-200 text-slate-500 hover:border-emerald-500/50",
+    red: active ? "border-red-500 bg-red-50 text-red-600" : "border-slate-200 text-slate-500 hover:border-red-500/50",
+    blue: active ? "border-blue-500 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-500 hover:border-blue-500/50",
   };
 
   return (
     <button
-      onClick={() => onClick(value)}
-      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${colorClasses[color]}`}
+      onClick={onClick}
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${colorClasses[activeColor]}`}
     >
       <Icon className="h-3.5 w-3.5" />
       {label}

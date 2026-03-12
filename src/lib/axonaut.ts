@@ -201,10 +201,9 @@ export async function syncClients() {
       }
 
       for (const c of companies) {
-        // Determine client type from Axonaut flags
-        let clientType: string | null = null;
-        if (c.is_customer || c.customer) clientType = "client";
-        else if (c.is_supplier || c.supplier) clientType = "fournisseur";
+        // Determine client type from Axonaut flags (default to "client" if untyped)
+        let clientType = "client";
+        if (c.is_supplier || c.supplier) clientType = "fournisseur";
         else if (c.is_prospect || c.prospect) clientType = "prospect";
 
         await prisma.client.upsert({
@@ -415,9 +414,7 @@ export async function generateInstallations() {
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + line.product.durationMonths);
 
-      const now = new Date();
-      const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      const status = diffDays > 0 ? "EN_PARC_GARANTIE" : "EN_PARC_HORS_GARANTIE";
+      const status = "EN_PARC";
 
       await prisma.installation.create({
         data: {
@@ -463,23 +460,13 @@ export async function generateInstallations() {
 }
 
 export async function updateInstallationStatuses() {
-  const now = new Date();
-
-  // Produits dont la garantie est encore valide (ne pas toucher Renouvelé ou Non défini)
+  // Migrate old statuses to new ones
   await prisma.installation.updateMany({
-    where: {
-      endDate: { gt: now },
-      status: { notIn: ["RENOUVELE", "NON_DEFINI"] },
-    },
-    data: { status: "EN_PARC_GARANTIE" },
+    where: { status: "EN_PARC_GARANTIE" },
+    data: { status: "EN_PARC" },
   });
-
-  // Produits dont la garantie est expirée (ne pas toucher Renouvelé ou Non défini)
   await prisma.installation.updateMany({
-    where: {
-      endDate: { lte: now },
-      status: { notIn: ["RENOUVELE", "NON_DEFINI"] },
-    },
-    data: { status: "EN_PARC_HORS_GARANTIE" },
+    where: { status: "EN_PARC_HORS_GARANTIE" },
+    data: { status: "HORS_PARC" },
   });
 }

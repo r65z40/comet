@@ -39,7 +39,7 @@ export async function PATCH(
 
   const updateData: Record<string, unknown> = {};
   if (body.notes !== undefined) updateData.notes = body.notes;
-  if (body.status && ["EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE", "RENOUVELE"].includes(body.status)) {
+  if (body.status && ["EN_PARC", "HORS_PARC", "RENOUVELE", "EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE"].includes(body.status)) {
     updateData.status = body.status;
   }
   if (body.endDate) {

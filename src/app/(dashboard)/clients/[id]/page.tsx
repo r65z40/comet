@@ -125,16 +125,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
     function getReportStatusLabel(status: string): string {
-      if (status === "EN_PARC_GARANTIE") return "En parc";
-      if (status === "EN_PARC_HORS_GARANTIE") return "Hors parc";
-      if (status === "RENOUVELE") return "Hors parc (Renouvelé)";
+      if (status === "EN_PARC" || status === "EN_PARC_GARANTIE") return "En parc";
+      if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE") return "Hors parc";
+      if (status === "RENOUVELE") return "Renouvelé";
       return status;
     }
 
     function getStatusStyle(status: string, endDate: string): string {
       const expired = new Date(endDate).getTime() < Date.now();
       if (status === "RENOUVELE") return "color: #2563eb; font-weight: 700;";
-      if (status === "EN_PARC_HORS_GARANTIE") return "color: #dc2626; font-weight: 700;";
+      if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE") return "color: #dc2626; font-weight: 700;";
       if (expired) return "color: #dc2626; font-weight: 700;";
       const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       if (days <= 90) return "color: #ea580c; font-weight: 700;";
@@ -215,8 +215,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       `;
     }
 
-    const enParc = client.installations.filter(i => i.status === "EN_PARC_GARANTIE");
-    const horsParc = client.installations.filter(i => i.status === "EN_PARC_HORS_GARANTIE" || i.status === "RENOUVELE");
+    const enParc = client.installations.filter(i => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
+    const horsParc = client.installations.filter(i => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE" || i.status === "RENOUVELE");
 
     const clientLogoHtml = client.logoUrl
       ? `<img src="${client.logoUrl}" alt="Logo client" style="max-width: 180px; max-height: 120px;" />`
@@ -358,8 +358,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const enParc = client.installations.filter((i) => i.status === "EN_PARC_GARANTIE");
-  const horsParc = client.installations.filter((i) => i.status === "EN_PARC_HORS_GARANTIE");
+  const enParc = client.installations.filter((i) => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
+  const horsParc = client.installations.filter((i) => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
   const renouvele = client.installations.filter((i) => i.status === "RENOUVELE");
 
   return (
@@ -523,32 +523,20 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       {inst.status === "RENOUVELE" ? "Renouvelé" : formatCountdown(inst.endDate)}
                     </span>
                   </td>
-                  <td className="px-4 py-3"><StatusBadge status={inst.status} expired={expired} /></td>
+                  <td className="px-4 py-3"><StatusBadge status={inst.status} endDate={inst.endDate} /></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       <button
-                        onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "EN_PARC_GARANTIE"); }}
+                        onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE" ? "HORS_PARC" : "EN_PARC"); }}
                         disabled={updatingStatus === inst.id}
-                        title="En parc"
+                        title={inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE" ? "Retirer du parc" : "Mettre en parc"}
                         className={`rounded p-1 transition-colors disabled:opacity-50 ${
-                          inst.status === "EN_PARC_GARANTIE"
+                          inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE"
                             ? "text-emerald-600 bg-emerald-50"
                             : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
                         }`}
                       >
                         <ShieldCheck className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "EN_PARC_HORS_GARANTIE"); }}
-                        disabled={updatingStatus === inst.id}
-                        title="Hors parc"
-                        className={`rounded p-1 transition-colors disabled:opacity-50 ${
-                          inst.status === "EN_PARC_HORS_GARANTIE"
-                            ? "text-red-600 bg-red-50"
-                            : "text-slate-400 hover:text-red-600 hover:bg-red-50"
-                        }`}
-                      >
-                        <ShieldX className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "RENOUVELE"); }}

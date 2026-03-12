@@ -262,8 +262,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="lg:col-span-2">
         <h1 className="text-2xl font-bold text-slate-900">Paramètres</h1>
         <p className="text-sm text-slate-500 mt-1">Configuration de l&apos;application</p>
       </div>
@@ -660,7 +660,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Gestion des utilisateurs */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary-50 p-2">

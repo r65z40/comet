@@ -57,8 +57,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const activeInstalls = product.installations.filter((i) => i.status === "EN_PARC_GARANTIE");
-  const expiredInstalls = product.installations.filter((i) => i.status === "EN_PARC_HORS_GARANTIE");
+  const activeInstalls = product.installations.filter((i) => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
+  const expiredInstalls = product.installations.filter((i) => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
   const renewedInstalls = product.installations.filter((i) => i.status === "RENOUVELE");
 
   return (
@@ -157,7 +157,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       {formatCountdown(inst.endDate)}
                     </span>
                   )}
-                  <StatusBadge status={inst.status} expired={isWarrantyExpired(inst.endDate)} />
+                  <StatusBadge status={inst.status} endDate={inst.endDate} />
                 </div>
               </Link>
             ))}

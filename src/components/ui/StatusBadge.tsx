@@ -1,21 +1,33 @@
-import { cn, getStatusLabel, getStatusColor } from "@/lib/utils";
+import { cn, getStatusLabel, getStatusColor, getWarrantyLabel, getWarrantyColor } from "@/lib/utils";
 
-export default function StatusBadge({ status, expired }: { status: string; expired?: boolean }) {
-  const baseColor = getStatusColor(status);
-  const expiredOverride = expired && status === "EN_PARC_GARANTIE"
-    ? "bg-red-50 text-red-700 border-red-200"
-    : baseColor;
+export default function StatusBadge({ status, endDate }: { status: string; expired?: boolean; endDate?: string }) {
+  const isEnParc = status === "EN_PARC" || status === "EN_PARC_GARANTIE";
+  const isRenewed = status === "RENOUVELE";
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        expiredOverride
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className={cn(
+          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
+          getStatusColor(status)
+        )}
+      >
+        {getStatusLabel(status)}
+      </span>
+      {isEnParc && endDate && (
+        <span
+          className={cn(
+            "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
+            getWarrantyColor(endDate)
+          )}
+        >
+          {getWarrantyLabel(endDate)}
+        </span>
       )}
-    >
-      {getStatusLabel(status)}
-      {status === "RENOUVELE" && (
-        <span className="ml-1 text-blue-600">(Renouvelé)</span>
+      {isRenewed && (
+        <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+          Renouvelé
+        </span>
       )}
     </span>
   );

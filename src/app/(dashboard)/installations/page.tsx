@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired } from "@/lib/utils";
+import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
 
 interface Installation {
   id: string;
@@ -86,15 +86,19 @@ export default function InstallationsPage() {
       key: "countdown",
       label: "Compte à rebours",
       render: (i: Installation) => (
-        <span className={`text-xs font-bold ${getCountdownColor(i.endDate)}`}>
-          {formatCountdown(i.endDate)}
-        </span>
+        i.status === "RENOUVELE" ? (
+          <span className="text-xs text-blue-500">—</span>
+        ) : (
+          <span className={`text-xs font-bold ${getCountdownColor(i.endDate)}`}>
+            {formatCountdown(i.endDate)}
+          </span>
+        )
       ),
     },
     {
       key: "status",
       label: "Statut",
-      render: (i: Installation) => <StatusBadge status={i.status} expired={isWarrantyExpired(i.endDate)} />,
+      render: (i: Installation) => <StatusBadge status={i.status} endDate={i.endDate} />,
     },
   ];
 
@@ -145,8 +149,8 @@ export default function InstallationsPage() {
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-primary-500 focus:outline-none"
         >
           <option value="">Tous les statuts</option>
-          <option value="EN_PARC_GARANTIE">En parc</option>
-          <option value="EN_PARC_HORS_GARANTIE">Hors parc</option>
+          <option value="EN_PARC">En parc</option>
+          <option value="HORS_PARC">Hors parc</option>
           <option value="RENOUVELE">Renouvelé</option>
         </select>
 
@@ -175,6 +179,7 @@ export default function InstallationsPage() {
         onPageChange={setPage}
         onRowClick={(i) => router.push(`/installations/${i.id}`)}
         isLoading={loading}
+        rowClassName={(i) => i.status === "RENOUVELE" ? "opacity-50" : ""}
       />
     </div>
   );
