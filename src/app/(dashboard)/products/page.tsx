@@ -47,7 +47,11 @@ export default function ProductsPage() {
     {
       key: "name",
       label: "Produit",
-      render: (p: Product) => <span className="font-medium text-slate-900">{p.name}</span>,
+      render: (p: Product) => (
+        <span className="font-medium text-slate-900 block max-w-xs truncate" title={p.name}>
+          {p.name}
+        </span>
+      ),
     },
     { key: "code", label: "Code" },
     { key: "family", label: "Famille" },
