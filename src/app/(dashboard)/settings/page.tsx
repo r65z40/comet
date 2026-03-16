@@ -40,6 +40,7 @@ export default function SettingsPage() {
   const [reportSubtitle, setReportSubtitle] = useState("");
   const [reportMessage, setReportMessage] = useState("");
   const [companyLogo, setCompanyLogo] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [reportGroupMode, setReportGroupMode] = useState("date");
   const [savingReport, setSavingReport] = useState(false);
   const [savedReport, setSavedReport] = useState(false);
@@ -74,6 +75,7 @@ export default function SettingsPage() {
         setReportSubtitle(data.report_subtitle || "");
         setReportMessage(data.report_message || "");
         setCompanyLogo(data.company_logo || "");
+        setCompanyName(data.company_name || "");
         setReportGroupMode(data.report_group_mode || "date");
       })
       .finally(() => setLoading(false));
@@ -209,6 +211,7 @@ export default function SettingsPage() {
         report_subtitle: reportSubtitle,
         report_message: reportMessage,
         company_logo: companyLogo,
+        company_name: companyName,
         report_group_mode: reportGroupMode,
       }),
     });
@@ -607,6 +610,20 @@ export default function SettingsPage() {
             }}
           />
           <p className="text-xs text-slate-400 mt-1">Ce logo apparaîtra sur la page de garde du rapport (max 2 Mo)</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+            Nom de votre société
+          </label>
+          <input
+            type="text"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="Ex: CEDELIA"
+            className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+          <p className="text-xs text-slate-400 mt-1">Affiché verticalement sur le côté droit de la page de garde</p>
         </div>
 
         <div>

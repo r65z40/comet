@@ -121,6 +121,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const subtitle = reportSettings.report_subtitle || "";
     const message = reportSettings.report_message || "";
     const companyLogo = reportSettings.company_logo || "";
+    const companyName = reportSettings.company_name || "";
     const groupByFamily = reportSettings.report_group_mode === "family";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
@@ -240,6 +241,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1a1a2e; }
 
     .cover-page {
+      position: relative;
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -250,6 +252,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       background: #ffffff;
       color: #1a1a2e;
       padding: 40px;
+      overflow: hidden;
     }
     .cover-logos { display: flex; align-items: center; justify-content: center; gap: 40px; margin-bottom: 40px; }
     .cover-logos img { border-radius: 12px; background: white; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -258,6 +261,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page .subtitle { font-size: 18px; color: #64748b; margin-bottom: 8px; }
     .cover-page .date { font-size: 16px; color: #94a3b8; margin-top: 40px; }
     .cover-page .message { font-size: 14px; color: #64748b; margin-top: 20px; max-width: 500px; line-height: 1.6; }
+    .cover-page .vertical-text { position: absolute; right: 30px; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: center center; font-size: 28px; font-weight: 800; color: #e2e8f0; letter-spacing: 8px; text-transform: uppercase; white-space: nowrap; }
 
     .report-content { padding: 20px 0; }
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; }
@@ -283,6 +287,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 </head>
 <body>
   <div class="cover-page">
+    ${companyName ? `<div class="vertical-text">${companyName}</div>` : ""}
     <div class="cover-logos">
       ${companyLogoHtml}
       ${clientLogoHtml}
