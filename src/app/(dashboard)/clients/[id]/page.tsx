@@ -23,6 +23,7 @@ interface Installation {
 
 interface ClientDetail {
   id: string;
+  axonautId: number | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -48,6 +49,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [reportSettings, setReportSettings] = useState<Record<string, string>>({});
+  const [refreshing, setRefreshing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -114,6 +116,24 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     setClient(data);
   }
 
+  async function refreshFromAxonaut() {
+    if (!client?.axonautId) return;
+    setRefreshing(true);
+    try {
+      await fetch("/api/sync/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "client", axonautId: client.axonautId }),
+      });
+      const res = await fetch(`/api/clients/${id}`);
+      const data = await res.json();
+      setClient(data);
+    } catch {
+      alert("Erreur lors de l'actualisation");
+    }
+    setRefreshing(false);
+  }
+
   function printReport() {
     if (!client) return;
 
@@ -122,6 +142,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const message = reportSettings.report_message || "";
     const companyLogo = reportSettings.company_logo || "";
     const companyName = reportSettings.company_name || "";
+    const showVerticalName = reportSettings.report_show_vertical_name !== "false";
     const groupByFamily = reportSettings.report_group_mode === "family";
     const primaryColor = reportSettings.report_primary_color || "#3b82f6";
     const showStats = reportSettings.report_show_stats !== "false";
@@ -268,7 +289,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page .subtitle { font-size: 18px; color: #64748b; margin-bottom: 8px; }
     .cover-page .date { font-size: 16px; color: #94a3b8; margin-top: 40px; }
     .cover-page .message { font-size: 14px; color: #64748b; margin-top: 20px; max-width: 500px; line-height: 1.6; }
-    .cover-page .vertical-text { position: absolute; right: 30px; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: center center; font-size: 28px; font-weight: 800; color: ${primaryColor}40; letter-spacing: 8px; text-transform: uppercase; white-space: nowrap; }
+    .cover-page .vertical-text { position: absolute; right: -10px; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: center center; font-size: 28px; font-weight: 800; color: ${primaryColor}40; letter-spacing: 8px; text-transform: uppercase; white-space: nowrap; }
 
     .report-content { padding: 20px 0; }
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
@@ -295,7 +316,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 </head>
 <body>
   <div class="cover-page">
-    ${companyName ? `<div class="vertical-text">${companyName}</div>` : ""}
+    ${showVerticalName ? `<div class="vertical-text">${client.name}</div>` : ""}
     <div class="cover-logos">
       ${companyLogoHtml}
       ${clientLogoHtml}
@@ -459,6 +480,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             >
               <Upload className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Changer le logo</span>
+            </button>
+          )}
+          {client.axonautId && (
+            <button
+              onClick={refreshFromAxonaut}
+              disabled={refreshing}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Actualiser</span>
             </button>
           )}
           <button

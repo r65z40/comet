@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Building2, FileText, Package } from "lucide-react";
+import { ArrowLeft, Calendar, Building2, FileText, Package, RefreshCw } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCurrency } from "@/lib/utils";
@@ -35,6 +35,7 @@ interface Installation {
 
 interface InvoiceDetail {
   id: string;
+  axonautId: number | null;
   invoiceNumber: string | null;
   invoiceDate: string;
   totalAmount: number | null;
@@ -49,6 +50,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter();
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetch(`/api/invoices/${id}`)
@@ -56,6 +58,24 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       .then((data) => setInvoice(data))
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function refreshFromAxonaut() {
+    if (!invoice?.axonautId) return;
+    setRefreshing(true);
+    try {
+      await fetch("/api/sync/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "invoice", axonautId: invoice.axonautId }),
+      });
+      const res = await fetch(`/api/invoices/${id}`);
+      const data = await res.json();
+      setInvoice(data);
+    } catch {
+      alert("Erreur lors de l'actualisation");
+    }
+    setRefreshing(false);
+  }
 
   if (loading) return <LoadingSpinner />;
   if (!invoice) {
@@ -92,11 +112,23 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             </p>
           </div>
         </div>
-        {invoice.status && (
-          <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {invoice.status}
-          </span>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {invoice.axonautId && (
+            <button
+              onClick={refreshFromAxonaut}
+              disabled={refreshing}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Actualiser</span>
+            </button>
+          )}
+          {invoice.status && (
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+              {invoice.status}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

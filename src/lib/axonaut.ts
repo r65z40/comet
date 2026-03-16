@@ -60,6 +60,47 @@ async function axonautFetch(endpoint: string, page = 1) {
   return res.json();
 }
 
+async function axonautFetchDirect(endpoint: string) {
+  const { apiKey, apiUrl } = await getAxonautConfig();
+  if (!apiKey) throw new Error("Clé API Axonaut non configurée");
+
+  const now = Date.now();
+  const elapsed = now - lastApiCall;
+  if (elapsed < API_DELAY_MS) {
+    await delay(API_DELAY_MS - elapsed);
+  }
+  lastApiCall = Date.now();
+
+  const url = `${apiUrl}${endpoint}`;
+  const res = await fetch(url, {
+    headers: {
+      "userApiKey": apiKey,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (res.status === 429) {
+    await delay(2000);
+    lastApiCall = Date.now();
+    const retry = await fetch(url, {
+      headers: {
+        "userApiKey": apiKey,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!retry.ok) {
+      throw new Error(`Axonaut API error: ${retry.status} ${retry.statusText}`);
+    }
+    return retry.json();
+  }
+
+  if (!res.ok) {
+    throw new Error(`Axonaut API error: ${res.status} ${res.statusText}`);
+  }
+
+  return res.json();
+}
+
 function toFloat(val: unknown): number | null {
   if (val == null) return null;
   const n = parseFloat(String(val));
@@ -469,4 +510,145 @@ export async function updateInstallationStatuses() {
     where: { status: "EN_PARC_HORS_GARANTIE" },
     data: { status: "HORS_PARC" },
   });
+}
+
+export async function refreshClient(axonautId: number) {
+  const c = await axonautFetchDirect(`/companies/${axonautId}`);
+  let clientType = "client";
+  if (c.is_supplier || c.supplier) clientType = "fournisseur";
+  else if (c.is_prospect || c.prospect) clientType = "prospect";
+
+  await prisma.client.upsert({
+    where: { axonautId: c.id },
+    create: {
+      axonautId: c.id,
+      name: c.name || "Sans nom",
+      email: c.email || null,
+      phone: c.phone || null,
+      address: c.address_street || null,
+      city: c.address_city || null,
+      zipCode: c.address_zip_code || null,
+      country: c.address_country || null,
+      clientType,
+    },
+    update: {
+      name: c.name || "Sans nom",
+      email: c.email || null,
+      phone: c.phone || null,
+      address: c.address_street || null,
+      city: c.address_city || null,
+      zipCode: c.address_zip_code || null,
+      country: c.address_country || null,
+      clientType,
+    },
+  });
+
+  return { success: true };
+}
+
+export async function refreshProduct(axonautId: number) {
+  const p = await axonautFetchDirect(`/products/${axonautId}`);
+  const cf = p.custom_fields;
+  const durationStr = getCustomField(cf, "Durée en mois") || getCustomField(cf, "Duree en mois");
+  const durationMonths = durationStr ? parseInt(durationStr, 10) : 0;
+  const family = getCustomField(cf, "Famille") || p.category || null;
+  const supplier = getCustomField(cf, "Fournisseur") || null;
+  const duration = getCustomField(cf, "Durée") || getCustomField(cf, "Duree") || null;
+
+  await prisma.product.upsert({
+    where: { axonautId: p.id },
+    create: {
+      axonautId: p.id,
+      name: p.name || "Sans nom",
+      code: p.code || null,
+      description: p.description || null,
+      family,
+      supplier,
+      duration,
+      durationMonths: durationMonths || null,
+      unitPrice: toFloat(p.price),
+    },
+    update: {
+      name: p.name || "Sans nom",
+      code: p.code || null,
+      description: p.description || null,
+      family,
+      supplier,
+      duration,
+      durationMonths: durationMonths || null,
+      unitPrice: toFloat(p.price),
+    },
+  });
+
+  return { success: true };
+}
+
+export async function refreshInvoice(axonautId: number) {
+  const inv = await axonautFetchDirect(`/invoices/${axonautId}`);
+
+  const companyId = inv.company_id || inv.company?.id;
+  const client = companyId
+    ? await prisma.client.findUnique({ where: { axonautId: companyId } })
+    : null;
+
+  if (!client) throw new Error("Client non trouvé pour cette facture");
+
+  const invoice = await prisma.invoice.upsert({
+    where: { axonautId: inv.id },
+    create: {
+      axonautId: inv.id,
+      invoiceNumber: inv.number || inv.invoice_number || null,
+      clientId: client.id,
+      invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
+      totalAmount: toFloat(inv.total_amount ?? inv.total),
+      status: inv.status || null,
+    },
+    update: {
+      invoiceNumber: inv.number || inv.invoice_number || null,
+      clientId: client.id,
+      invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
+      totalAmount: toFloat(inv.total_amount ?? inv.total),
+      status: inv.status || null,
+    },
+  });
+
+  // Re-create invoice lines
+  await prisma.invoiceLine.deleteMany({ where: { invoiceId: invoice.id } });
+
+  const lines = inv.lines || inv.invoice_lines || inv.products || [];
+  for (const line of lines) {
+    const lineProductId = line.product_id || line.productId || line.product?.id;
+    let product = null;
+
+    if (lineProductId) {
+      product = await prisma.product.findUnique({ where: { axonautId: lineProductId } });
+    }
+
+    if (!product && (line.name || line.product_name || line.product_code)) {
+      const searchName = line.name || line.product_name;
+      const searchCode = line.product_code || line.code;
+
+      if (searchCode) {
+        product = await prisma.product.findFirst({ where: { code: searchCode } });
+      }
+      if (!product && searchName) {
+        product = await prisma.product.findFirst({
+          where: { name: { equals: searchName, mode: "insensitive" } },
+        });
+      }
+    }
+
+    await prisma.invoiceLine.create({
+      data: {
+        invoiceId: invoice.id,
+        productId: product?.id || null,
+        description: line.description || line.name || line.product_name || null,
+        quantity: toFloat(line.quantity) ?? 1,
+        unitPrice: toFloat(line.unit_price ?? line.price ?? line.unitPrice),
+        totalPrice: toFloat(line.total_price ?? line.total ?? line.totalPrice),
+      },
+    });
+  }
+
+  return { success: true };
 }

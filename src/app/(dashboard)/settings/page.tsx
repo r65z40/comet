@@ -53,6 +53,7 @@ export default function SettingsPage() {
   const [reportShowFamily, setReportShowFamily] = useState(true);
   const [reportShowSupplier, setReportShowSupplier] = useState(true);
   const [reportShowDuration, setReportShowDuration] = useState(true);
+  const [reportShowVerticalName, setReportShowVerticalName] = useState(true);
   const [reportFooterText, setReportFooterText] = useState("");
   const [reportOrientation, setReportOrientation] = useState("portrait");
   const [savingReport, setSavingReport] = useState(false);
@@ -95,6 +96,7 @@ export default function SettingsPage() {
         setReportShowFamily(data.report_show_family !== "false");
         setReportShowSupplier(data.report_show_supplier !== "false");
         setReportShowDuration(data.report_show_duration !== "false");
+        setReportShowVerticalName(data.report_show_vertical_name !== "false");
         setReportFooterText(data.report_footer_text || "");
         setReportOrientation(data.report_orientation || "portrait");
         setSiteLogo(data.site_logo || "");
@@ -251,6 +253,7 @@ export default function SettingsPage() {
         report_show_family: reportShowFamily ? "true" : "false",
         report_show_supplier: reportShowSupplier ? "true" : "false",
         report_show_duration: reportShowDuration ? "true" : "false",
+        report_show_vertical_name: reportShowVerticalName ? "true" : "false",
         report_footer_text: reportFooterText,
         report_orientation: reportOrientation,
       }),
@@ -738,7 +741,7 @@ export default function SettingsPage() {
             placeholder="Ex: CEDELIA"
             className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
-          <p className="text-xs text-slate-400 mt-1">Affiché verticalement sur le côté droit de la page de garde</p>
+          <p className="text-xs text-slate-400 mt-1">Nom affiché dans l&apos;en-tête du rapport</p>
         </div>
 
         <div>
@@ -904,6 +907,15 @@ export default function SettingsPage() {
                 className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-slate-600">Colonne &quot;Durée&quot;</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowVerticalName}
+                onChange={(e) => setReportShowVerticalName(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Nom du client vertical sur la page de garde</span>
             </label>
           </div>
         </div>

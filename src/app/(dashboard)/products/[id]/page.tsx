@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Package, Tag, Truck, Clock, Calendar, Monitor, Trash2 } from "lucide-react";
+import { ArrowLeft, Package, Tag, Truck, Clock, Calendar, Monitor, Trash2, RefreshCw } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired } from "@/lib/utils";
@@ -23,6 +23,7 @@ interface Installation {
 
 interface ProductDetail {
   id: string;
+  axonautId: number | null;
   name: string;
   code: string | null;
   description: string | null;
@@ -39,6 +40,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetch(`/api/products/${id}`)
@@ -46,6 +48,24 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       .then(setProduct)
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function refreshFromAxonaut() {
+    if (!product?.axonautId) return;
+    setRefreshing(true);
+    try {
+      await fetch("/api/sync/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "product", axonautId: product.axonautId }),
+      });
+      const res = await fetch(`/api/products/${id}`);
+      const data = await res.json();
+      setProduct(data);
+    } catch {
+      alert("Erreur lors de l'actualisation");
+    }
+    setRefreshing(false);
+  }
 
   if (loading) return <LoadingSpinner />;
   if (!product) {
@@ -76,17 +96,29 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             {product.code && <p className="text-sm text-slate-500 mt-1">Code: {product.code}</p>}
           </div>
         </div>
-        <button
-          onClick={async () => {
-            if (!confirm(`Supprimer le produit "${product.name}" et toutes ses installations associées ?`)) return;
-            await fetch(`/api/products/${product.id}`, { method: "DELETE" });
-            router.push("/products");
-          }}
-          className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors shrink-0"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Supprimer
-        </button>
+        <div className="flex gap-2 shrink-0">
+          {product.axonautId && (
+            <button
+              onClick={refreshFromAxonaut}
+              disabled={refreshing}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Actualiser</span>
+            </button>
+          )}
+          <button
+            onClick={async () => {
+              if (!confirm(`Supprimer le produit "${product.name}" et toutes ses installations associées ?`)) return;
+              await fetch(`/api/products/${product.id}`, { method: "DELETE" });
+              router.push("/products");
+            }}
+            className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Supprimer
+          </button>
+        </div>
       </div>
 
       {/* Infos produit */}
