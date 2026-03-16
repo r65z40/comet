@@ -35,6 +35,7 @@ async function axonautFetch(endpoint: string, page = 1) {
       "userApiKey": apiKey,
       "Content-Type": "application/json",
     },
+    cache: "no-store",
   });
 
   if (res.status === 429) {
@@ -46,6 +47,7 @@ async function axonautFetch(endpoint: string, page = 1) {
         "userApiKey": apiKey,
         "Content-Type": "application/json",
       },
+      cache: "no-store",
     });
     if (!retry.ok) {
       throw new Error(`Axonaut API error: ${retry.status} ${retry.statusText}`);
@@ -77,6 +79,7 @@ async function axonautFetchDirect(endpoint: string) {
       "userApiKey": apiKey,
       "Content-Type": "application/json",
     },
+    cache: "no-store",
   });
 
   if (res.status === 429) {
@@ -87,6 +90,7 @@ async function axonautFetchDirect(endpoint: string) {
         "userApiKey": apiKey,
         "Content-Type": "application/json",
       },
+      cache: "no-store",
     });
     if (!retry.ok) {
       throw new Error(`Axonaut API error: ${retry.status} ${retry.statusText}`);

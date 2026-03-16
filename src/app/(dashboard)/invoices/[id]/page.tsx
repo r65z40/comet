@@ -63,11 +63,17 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     if (!invoice?.axonautId) return;
     setRefreshing(true);
     try {
-      await fetch("/api/sync/refresh", {
+      const syncRes = await fetch("/api/sync/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "invoice", axonautId: invoice.axonautId }),
       });
+      if (!syncRes.ok) {
+        const err = await syncRes.json().catch(() => ({}));
+        alert(`Erreur: ${err.error || syncRes.statusText}`);
+        setRefreshing(false);
+        return;
+      }
       const res = await fetch(`/api/invoices/${id}`);
       const data = await res.json();
       setInvoice(data);
