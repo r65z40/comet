@@ -4,7 +4,7 @@ export default function StatusBadge({ status, endDate, alwaysInFleet }: { status
   // "Toujours en parc" overrides all other statuses when active
   if (alwaysInFleet) {
     return (
-      <span className="inline-flex items-center gap-1.5">
+      <span className="inline-flex items-center justify-center gap-1.5">
         <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
           Toujours en parc
         </span>
@@ -13,10 +13,9 @@ export default function StatusBadge({ status, endDate, alwaysInFleet }: { status
   }
 
   const isEnParc = status === "EN_PARC" || status === "EN_PARC_GARANTIE";
-  const isRenewed = status === "RENOUVELE";
 
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex items-center justify-center gap-1.5">
       <span
         className={cn(
           "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
@@ -33,11 +32,6 @@ export default function StatusBadge({ status, endDate, alwaysInFleet }: { status
           )}
         >
           {getWarrantyLabel(endDate)}
-        </span>
-      )}
-      {isRenewed && (
-        <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-          Renouvelé
         </span>
       )}
     </span>

@@ -40,6 +40,8 @@ export default function SettingsPage() {
   const [savingSiteLogo, setSavingSiteLogo] = useState(false);
   const [savedSiteLogo, setSavedSiteLogo] = useState(false);
   const siteLogoRef = useRef<HTMLInputElement>(null);
+  const [siteFavicon, setSiteFavicon] = useState("");
+  const siteFaviconRef = useRef<HTMLInputElement>(null);
 
   // Report settings
   const [reportTitle, setReportTitle] = useState("");
@@ -54,6 +56,7 @@ export default function SettingsPage() {
   const [reportShowSupplier, setReportShowSupplier] = useState(true);
   const [reportShowDuration, setReportShowDuration] = useState(true);
   const [reportShowVerticalName, setReportShowVerticalName] = useState(true);
+  const [reportIncludeHorsParc, setReportIncludeHorsParc] = useState(true);
   const [reportFooterText, setReportFooterText] = useState("");
   const [reportOrientation, setReportOrientation] = useState("portrait");
   const [savingReport, setSavingReport] = useState(false);
@@ -104,9 +107,11 @@ export default function SettingsPage() {
         setReportShowSupplier(data.report_show_supplier !== "false");
         setReportShowDuration(data.report_show_duration !== "false");
         setReportShowVerticalName(data.report_show_vertical_name !== "false");
+        setReportIncludeHorsParc(data.report_include_hors_parc !== "false");
         setReportFooterText(data.report_footer_text || "");
         setReportOrientation(data.report_orientation || "portrait");
         setSiteLogo(data.site_logo || "");
+        setSiteFavicon(data.site_favicon || "");
       })
       .finally(() => setLoading(false));
 
@@ -236,7 +241,7 @@ export default function SettingsPage() {
     await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ site_logo: siteLogo }),
+      body: JSON.stringify({ site_logo: siteLogo, site_favicon: siteFavicon }),
     });
     setSavingSiteLogo(false);
     setSavedSiteLogo(true);
@@ -261,6 +266,7 @@ export default function SettingsPage() {
         report_show_supplier: reportShowSupplier ? "true" : "false",
         report_show_duration: reportShowDuration ? "true" : "false",
         report_show_vertical_name: reportShowVerticalName ? "true" : "false",
+        report_include_hors_parc: reportIncludeHorsParc ? "true" : "false",
         report_footer_text: reportFooterText,
         report_orientation: reportOrientation,
       }),
@@ -410,6 +416,58 @@ export default function SettingsPage() {
           <p className="text-xs text-slate-400 mt-1">Ce logo remplace le logo par défaut dans la barre latérale et la page de connexion (max 2 Mo)</p>
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+            Favicon du site
+          </label>
+          <div className="flex items-center gap-4">
+            {siteFavicon ? (
+              <div className="relative group">
+                <img
+                  src={siteFavicon}
+                  alt="Favicon"
+                  className="h-12 w-12 rounded-lg bg-white p-1 border border-slate-200 object-contain"
+                />
+                <button
+                  onClick={() => setSiteFavicon("")}
+                  className="absolute -top-1.5 -right-1.5 rounded-full bg-red-500 p-0.5 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center">
+                  <Globe className="h-5 w-5 text-slate-400" />
+                </div>
+                <span className="text-xs text-slate-400">Favicon par défaut</span>
+              </div>
+            )}
+            <button
+              onClick={() => siteFaviconRef.current?.click()}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              {siteFavicon ? "Changer" : "Personnaliser"}
+            </button>
+          </div>
+          <input
+            ref={siteFaviconRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              if (file.size > 2 * 1024 * 1024) { alert("Max 2 Mo"); return; }
+              const reader = new FileReader();
+              reader.onload = () => setSiteFavicon(reader.result as string);
+              reader.readAsDataURL(file);
+            }}
+          />
+          <p className="text-xs text-slate-400 mt-1">Icône affichée dans l&apos;onglet du navigateur (max 2 Mo, format carré recommandé)</p>
+        </div>
+
         <div className="flex items-center gap-3 pt-2">
           <button
             onClick={handleSaveSiteLogo}
@@ -419,7 +477,7 @@ export default function SettingsPage() {
             {savingSiteLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Enregistrer
           </button>
-          {savedSiteLogo && <span className="text-xs text-emerald-600">Logo enregistré — rechargez la page pour voir le changement</span>}
+          {savedSiteLogo && <span className="text-xs text-emerald-600">Apparence enregistrée — rechargez la page pour voir le changement</span>}
         </div>
       </div>
 
@@ -923,6 +981,15 @@ export default function SettingsPage() {
                 className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-slate-600">Nom du client vertical sur la page de garde</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportIncludeHorsParc}
+                onChange={(e) => setReportIncludeHorsParc(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Inclure les produits hors parc dans le rapport</span>
             </label>
           </div>
         </div>

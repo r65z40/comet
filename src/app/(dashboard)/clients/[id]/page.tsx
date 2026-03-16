@@ -195,6 +195,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const showDuration = reportSettings.report_show_duration !== "false";
     const footerText = reportSettings.report_footer_text || "";
     const orientation = reportSettings.report_orientation || "portrait";
+    const includeHorsParc = reportSettings.report_include_hors_parc !== "false";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
     function getReportStatusLabel(status: string, alwaysInFleet?: boolean): string {
@@ -230,8 +231,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       `).join("");
     }
 
-    // Exclude renewed installations from report
-    const reportInstallations = client.installations.filter(i => i.status !== "RENOUVELE");
+    // Exclude renewed installations from report, and optionally hors parc
+    const reportInstallations = client.installations.filter(i => {
+      if (i.status === "RENOUVELE") return false;
+      if (!includeHorsParc && (i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE")) return false;
+      return true;
+    });
 
     let tableContent = "";
     if (groupByFamily) {
@@ -246,16 +251,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div style="margin-top: 20px;">
           <h3 style="font-size: 14px; font-weight: 700; color: ${primaryColor}; margin-bottom: 8px; padding: 6px 10px; background: ${primaryColor}11; border-radius: 4px;">${family} (${installs.length})</h3>
           <table>
-            <thead>
-              <tr>
-                <th>Produit</th>
-                ${showSupplier ? "<th>Fournisseur</th>" : ""}
-                <th>Début</th>
-                ${showDuration ? "<th>Durée</th>" : ""}
-                <th>Fin garantie</th>
-                <th>Statut</th>
-              </tr>
-            </thead>
             <tbody>
               ${installs.map((inst) => `
                 <tr>
@@ -275,17 +270,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       const sorted = [...reportInstallations].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
       tableContent = `
         <table>
-          <thead>
-            <tr>
-              <th>Produit</th>
-              ${showFamily ? "<th>Famille</th>" : ""}
-              ${showSupplier ? "<th>Fournisseur</th>" : ""}
-              <th>Début</th>
-              ${showDuration ? "<th>Durée</th>" : ""}
-              <th>Fin garantie</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
           <tbody>
             ${buildInstRows(sorted)}
           </tbody>
@@ -354,7 +338,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: fixed; }
     th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; word-wrap: break-word; }
-    td { padding: 8px; border-bottom: 1px solid #f1f5f9; word-wrap: break-word; }
+    td { padding: 8px; border-bottom: 1px solid #f1f5f9; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; }
+    td:first-child { max-width: 200px; }
     tr:nth-child(even) { background: #fafafa; }
 
     .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
@@ -611,11 +596,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   key={inst.id}
                   className="hover:bg-slate-50 transition-colors"
                 >
-                  <td className="px-4 py-3">
-                    <Link href={`/installations/${inst.id}`} className="text-sm font-medium text-primary-600 hover:text-primary-700">
+                  <td className="px-4 py-3 max-w-[200px]">
+                    <Link href={`/installations/${inst.id}`} className="text-sm font-medium text-primary-600 hover:text-primary-700 block truncate" title={inst.product.name}>
                       {inst.product.name}
                     </Link>
-                    {inst.product.code && <p className="text-[10px] text-slate-400">{inst.product.code}</p>}
+                    {inst.product.code && <p className="text-[10px] text-slate-400 truncate">{inst.product.code}</p>}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-600">{inst.family || "—"}</td>
                   <td className="px-4 py-3 text-sm text-slate-600">{inst.supplier || "—"}</td>

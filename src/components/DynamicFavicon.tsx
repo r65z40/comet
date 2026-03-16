@@ -7,8 +7,8 @@ export default function DynamicFavicon() {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data) => {
-        const logoUrl = data.site_logo;
-        if (logoUrl) {
+        const faviconUrl = data.site_favicon || data.site_logo;
+        if (faviconUrl) {
           // Update existing favicon link or create one
           let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
           if (!link) {
@@ -16,7 +16,7 @@ export default function DynamicFavicon() {
             link.rel = "icon";
             document.head.appendChild(link);
           }
-          link.href = logoUrl;
+          link.href = faviconUrl;
 
           // Also update apple touch icon
           let appleLink = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement | null;
@@ -25,7 +25,7 @@ export default function DynamicFavicon() {
             appleLink.rel = "apple-touch-icon";
             document.head.appendChild(appleLink);
           }
-          appleLink.href = logoUrl;
+          appleLink.href = faviconUrl;
         }
       })
       .catch(() => {

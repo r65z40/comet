@@ -79,7 +79,9 @@ export default function InstallationsPage() {
     {
       key: "product",
       label: "Produit",
-      render: (i: Installation) => i.product.name,
+      render: (i: Installation) => (
+        <span className="block max-w-[200px] truncate" title={i.product.name}>{i.product.name}</span>
+      ),
     },
     { key: "family", label: "Famille" },
     { key: "supplier", label: "Fournisseur" },
