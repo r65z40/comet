@@ -587,29 +587,22 @@ export async function refreshProduct(axonautId: number) {
   return { success: true };
 }
 
-async function findInvoiceInList(axonautId: number) {
-  let page = 1;
-  const maxPages = 50;
-  while (page <= maxPages) {
-    const data = await axonautFetch("/invoices", page);
-    const invoices = Array.isArray(data) ? data : data.invoices || [];
-    if (invoices.length === 0) break;
-    const found = invoices.find((inv: { id: number }) => inv.id === axonautId);
-    if (found) return found;
-    page++;
-  }
-  return null;
-}
-
 export async function refreshInvoice(axonautId: number) {
+  // Try direct fetch first, then fallback to searching recent invoices (max 3 pages)
   let inv;
   try {
     inv = await axonautFetchDirect(`/invoices/${axonautId}`);
   } catch (e) {
-    // Fallback: search through paginated list if direct fetch fails (some Axonaut plans don't support GET by ID)
-    inv = await findInvoiceInList(axonautId);
+    // Direct endpoint returned error — try finding in recent pages
+    for (let page = 1; page <= 3; page++) {
+      const data = await axonautFetch("/invoices", page);
+      const invoices = Array.isArray(data) ? data : data.invoices || [];
+      if (invoices.length === 0) break;
+      const found = invoices.find((i: { id: number }) => i.id === axonautId);
+      if (found) { inv = found; break; }
+    }
     if (!inv) {
-      throw new Error(`Facture Axonaut #${axonautId} introuvable (${e instanceof Error ? e.message : "erreur"})`);
+      throw new Error(`Facture Axonaut #${axonautId} introuvable. Vérifiez que cette facture existe toujours dans Axonaut.`);
     }
   }
 
