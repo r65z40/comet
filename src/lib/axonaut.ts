@@ -588,17 +588,30 @@ export async function refreshProduct(axonautId: number) {
 }
 
 export async function refreshInvoice(axonautId: number) {
-  // Axonaut API has no GET /invoices/{id} endpoint — search through pages
+  // Try direct endpoints first (singular and plural), then fallback to paginated search
   let inv;
-  for (let page = 1; page <= 20; page++) {
-    const data = await axonautFetch("/invoices", page);
-    const invoices = Array.isArray(data) ? data : data.invoices || [];
-    if (invoices.length === 0) break;
-    const found = invoices.find((i: { id: number }) => i.id === axonautId);
-    if (found) { inv = found; break; }
+  for (const path of [`/invoices/${axonautId}`, `/invoice/${axonautId}`]) {
+    try {
+      const data = await axonautFetchDirect(path);
+      if (data && data.id) { inv = data; break; }
+    } catch { /* endpoint not available, try next */ }
   }
+
   if (!inv) {
-    throw new Error(`Facture Axonaut #${axonautId} introuvable (recherche sur 20 pages). Vérifiez que cette facture existe toujours dans Axonaut.`);
+    // Fallback: search through ALL pages like syncInvoices does
+    let page = 1;
+    while (true) {
+      const data = await axonautFetch("/invoices", page);
+      const invoices = Array.isArray(data) ? data : data.invoices || [];
+      if (invoices.length === 0) break;
+      const found = invoices.find((i: { id: number }) => i.id === axonautId);
+      if (found) { inv = found; break; }
+      page++;
+    }
+  }
+
+  if (!inv) {
+    throw new Error(`Facture Axonaut #${axonautId} introuvable. Vérifiez que cette facture existe toujours dans Axonaut.`);
   }
 
   const companyId = inv.company_id || inv.company?.id;
