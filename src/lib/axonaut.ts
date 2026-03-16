@@ -587,8 +587,31 @@ export async function refreshProduct(axonautId: number) {
   return { success: true };
 }
 
+async function findInvoiceInList(axonautId: number) {
+  let page = 1;
+  const maxPages = 50;
+  while (page <= maxPages) {
+    const data = await axonautFetch("/invoices", page);
+    const invoices = Array.isArray(data) ? data : data.invoices || [];
+    if (invoices.length === 0) break;
+    const found = invoices.find((inv: { id: number }) => inv.id === axonautId);
+    if (found) return found;
+    page++;
+  }
+  return null;
+}
+
 export async function refreshInvoice(axonautId: number) {
-  const inv = await axonautFetchDirect(`/invoices/${axonautId}`);
+  let inv;
+  try {
+    inv = await axonautFetchDirect(`/invoices/${axonautId}`);
+  } catch (e) {
+    // Fallback: search through paginated list if direct fetch fails (some Axonaut plans don't support GET by ID)
+    inv = await findInvoiceInList(axonautId);
+    if (!inv) {
+      throw new Error(`Facture Axonaut #${axonautId} introuvable (${e instanceof Error ? e.message : "erreur"})`);
+    }
+  }
 
   const companyId = inv.company_id || inv.company?.id;
   const client = companyId
