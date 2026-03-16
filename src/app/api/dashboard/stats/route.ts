@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { autoCorrectInstallationStatuses } from "@/lib/auto-status";
 
 export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   try {
+  // Auto-correct: warranty valid → EN_PARC
+  await autoCorrectInstallationStatuses();
+
   const now = new Date();
   const thirtyDays = new Date(now);
   thirtyDays.setDate(thirtyDays.getDate() + 30);
