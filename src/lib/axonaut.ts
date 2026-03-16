@@ -17,10 +17,7 @@ function delay(ms: number) {
 let lastApiCall = 0;
 const API_DELAY_MS = 600; // 600ms entre chaque appel
 
-async function axonautFetch(endpoint: string, page = 1) {
-  const { apiKey, apiUrl } = await getAxonautConfig();
-  if (!apiKey) throw new Error("Clé API Axonaut non configurée");
-
+async function rateLimitedFetch(url: string, apiKey: string): Promise<Response> {
   // Rate limiting: attendre entre les appels
   const now = Date.now();
   const elapsed = now - lastApiCall;
@@ -29,31 +26,34 @@ async function axonautFetch(endpoint: string, page = 1) {
   }
   lastApiCall = Date.now();
 
-  const url = `${apiUrl}${endpoint}${endpoint.includes("?") ? "&" : "?"}page=${page}`;
   const res = await fetch(url, {
-    headers: {
-      "userApiKey": apiKey,
-      "Content-Type": "application/json",
-    },
+    headers: { "userApiKey": apiKey, "Content-Type": "application/json" },
     cache: "no-store",
   });
 
+  // Retry avec backoff exponentiel en cas de 429
   if (res.status === 429) {
-    // Retry après 2 secondes en cas de 429
-    await delay(2000);
-    lastApiCall = Date.now();
-    const retry = await fetch(url, {
-      headers: {
-        "userApiKey": apiKey,
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-    });
-    if (!retry.ok) {
-      throw new Error(`Axonaut API error: ${retry.status} ${retry.statusText}`);
+    for (const wait of [2000, 4000, 8000]) {
+      await delay(wait);
+      lastApiCall = Date.now();
+      const retry = await fetch(url, {
+        headers: { "userApiKey": apiKey, "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+      if (retry.status !== 429) return retry;
     }
-    return retry.json();
+    throw new Error("Axonaut API: trop de requêtes (429). Réessayez dans quelques minutes.");
   }
+
+  return res;
+}
+
+async function axonautFetch(endpoint: string, page = 1) {
+  const { apiKey, apiUrl } = await getAxonautConfig();
+  if (!apiKey) throw new Error("Clé API Axonaut non configurée");
+
+  const url = `${apiUrl}${endpoint}${endpoint.includes("?") ? "&" : "?"}page=${page}`;
+  const res = await rateLimitedFetch(url, apiKey);
 
   if (!res.ok) {
     throw new Error(`Axonaut API error: ${res.status} ${res.statusText}`);
@@ -66,37 +66,8 @@ async function axonautFetchDirect(endpoint: string) {
   const { apiKey, apiUrl } = await getAxonautConfig();
   if (!apiKey) throw new Error("Clé API Axonaut non configurée");
 
-  const now = Date.now();
-  const elapsed = now - lastApiCall;
-  if (elapsed < API_DELAY_MS) {
-    await delay(API_DELAY_MS - elapsed);
-  }
-  lastApiCall = Date.now();
-
   const url = `${apiUrl}${endpoint}`;
-  const res = await fetch(url, {
-    headers: {
-      "userApiKey": apiKey,
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  });
-
-  if (res.status === 429) {
-    await delay(2000);
-    lastApiCall = Date.now();
-    const retry = await fetch(url, {
-      headers: {
-        "userApiKey": apiKey,
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-    });
-    if (!retry.ok) {
-      throw new Error(`Axonaut API error: ${retry.status} ${retry.statusText}`);
-    }
-    return retry.json();
-  }
+  const res = await rateLimitedFetch(url, apiKey);
 
   if (!res.ok) {
     throw new Error(`Axonaut API error: ${res.status} ${res.statusText}`);
@@ -588,25 +559,22 @@ export async function refreshProduct(axonautId: number) {
 }
 
 export async function refreshInvoice(axonautId: number) {
-  // Try direct endpoints first (singular and plural), then fallback to paginated search
+  // Try direct endpoint first
   let inv;
-  for (const path of [`/invoices/${axonautId}`, `/invoice/${axonautId}`]) {
-    try {
-      const data = await axonautFetchDirect(path);
-      if (data && data.id) { inv = data; break; }
-    } catch { /* endpoint not available, try next */ }
-  }
+  try {
+    const data = await axonautFetchDirect(`/invoices/${axonautId}`);
+    if (data && data.id) inv = data;
+  } catch { /* endpoint not available */ }
 
   if (!inv) {
-    // Fallback: search through ALL pages like syncInvoices does
-    let page = 1;
-    while (true) {
+    // Fallback: paginated search with a reasonable limit (50 pages)
+    // to avoid hammering the API and getting 429
+    for (let page = 1; page <= 50; page++) {
       const data = await axonautFetch("/invoices", page);
       const invoices = Array.isArray(data) ? data : data.invoices || [];
       if (invoices.length === 0) break;
       const found = invoices.find((i: { id: number }) => i.id === axonautId);
       if (found) { inv = found; break; }
-      page++;
     }
   }
 
