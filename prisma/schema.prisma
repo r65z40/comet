@@ -90,6 +90,7 @@ model InvoiceLine {
   description     String?
   quantity        Float         @default(1)
   unitPrice       Float?
+  purchasePrice   Float?
   totalPrice      Float?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
