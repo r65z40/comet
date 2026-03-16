@@ -149,6 +149,7 @@ export async function syncProducts() {
     let page = 1;
     let totalSynced = 0;
     let hasMore = true;
+    const PAGE_SIZE = 100;
 
     while (hasMore) {
       const data = await axonautFetch("/products", page);
@@ -195,6 +196,10 @@ export async function syncProducts() {
       }
 
       await updateProgress(log.id, `Produits: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
+
+      if (products.length < PAGE_SIZE) {
+        hasMore = false;
+      }
       page++;
     }
 
@@ -231,6 +236,7 @@ export async function syncClients() {
     let page = 1;
     let totalSynced = 0;
     let hasMore = true;
+    const PAGE_SIZE = 100;
 
     while (hasMore) {
       const data = await axonautFetch("/companies", page);
@@ -275,6 +281,11 @@ export async function syncClients() {
       }
 
       await updateProgress(log.id, `Clients: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
+
+      // Stop if this page had fewer items than the page size (last page)
+      if (companies.length < PAGE_SIZE) {
+        hasMore = false;
+      }
       page++;
     }
 
@@ -311,6 +322,7 @@ export async function syncInvoices() {
     let page = 1;
     let totalSynced = 0;
     let hasMore = true;
+    const PAGE_SIZE = 100;
 
     while (hasMore) {
       const data = await axonautFetch("/invoices", page);
@@ -395,6 +407,10 @@ export async function syncInvoices() {
       }
 
       await updateProgress(log.id, `Factures: ${totalSynced} synchronisées (page ${page})...`, totalSynced);
+
+      if (invoices.length < PAGE_SIZE) {
+        hasMore = false;
+      }
       page++;
     }
 

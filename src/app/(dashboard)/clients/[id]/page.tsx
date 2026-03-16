@@ -184,10 +184,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       `).join("");
     }
 
+    // Exclude renewed installations from report
+    const reportInstallations = client.installations.filter(i => i.status !== "RENOUVELE");
+
     let tableContent = "";
     if (groupByFamily) {
       const families = new Map<string, Installation[]>();
-      client.installations.forEach((inst) => {
+      reportInstallations.forEach((inst) => {
         const fam = inst.family || "Autre";
         if (!families.has(fam)) families.set(fam, []);
         families.get(fam)!.push(inst);
@@ -223,7 +226,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       `).join("");
     } else {
-      const sorted = [...client.installations].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
+      const sorted = [...reportInstallations].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
       tableContent = `
         <table>
           <thead>
@@ -244,9 +247,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       `;
     }
 
-    const enParc = client.installations.filter(i => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
-    const horsParc = client.installations.filter(i => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
-    const renouvelePrint = client.installations.filter(i => i.status === "RENOUVELE");
+    const enParc = reportInstallations.filter(i => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
+    const horsParc = reportInstallations.filter(i => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
 
     const clientLogoHtml = client.logoUrl
       ? `<img src="${client.logoUrl}" alt="Logo client" style="max-width: 180px; max-height: 120px;" />`
@@ -337,13 +339,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       </div>
       <div class="report-date">
         <p>Généré le ${today}</p>
-        <p>${client.installations.length} installation(s)</p>
+        <p>${reportInstallations.length} installation(s)</p>
       </div>
     </div>
 
     ${showStats ? `<div class="stats">
       <div class="stat-card">
-        <div class="value">${client.installations.length}</div>
+        <div class="value">${reportInstallations.length}</div>
         <div class="label">Total</div>
       </div>
       <div class="stat-card stat-green">
@@ -353,10 +355,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       <div class="stat-card stat-red">
         <div class="value">${horsParc.length}</div>
         <div class="label">Hors parc</div>
-      </div>
-      <div class="stat-card stat-blue">
-        <div class="value">${renouvelePrint.length}</div>
-        <div class="label">Renouvelé</div>
       </div>
     </div>` : ""}
 

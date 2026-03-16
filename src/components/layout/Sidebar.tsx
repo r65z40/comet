@@ -9,21 +9,23 @@ import {
   Users,
   Package,
   FileText,
-  RefreshCw,
+  RefreshCw as RefreshCwIcon,
   Settings,
   LogOut,
   Menu,
   X,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Installations", href: "/installations", icon: Monitor },
+  { name: "Renouvelés", href: "/renewed", icon: RotateCcw },
   { name: "Clients", href: "/clients", icon: Users },
   { name: "Produits", href: "/products", icon: Package },
   { name: "Factures", href: "/invoices", icon: FileText },
-  { name: "Synchronisation", href: "/sync", icon: RefreshCw },
+  { name: "Synchronisation", href: "/sync", icon: RefreshCwIcon },
   { name: "Paramètres", href: "/settings", icon: Settings },
 ];
 

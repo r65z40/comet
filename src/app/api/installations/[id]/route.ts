@@ -42,6 +42,9 @@ export async function PATCH(
   if (body.status && ["EN_PARC", "HORS_PARC", "RENOUVELE", "EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE"].includes(body.status)) {
     updateData.status = body.status;
   }
+  if (body.alwaysInFleet !== undefined) {
+    updateData.alwaysInFleet = Boolean(body.alwaysInFleet);
+  }
   if (body.endDate) {
     updateData.endDate = new Date(body.endDate);
   }

@@ -114,6 +114,7 @@ model Installation {
   durationMonths  Int
   endDate         DateTime
   status          String             @default("EN_PARC_GARANTIE")
+  alwaysInFleet   Boolean            @default(false)
   notes           String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt

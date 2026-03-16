@@ -45,6 +45,7 @@ export default function InstallationsPage() {
     if (supplierFilter) params.set("supplier", supplierFilter);
     if (expiringFilter) params.set("expiring", expiringFilter);
     if (monthFilter) params.set("month", monthFilter);
+    if (!statusFilter) params.set("excludeRenewed", "true");
 
     const res = await fetch(`/api/installations?${params}`);
     const data = await res.json();
@@ -86,13 +87,9 @@ export default function InstallationsPage() {
       key: "countdown",
       label: "Compte à rebours",
       render: (i: Installation) => (
-        i.status === "RENOUVELE" ? (
-          <span className="text-xs text-blue-500">—</span>
-        ) : (
-          <span className={`text-xs font-bold ${getCountdownColor(i.endDate)}`}>
-            {formatCountdown(i.endDate)}
-          </span>
-        )
+        <span className={`text-xs font-bold ${getCountdownColor(i.endDate)}`}>
+          {formatCountdown(i.endDate)}
+        </span>
       ),
     },
     {
@@ -151,7 +148,6 @@ export default function InstallationsPage() {
           <option value="">Tous les statuts</option>
           <option value="EN_PARC">En parc</option>
           <option value="HORS_PARC">Hors parc</option>
-          <option value="RENOUVELE">Renouvelé</option>
         </select>
 
         <input
@@ -179,7 +175,7 @@ export default function InstallationsPage() {
         onPageChange={setPage}
         onRowClick={(i) => router.push(`/installations/${i.id}`)}
         isLoading={loading}
-        rowClassName={(i) => i.status === "RENOUVELE" ? "opacity-50" : ""}
+        rowClassName={() => ""}
       />
     </div>
   );

@@ -193,12 +193,7 @@ export default function SyncPage() {
                 <span className="text-sm font-medium text-slate-700 capitalize">{log.type}</span>
               </div>
               <div className="flex items-center gap-4">
-                {log.itemCount > 0 && (
-                  <span className="text-xs font-medium text-primary-600 bg-primary-100 rounded-full px-2 py-0.5">
-                    {log.itemCount} éléments
-                  </span>
-                )}
-                <span className="text-xs text-slate-500 max-w-xs truncate">{log.message}</span>
+                <span className="text-xs text-slate-500 max-w-sm truncate">{log.message}</span>
               </div>
             </div>
           ))}

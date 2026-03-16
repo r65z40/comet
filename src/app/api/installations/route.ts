@@ -19,9 +19,14 @@ export async function GET(req: NextRequest) {
   const sortBy = searchParams.get("sortBy") || "endDate";
   const sortOrder = searchParams.get("sortOrder") || "asc";
 
+  const excludeRenewed = searchParams.get("excludeRenewed");
   const where: Record<string, unknown> = {};
 
-  if (status) where.status = status;
+  if (status) {
+    where.status = status;
+  } else if (excludeRenewed === "true") {
+    where.status = { not: "RENOUVELE" };
+  }
   if (clientId) where.clientId = clientId;
   if (family) where.family = family;
   if (supplier) where.supplier = supplier;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, RefreshCw, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Trash2, Pencil, Info } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired, getWarrantyLabel } from "@/lib/utils";
@@ -17,6 +17,7 @@ interface InstallationDetail {
   durationMonths: number;
   endDate: string;
   status: string;
+  alwaysInFleet: boolean;
   notes: string | null;
   client: { id: string; name: string; email: string | null; phone: string | null; address: string | null; city: string | null };
   product: { id: string; name: string; code: string | null; description: string | null };
@@ -31,6 +32,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [alwaysInFleet, setAlwaysInFleet] = useState(false);
   const [editingEndDate, setEditingEndDate] = useState(false);
   const [newEndDate, setNewEndDate] = useState("");
 
@@ -40,6 +42,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
       .then((data) => {
         setInstallation(data);
         setNotes(data.notes || "");
+        setAlwaysInFleet(data.alwaysInFleet || false);
         // Migrate old statuses on the fly for display
         let s = data.status;
         if (s === "EN_PARC_GARANTIE") s = "EN_PARC";
@@ -84,6 +87,17 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
     setInstallation((prev) => prev ? { ...prev, endDate: updated.endDate } : prev);
     setEditingEndDate(false);
     setSaving(false);
+  }
+
+  async function toggleAlwaysInFleet() {
+    const newVal = !alwaysInFleet;
+    setAlwaysInFleet(newVal);
+    await fetch(`/api/installations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alwaysInFleet: newVal }),
+    });
+    setInstallation((prev) => prev ? { ...prev, alwaysInFleet: newVal } : prev);
   }
 
   if (loading) return <LoadingSpinner />;
@@ -137,6 +151,24 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
           </button>
         </div>
       </div>
+
+      {/* Bannière suggestion "Toujours en parc" pour les installations en parc hors garantie */}
+      {isEnParc && expired && !alwaysInFleet && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-center gap-3">
+          <Info className="h-5 w-5 text-amber-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-800">Cette installation est en parc mais hors garantie.</p>
+            <p className="text-xs text-amber-600 mt-0.5">Souhaitez-vous la marquer comme &quot;Toujours en parc&quot; pour la conserver dans le suivi ?</p>
+          </div>
+          <button
+            onClick={toggleAlwaysInFleet}
+            className="shrink-0 flex items-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-xs font-medium text-white hover:bg-amber-700 transition-colors"
+          >
+            <ShieldAlert className="h-3.5 w-3.5" />
+            Toujours en parc
+          </button>
+        </div>
+      )}
 
       {/* Compte à rebours principal */}
       {isRenewed ? (
@@ -256,6 +288,19 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                   activeColor="emerald"
                 />
               </div>
+
+              {isEnParc && expired && (
+                <div className="mt-3">
+                  <label className="block text-xs text-slate-400 mb-1.5">Maintien en parc</label>
+                  <ToggleButton
+                    label="Toujours en parc"
+                    active={alwaysInFleet}
+                    onClick={toggleAlwaysInFleet}
+                    icon={ShieldAlert}
+                    activeColor="amber"
+                  />
+                </div>
+              )}
 
               {isEnParc && (
                 <div className="mt-3 ml-1">
@@ -403,6 +448,7 @@ function ToggleButton({
     emerald: active ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-slate-200 text-slate-500 hover:border-emerald-500/50",
     red: active ? "border-red-500 bg-red-50 text-red-600" : "border-slate-200 text-slate-500 hover:border-red-500/50",
     blue: active ? "border-blue-500 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-500 hover:border-blue-500/50",
+    amber: active ? "border-amber-500 bg-amber-50 text-amber-600" : "border-slate-200 text-slate-500 hover:border-amber-500/50",
   };
 
   return (
