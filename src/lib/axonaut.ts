@@ -588,8 +588,18 @@ export async function refreshProduct(axonautId: number) {
 }
 
 export async function refreshInvoice(axonautId: number) {
-  // Axonaut API uses singular /invoice/{id} for single resource
-  const inv = await axonautFetchDirect(`/invoice/${axonautId}`);
+  // Axonaut API has no GET /invoices/{id} endpoint — search through pages
+  let inv;
+  for (let page = 1; page <= 20; page++) {
+    const data = await axonautFetch("/invoices", page);
+    const invoices = Array.isArray(data) ? data : data.invoices || [];
+    if (invoices.length === 0) break;
+    const found = invoices.find((i: { id: number }) => i.id === axonautId);
+    if (found) { inv = found; break; }
+  }
+  if (!inv) {
+    throw new Error(`Facture Axonaut #${axonautId} introuvable (recherche sur 20 pages). Vérifiez que cette facture existe toujours dans Axonaut.`);
+  }
 
   const companyId = inv.company_id || inv.company?.id;
   const client = companyId
