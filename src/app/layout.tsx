@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import DynamicFavicon from "@/components/DynamicFavicon";
 
 export const metadata: Metadata = {
   title: "COMET - CEDELIA",
@@ -18,6 +19,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="antialiased">
+        <DynamicFavicon />
         {children}
       </body>
     </html>

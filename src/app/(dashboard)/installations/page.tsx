@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { Search, X, ShieldCheck, ShieldAlert, RefreshCw } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
@@ -16,6 +16,7 @@ interface Installation {
   durationMonths: number;
   endDate: string;
   status: string;
+  alwaysInFleet: boolean;
   client: { id: string; name: string };
   product: { id: string; name: string; code: string | null };
 }
@@ -58,6 +59,15 @@ export default function InstallationsPage() {
     fetchData();
   }, [fetchData]);
 
+  async function quickAction(installId: string, action: { status?: string; alwaysInFleet?: boolean }) {
+    await fetch(`/api/installations/${installId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(action),
+    });
+    fetchData();
+  }
+
   const columns = [
     {
       key: "client",
@@ -87,15 +97,53 @@ export default function InstallationsPage() {
       key: "countdown",
       label: "Compte à rebours",
       render: (i: Installation) => (
-        <span className={`text-xs font-bold ${getCountdownColor(i.endDate)}`}>
-          {formatCountdown(i.endDate)}
+        <span className={`text-xs font-bold ${i.alwaysInFleet ? "text-amber-600" : getCountdownColor(i.endDate)}`}>
+          {i.alwaysInFleet ? "Toujours en parc" : formatCountdown(i.endDate)}
         </span>
       ),
     },
     {
       key: "status",
       label: "Statut",
-      render: (i: Installation) => <StatusBadge status={i.status} endDate={i.endDate} />,
+      render: (i: Installation) => <StatusBadge status={i.status} endDate={i.endDate} alwaysInFleet={i.alwaysInFleet} />,
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (i: Installation) => {
+        const isEnParc = i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE";
+        return (
+          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => quickAction(i.id, { status: isEnParc ? "HORS_PARC" : "EN_PARC" })}
+              title={isEnParc ? "Retirer du parc" : "Mettre en parc"}
+              className={`rounded p-1 transition-colors ${
+                isEnParc ? "text-emerald-600 bg-emerald-50" : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+              }`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => quickAction(i.id, { alwaysInFleet: !i.alwaysInFleet })}
+              title={i.alwaysInFleet ? "Retirer toujours en parc" : "Toujours en parc"}
+              className={`rounded p-1 transition-colors ${
+                i.alwaysInFleet ? "text-amber-600 bg-amber-50" : "text-slate-400 hover:text-amber-600 hover:bg-amber-50"
+              }`}
+            >
+              <ShieldAlert className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => quickAction(i.id, { status: "RENOUVELE" })}
+              title="Renouvelé"
+              className={`rounded p-1 transition-colors ${
+                i.status === "RENOUVELE" ? "text-blue-600 bg-blue-50" : "text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+              }`}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        );
+      },
     },
   ];
 

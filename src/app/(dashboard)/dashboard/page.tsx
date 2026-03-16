@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Monitor, ShieldCheck, ShieldX, RefreshCw, Users, Package, Clock, AlertTriangle } from "lucide-react";
+import { Monitor, ShieldCheck, ShieldX, RefreshCw, Users, Package, Clock, AlertTriangle, Calendar } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, daysUntil, formatCountdown, getCountdownColor } from "@/lib/utils";
@@ -61,11 +61,15 @@ function formatMonthFr(label: unknown) {
   return `${m}/${year}`;
 }
 
+type FilterMode = "30" | "90" | "custom";
+
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterMode, setFilterMode] = useState<FilterMode>("90");
+  const [customDate, setCustomDate] = useState("");
 
   useEffect(() => {
     fetch("/api/dashboard/stats")
@@ -101,6 +105,18 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  // Filter upcoming renewals based on selected filter
+  const filterDays = filterMode === "30" ? 30 : filterMode === "90" ? 90 : null;
+  const filterEndDate = filterMode === "custom" && customDate ? new Date(customDate) : null;
+
+  const filteredRenewals = data.upcomingRenewals.filter((r) => {
+    const days = daysUntil(r.endDate);
+    if (days < 0) return false;
+    if (filterDays !== null) return days <= filterDays;
+    if (filterEndDate) return new Date(r.endDate) <= filterEndDate;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -252,11 +268,55 @@ export default function DashboardPage() {
               Voir tout
             </Link>
           </div>
+          {/* Filtres de période */}
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <button
+              onClick={() => setFilterMode("30")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                filterMode === "30"
+                  ? "bg-primary-600 text-white"
+                  : "border border-slate-200 text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              30 jours
+            </button>
+            <button
+              onClick={() => setFilterMode("90")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                filterMode === "90"
+                  ? "bg-primary-600 text-white"
+                  : "border border-slate-200 text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              90 jours
+            </button>
+            <button
+              onClick={() => setFilterMode("custom")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors inline-flex items-center gap-1 ${
+                filterMode === "custom"
+                  ? "bg-primary-600 text-white"
+                  : "border border-slate-200 text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              <Calendar className="h-3 w-3" />
+              Date
+            </button>
+            {filterMode === "custom" && (
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 focus:border-primary-500 focus:outline-none"
+              />
+            )}
+          </div>
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {data.upcomingRenewals.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-8">Aucune échéance dans les 90 prochains jours</p>
+            {filteredRenewals.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-8">
+                Aucune échéance dans {filterMode === "custom" ? "la période sélectionnée" : `les ${filterMode === "30" ? "30" : "90"} prochains jours`}
+              </p>
             ) : (
-              data.upcomingRenewals.map((r) => {
+              filteredRenewals.map((r) => {
                 const days = daysUntil(r.endDate);
                 return (
                   <Link

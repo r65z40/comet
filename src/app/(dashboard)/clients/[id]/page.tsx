@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, RefreshCw, Upload, Printer, X, ImageIcon, Trash2 } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -11,6 +11,7 @@ import Link from "next/link";
 interface Installation {
   id: string;
   status: string;
+  alwaysInFleet: boolean;
   startDate: string;
   endDate: string;
   durationMonths: number;
@@ -20,6 +21,9 @@ interface Installation {
   product: { id: string; name: string; code: string | null };
   invoice: { id: string; invoiceNumber: string | null; invoiceDate: string } | null;
 }
+
+type SortKey = "product" | "family" | "supplier" | "startDate" | "durationMonths" | "endDate" | "status";
+type SortDir = "asc" | "desc";
 
 interface ClientDetail {
   id: string;
@@ -50,7 +54,34 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [reportSettings, setReportSettings] = useState<Record<string, string>>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("endDate");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  function sortedInstallations(installations: Installation[]): Installation[] {
+    return [...installations].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "product": cmp = a.product.name.localeCompare(b.product.name); break;
+        case "family": cmp = (a.family || "").localeCompare(b.family || ""); break;
+        case "supplier": cmp = (a.supplier || "").localeCompare(b.supplier || ""); break;
+        case "startDate": cmp = new Date(a.startDate).getTime() - new Date(b.startDate).getTime(); break;
+        case "durationMonths": cmp = a.durationMonths - b.durationMonths; break;
+        case "endDate": cmp = new Date(a.endDate).getTime() - new Date(b.endDate).getTime(); break;
+        case "status": cmp = a.status.localeCompare(b.status); break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }
 
   useEffect(() => {
     fetch(`/api/clients/${id}`)
@@ -68,6 +99,19 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
+    });
+    const res = await fetch(`/api/clients/${id}`);
+    const data = await res.json();
+    setClient(data);
+    setUpdatingStatus(null);
+  }
+
+  async function toggleAlwaysInFleet(installId: string, currentValue: boolean) {
+    setUpdatingStatus(installId);
+    await fetch(`/api/installations/${installId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alwaysInFleet: !currentValue }),
     });
     const res = await fetch(`/api/clients/${id}`);
     const data = await res.json();
@@ -153,14 +197,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const orientation = reportSettings.report_orientation || "portrait";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
-    function getReportStatusLabel(status: string): string {
+    function getReportStatusLabel(status: string, alwaysInFleet?: boolean): string {
+      if (alwaysInFleet) return "Toujours en parc";
       if (status === "EN_PARC" || status === "EN_PARC_GARANTIE") return "En parc";
       if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE") return "Hors parc";
       if (status === "RENOUVELE") return "Renouvelé";
       return status;
     }
 
-    function getStatusStyle(status: string, endDate: string): string {
+    function getStatusStyle(status: string, endDate: string, alwaysInFleet?: boolean): string {
+      if (alwaysInFleet) return "color: #d97706; font-weight: 700;";
       const expired = new Date(endDate).getTime() < Date.now();
       if (status === "RENOUVELE") return "color: #2563eb; font-weight: 700;";
       if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE") return "color: #dc2626; font-weight: 700;";
@@ -179,7 +225,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <td>${formatDate(inst.startDate)}</td>
           ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
           <td>${formatDate(inst.endDate)}</td>
-          <td style="${getStatusStyle(inst.status, inst.endDate)}">${getReportStatusLabel(inst.status)}</td>
+          <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.alwaysInFleet)}</td>
         </tr>
       `).join("");
     }
@@ -218,7 +264,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <td>${formatDate(inst.startDate)}</td>
                   ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
                   <td>${formatDate(inst.endDate)}</td>
-                  <td style="${getStatusStyle(inst.status, inst.endDate)}">${getReportStatusLabel(inst.status)}</td>
+                  <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.alwaysInFleet)}</td>
                 </tr>
               `).join("")}
             </tbody>
@@ -306,9 +352,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .stat-blue { border-color: ${primaryColor}; } .stat-blue .value { color: ${primaryColor}; }
     .footer { text-align: center; font-size: 11px; color: #94a3b8; padding-top: 20px; margin-top: 40px; border-top: 1px solid #e2e8f0; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
-    th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; }
-    td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: fixed; }
+    th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; word-wrap: break-word; }
+    td { padding: 8px; border-bottom: 1px solid #f1f5f9; word-wrap: break-word; }
     tr:nth-child(even) { background: #fafafa; }
 
     .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
@@ -529,21 +575,37 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Produit</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Famille</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Fournisseur</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Facture</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Début</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Durée</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Fin garantie</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Compte à rebours</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Statut</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Actions</th>
+                {([
+                  { key: "product" as SortKey, label: "Produit" },
+                  { key: "family" as SortKey, label: "Famille" },
+                  { key: "supplier" as SortKey, label: "Fournisseur" },
+                  { key: null, label: "Facture" },
+                  { key: "startDate" as SortKey, label: "Début" },
+                  { key: "durationMonths" as SortKey, label: "Durée" },
+                  { key: "endDate" as SortKey, label: "Fin garantie" },
+                  { key: null, label: "Compte à rebours" },
+                  { key: "status" as SortKey, label: "Statut" },
+                  { key: null, label: "Actions" },
+                ] as { key: SortKey | null; label: string }[]).map((col) => (
+                  <th
+                    key={col.label}
+                    className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400 ${col.key ? "cursor-pointer select-none hover:text-slate-600" : ""}`}
+                    onClick={() => col.key && toggleSort(col.key)}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {col.label}
+                      {col.key && sortKey === col.key && (
+                        <ArrowUpDown className="h-3 w-3 text-primary-500" />
+                      )}
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {client.installations.map((inst) => {
+              {sortedInstallations(client.installations).map((inst) => {
                 const expired = isWarrantyExpired(inst.endDate);
+                const isEnParc = inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE";
                 return (
                 <tr
                   key={inst.id}
@@ -568,24 +630,36 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap font-medium">{inst.durationMonths} mois</td>
                   <td className={`px-4 py-3 text-sm whitespace-nowrap ${expired ? "text-red-600 font-medium" : "text-slate-600"}`}>{formatDate(inst.endDate)}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`text-xs font-bold ${expired ? "text-red-600" : getCountdownColor(inst.endDate)}`}>
-                      {inst.status === "RENOUVELE" ? "Renouvelé" : formatCountdown(inst.endDate)}
+                    <span className={`text-xs font-bold ${inst.alwaysInFleet ? "text-amber-600" : expired ? "text-red-600" : getCountdownColor(inst.endDate)}`}>
+                      {inst.alwaysInFleet ? "Toujours en parc" : inst.status === "RENOUVELE" ? "Renouvelé" : formatCountdown(inst.endDate)}
                     </span>
                   </td>
-                  <td className="px-4 py-3"><StatusBadge status={inst.status} endDate={inst.endDate} /></td>
+                  <td className="px-4 py-3"><StatusBadge status={inst.status} endDate={inst.endDate} alwaysInFleet={inst.alwaysInFleet} /></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       <button
-                        onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE" ? "HORS_PARC" : "EN_PARC"); }}
+                        onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, isEnParc ? "HORS_PARC" : "EN_PARC"); }}
                         disabled={updatingStatus === inst.id}
-                        title={inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE" ? "Retirer du parc" : "Mettre en parc"}
+                        title={isEnParc ? "Retirer du parc" : "Mettre en parc"}
                         className={`rounded p-1 transition-colors disabled:opacity-50 ${
-                          inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE"
+                          isEnParc
                             ? "text-emerald-600 bg-emerald-50"
                             : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
                         }`}
                       >
                         <ShieldCheck className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleAlwaysInFleet(inst.id, inst.alwaysInFleet); }}
+                        disabled={updatingStatus === inst.id}
+                        title={inst.alwaysInFleet ? "Retirer toujours en parc" : "Toujours en parc"}
+                        className={`rounded p-1 transition-colors disabled:opacity-50 ${
+                          inst.alwaysInFleet
+                            ? "text-amber-600 bg-amber-50"
+                            : "text-slate-400 hover:text-amber-600 hover:bg-amber-50"
+                        }`}
+                      >
+                        <ShieldAlert className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); changeStatus(inst.id, "RENOUVELE"); }}

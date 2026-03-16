@@ -137,7 +137,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <StatusBadge status={status} endDate={installation.endDate} />
+          <StatusBadge status={status} endDate={installation.endDate} alwaysInFleet={alwaysInFleet} />
           <button
             onClick={async () => {
               if (!confirm("Supprimer cette installation ?")) return;
