@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette } from "lucide-react";
 
 interface User {
   id: string;
@@ -35,6 +35,12 @@ export default function SettingsPage() {
   const [sendingNotif, setSendingNotif] = useState(false);
   const [notifResult, setNotifResult] = useState<string | null>(null);
 
+  // Site branding
+  const [siteLogo, setSiteLogo] = useState("");
+  const [savingSiteLogo, setSavingSiteLogo] = useState(false);
+  const [savedSiteLogo, setSavedSiteLogo] = useState(false);
+  const siteLogoRef = useRef<HTMLInputElement>(null);
+
   // Report settings
   const [reportTitle, setReportTitle] = useState("");
   const [reportSubtitle, setReportSubtitle] = useState("");
@@ -42,6 +48,13 @@ export default function SettingsPage() {
   const [companyLogo, setCompanyLogo] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [reportGroupMode, setReportGroupMode] = useState("date");
+  const [reportPrimaryColor, setReportPrimaryColor] = useState("#3b82f6");
+  const [reportShowStats, setReportShowStats] = useState(true);
+  const [reportShowFamily, setReportShowFamily] = useState(true);
+  const [reportShowSupplier, setReportShowSupplier] = useState(true);
+  const [reportShowDuration, setReportShowDuration] = useState(true);
+  const [reportFooterText, setReportFooterText] = useState("");
+  const [reportOrientation, setReportOrientation] = useState("portrait");
   const [savingReport, setSavingReport] = useState(false);
   const [savedReport, setSavedReport] = useState(false);
   const companyLogoRef = useRef<HTMLInputElement>(null);
@@ -77,6 +90,14 @@ export default function SettingsPage() {
         setCompanyLogo(data.company_logo || "");
         setCompanyName(data.company_name || "");
         setReportGroupMode(data.report_group_mode || "date");
+        setReportPrimaryColor(data.report_primary_color || "#3b82f6");
+        setReportShowStats(data.report_show_stats !== "false");
+        setReportShowFamily(data.report_show_family !== "false");
+        setReportShowSupplier(data.report_show_supplier !== "false");
+        setReportShowDuration(data.report_show_duration !== "false");
+        setReportFooterText(data.report_footer_text || "");
+        setReportOrientation(data.report_orientation || "portrait");
+        setSiteLogo(data.site_logo || "");
       })
       .finally(() => setLoading(false));
 
@@ -201,6 +222,18 @@ export default function SettingsPage() {
     setSendingNotif(false);
   }
 
+  async function handleSaveSiteLogo() {
+    setSavingSiteLogo(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ site_logo: siteLogo }),
+    });
+    setSavingSiteLogo(false);
+    setSavedSiteLogo(true);
+    setTimeout(() => setSavedSiteLogo(false), 3000);
+  }
+
   async function handleSaveReport() {
     setSavingReport(true);
     await fetch("/api/settings", {
@@ -213,6 +246,13 @@ export default function SettingsPage() {
         company_logo: companyLogo,
         company_name: companyName,
         report_group_mode: reportGroupMode,
+        report_primary_color: reportPrimaryColor,
+        report_show_stats: reportShowStats ? "true" : "false",
+        report_show_family: reportShowFamily ? "true" : "false",
+        report_show_supplier: reportShowSupplier ? "true" : "false",
+        report_show_duration: reportShowDuration ? "true" : "false",
+        report_footer_text: reportFooterText,
+        report_orientation: reportOrientation,
       }),
     });
     setSavingReport(false);
@@ -296,6 +336,81 @@ export default function SettingsPage() {
       <div className="lg:col-span-2">
         <h1 className="text-2xl font-bold text-slate-900">Paramètres</h1>
         <p className="text-sm text-slate-500 mt-1">Configuration de l&apos;application</p>
+      </div>
+
+      {/* Apparence du site */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="rounded-lg bg-primary-50 p-2">
+            <Palette className="h-4 w-4 text-primary-600" />
+          </div>
+          <h3 className="text-sm font-medium text-slate-900">Apparence du site</h3>
+        </div>
+        <p className="text-xs text-slate-400">
+          Personnalisez le logo affiché dans la barre latérale et la page de connexion.
+        </p>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+            Logo du site
+          </label>
+          <div className="flex items-center gap-4">
+            {siteLogo ? (
+              <div className="relative group">
+                <img
+                  src={siteLogo}
+                  alt="Logo site"
+                  className="h-16 w-16 rounded-lg bg-white p-1 border border-slate-200 object-contain"
+                />
+                <button
+                  onClick={() => setSiteLogo("")}
+                  className="absolute -top-1.5 -right-1.5 rounded-full bg-red-500 p-0.5 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <img src="/logo.png" alt="Logo par défaut" className="h-16 w-16 rounded-lg bg-white p-1 border border-slate-200 object-contain" />
+                <span className="text-xs text-slate-400">Logo par défaut</span>
+              </div>
+            )}
+            <button
+              onClick={() => siteLogoRef.current?.click()}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              {siteLogo ? "Changer" : "Personnaliser"}
+            </button>
+          </div>
+          <input
+            ref={siteLogoRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              if (file.size > 2 * 1024 * 1024) { alert("Max 2 Mo"); return; }
+              const reader = new FileReader();
+              reader.onload = () => setSiteLogo(reader.result as string);
+              reader.readAsDataURL(file);
+            }}
+          />
+          <p className="text-xs text-slate-400 mt-1">Ce logo remplace le logo par défaut dans la barre latérale et la page de connexion (max 2 Mo)</p>
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={handleSaveSiteLogo}
+            disabled={savingSiteLogo}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+          >
+            {savingSiteLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Enregistrer
+          </button>
+          {savedSiteLogo && <span className="text-xs text-emerald-600">Logo enregistré — rechargez la page pour voir le changement</span>}
+        </div>
       </div>
 
       {/* API Axonaut */}
@@ -692,6 +807,119 @@ export default function SettingsPage() {
             </button>
           </div>
           <p className="text-xs text-slate-400 mt-1">Détermine comment les produits sont organisés dans le rapport imprimé</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+            Couleur principale du rapport
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={reportPrimaryColor}
+              onChange={(e) => setReportPrimaryColor(e.target.value)}
+              className="h-10 w-14 rounded-lg border border-slate-200 cursor-pointer"
+            />
+            <input
+              type="text"
+              value={reportPrimaryColor}
+              onChange={(e) => setReportPrimaryColor(e.target.value)}
+              className="w-32 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 font-mono focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+            <button
+              onClick={() => setReportPrimaryColor("#3b82f6")}
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              Réinitialiser
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">Couleur utilisée pour le nom du client, les en-têtes et les accents du rapport</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+            Orientation de la page
+          </label>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setReportOrientation("portrait")}
+              className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                reportOrientation === "portrait"
+                  ? "border-primary-500 bg-primary-50 text-primary-600"
+                  : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"
+              }`}
+            >
+              Portrait
+            </button>
+            <button
+              onClick={() => setReportOrientation("landscape")}
+              className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                reportOrientation === "landscape"
+                  ? "border-primary-500 bg-primary-50 text-primary-600"
+                  : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"
+              }`}
+            >
+              Paysage
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+            Éléments visibles dans le rapport
+          </label>
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowStats}
+                onChange={(e) => setReportShowStats(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Cartes statistiques (Total, En parc, Hors parc, Renouvelé)</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowFamily}
+                onChange={(e) => setReportShowFamily(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Colonne &quot;Famille&quot;</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowSupplier}
+                onChange={(e) => setReportShowSupplier(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Colonne &quot;Fournisseur&quot;</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowDuration}
+                onChange={(e) => setReportShowDuration(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Colonne &quot;Durée&quot;</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+            Texte de pied de page
+          </label>
+          <input
+            type="text"
+            value={reportFooterText}
+            onChange={(e) => setReportFooterText(e.target.value)}
+            placeholder="Ex: CEDELIA - Document confidentiel"
+            className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+          <p className="text-xs text-slate-400 mt-1">Affiché en bas de chaque page du rapport</p>
         </div>
 
         <div className="flex items-center gap-3 pt-2">

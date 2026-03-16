@@ -123,6 +123,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const companyLogo = reportSettings.company_logo || "";
     const companyName = reportSettings.company_name || "";
     const groupByFamily = reportSettings.report_group_mode === "family";
+    const primaryColor = reportSettings.report_primary_color || "#3b82f6";
+    const showStats = reportSettings.report_show_stats !== "false";
+    const showFamily = reportSettings.report_show_family !== "false";
+    const showSupplier = reportSettings.report_show_supplier !== "false";
+    const showDuration = reportSettings.report_show_duration !== "false";
+    const footerText = reportSettings.report_footer_text || "";
+    const orientation = reportSettings.report_orientation || "portrait";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
     function getReportStatusLabel(status: string): string {
@@ -146,10 +153,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       return installations.map((inst) => `
         <tr>
           <td>${inst.product.name}</td>
-          <td>${inst.family || "—"}</td>
-          <td>${inst.supplier || "—"}</td>
+          ${showFamily ? `<td>${inst.family || "—"}</td>` : ""}
+          ${showSupplier ? `<td>${inst.supplier || "—"}</td>` : ""}
           <td>${formatDate(inst.startDate)}</td>
-          <td>${inst.durationMonths} mois</td>
+          ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
           <td>${formatDate(inst.endDate)}</td>
           <td style="${getStatusStyle(inst.status, inst.endDate)}">${getReportStatusLabel(inst.status)}</td>
         </tr>
@@ -167,14 +174,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       const sortedFamilies = Array.from(families.entries()).sort((a, b) => a[0].localeCompare(b[0]));
       tableContent = sortedFamilies.map(([family, installs]) => `
         <div style="margin-top: 20px;">
-          <h3 style="font-size: 14px; font-weight: 700; color: #3b82f6; margin-bottom: 8px; padding: 6px 10px; background: #eff6ff; border-radius: 4px;">${family} (${installs.length})</h3>
+          <h3 style="font-size: 14px; font-weight: 700; color: ${primaryColor}; margin-bottom: 8px; padding: 6px 10px; background: ${primaryColor}11; border-radius: 4px;">${family} (${installs.length})</h3>
           <table>
             <thead>
               <tr>
                 <th>Produit</th>
-                <th>Fournisseur</th>
+                ${showSupplier ? "<th>Fournisseur</th>" : ""}
                 <th>Début</th>
-                <th>Durée</th>
+                ${showDuration ? "<th>Durée</th>" : ""}
                 <th>Fin garantie</th>
                 <th>Statut</th>
               </tr>
@@ -183,9 +190,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               ${installs.map((inst) => `
                 <tr>
                   <td>${inst.product.name}</td>
-                  <td>${inst.supplier || "—"}</td>
+                  ${showSupplier ? `<td>${inst.supplier || "—"}</td>` : ""}
                   <td>${formatDate(inst.startDate)}</td>
-                  <td>${inst.durationMonths} mois</td>
+                  ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
                   <td>${formatDate(inst.endDate)}</td>
                   <td style="${getStatusStyle(inst.status, inst.endDate)}">${getReportStatusLabel(inst.status)}</td>
                 </tr>
@@ -201,10 +208,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <thead>
             <tr>
               <th>Produit</th>
-              <th>Famille</th>
-              <th>Fournisseur</th>
+              ${showFamily ? "<th>Famille</th>" : ""}
+              ${showSupplier ? "<th>Fournisseur</th>" : ""}
               <th>Début</th>
-              <th>Durée</th>
+              ${showDuration ? "<th>Durée</th>" : ""}
               <th>Fin garantie</th>
               <th>Statut</th>
             </tr>
@@ -234,7 +241,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   <title>Rapport - ${client.name}</title>
   <style>
     @media print {
-      @page { margin: 15mm; }
+      @page { margin: 15mm; size: ${orientation === "landscape" ? "landscape" : "portrait"}; }
       html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -257,14 +264,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-logos { display: flex; align-items: center; justify-content: center; gap: 40px; margin-bottom: 40px; }
     .cover-logos img { border-radius: 12px; background: white; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .cover-page h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; color: #1e293b; }
-    .cover-page .client-name { font-size: 42px; font-weight: 800; color: #3b82f6; margin-bottom: 30px; }
+    .cover-page .client-name { font-size: 42px; font-weight: 800; color: ${primaryColor}; margin-bottom: 30px; }
     .cover-page .subtitle { font-size: 18px; color: #64748b; margin-bottom: 8px; }
     .cover-page .date { font-size: 16px; color: #94a3b8; margin-top: 40px; }
     .cover-page .message { font-size: 14px; color: #64748b; margin-top: 20px; max-width: 500px; line-height: 1.6; }
     .cover-page .vertical-text { position: absolute; right: 30px; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: center center; font-size: 28px; font-weight: 800; color: #e2e8f0; letter-spacing: 8px; text-transform: uppercase; white-space: nowrap; }
 
     .report-content { padding: 20px 0; }
-    .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; }
+    .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
 
     .stats { display: flex; gap: 16px; margin-bottom: 30px; flex-wrap: wrap; }
     .stat-card { flex: 1; min-width: 120px; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
@@ -272,7 +279,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .stat-card .label { font-size: 11px; color: #64748b; margin-top: 4px; }
     .stat-green { border-color: #10b981; } .stat-green .value { color: #10b981; }
     .stat-red { border-color: #ef4444; } .stat-red .value { color: #ef4444; }
-    .stat-blue { border-color: #3b82f6; } .stat-blue .value { color: #3b82f6; }
+    .stat-blue { border-color: ${primaryColor}; } .stat-blue .value { color: ${primaryColor}; }
+    .footer { text-align: center; font-size: 11px; color: #94a3b8; padding-top: 20px; margin-top: 40px; border-top: 1px solid #e2e8f0; }
 
     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
     th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; }
@@ -311,7 +319,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       </div>
     </div>
 
-    <div class="stats">
+    ${showStats ? `<div class="stats">
       <div class="stat-card">
         <div class="value">${client.installations.length}</div>
         <div class="label">Total</div>
@@ -328,10 +336,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div class="value">${renouvelePrint.length}</div>
         <div class="label">Renouvelé</div>
       </div>
-    </div>
+    </div>` : ""}
 
     <div class="section-title">Détail des installations</div>
     ${tableContent}
+    ${footerText ? `<div class="footer">${footerText}</div>` : ""}
   </div>
 
   <script>

@@ -30,11 +30,22 @@ const navigation = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [siteLogo, setSiteLogo] = useState("");
 
   // Close on route change
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  // Fetch custom site logo
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.site_logo) setSiteLogo(data.site_logo);
+      })
+      .catch(() => {});
+  }, []);
 
   // Prevent body scroll when open on mobile
   useEffect(() => {
@@ -49,7 +60,7 @@ export default function Sidebar() {
   const sidebarContent = (
     <>
       <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-6">
-        <img src="/logo.png" alt="COMET" width={32} height={32} className="h-8 w-8" />
+        <img src={siteLogo || "/logo.png"} alt="COMET" width={32} height={32} className="h-8 w-8 rounded" />
         <div>
           <span className="text-base font-bold tracking-tight text-slate-900">COMET</span>
           <span className="ml-0.5 text-base font-light tracking-tight text-primary-600">- CEDELIA</span>
