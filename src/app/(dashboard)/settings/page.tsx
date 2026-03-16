@@ -57,6 +57,7 @@ export default function SettingsPage() {
   const [reportShowDuration, setReportShowDuration] = useState(true);
   const [reportShowVerticalName, setReportShowVerticalName] = useState(true);
   const [reportIncludeHorsParc, setReportIncludeHorsParc] = useState(true);
+  const [reportShowRenewedCount, setReportShowRenewedCount] = useState(false);
   const [reportFooterText, setReportFooterText] = useState("");
   const [reportOrientation, setReportOrientation] = useState("portrait");
   const [savingReport, setSavingReport] = useState(false);
@@ -108,6 +109,7 @@ export default function SettingsPage() {
         setReportShowDuration(data.report_show_duration !== "false");
         setReportShowVerticalName(data.report_show_vertical_name !== "false");
         setReportIncludeHorsParc(data.report_include_hors_parc !== "false");
+        setReportShowRenewedCount(data.report_show_renewed_count === "true");
         setReportFooterText(data.report_footer_text || "");
         setReportOrientation(data.report_orientation || "portrait");
         setSiteLogo(data.site_logo || "");
@@ -267,6 +269,7 @@ export default function SettingsPage() {
         report_show_duration: reportShowDuration ? "true" : "false",
         report_show_vertical_name: reportShowVerticalName ? "true" : "false",
         report_include_hors_parc: reportIncludeHorsParc ? "true" : "false",
+        report_show_renewed_count: reportShowRenewedCount ? "true" : "false",
         report_footer_text: reportFooterText,
         report_orientation: reportOrientation,
       }),
@@ -990,6 +993,15 @@ export default function SettingsPage() {
                 className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-slate-600">Inclure les produits hors parc dans le rapport</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowRenewedCount}
+                onChange={(e) => setReportShowRenewedCount(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Afficher le nombre de produits renouvelés dans le rapport</span>
             </label>
           </div>
         </div>

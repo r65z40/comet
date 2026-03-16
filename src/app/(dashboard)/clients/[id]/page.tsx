@@ -56,6 +56,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [refreshing, setRefreshing] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("endDate");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [statusFilter, setStatusFilter] = useState<"all" | "en_parc" | "hors_parc" | "renouvele">("all");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function toggleSort(key: SortKey) {
@@ -196,11 +197,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const footerText = reportSettings.report_footer_text || "";
     const orientation = reportSettings.report_orientation || "portrait";
     const includeHorsParc = reportSettings.report_include_hors_parc !== "false";
+    const showRenewedCount = reportSettings.report_show_renewed_count === "true";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
-    function getReportStatusLabel(status: string, alwaysInFleet?: boolean): string {
+    function getReportStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
       if (alwaysInFleet) return "Toujours en parc";
-      if (status === "EN_PARC" || status === "EN_PARC_GARANTIE") return "En parc";
+      if (status === "EN_PARC" || status === "EN_PARC_GARANTIE") {
+        const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        if (days > 0 && days <= 90) return `En parc (${days}j)`;
+        return "En parc";
+      }
       if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE") return "Hors parc";
       if (status === "RENOUVELE") return "Renouvelé";
       return status;
@@ -226,7 +232,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <td>${formatDate(inst.startDate)}</td>
           ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
           <td>${formatDate(inst.endDate)}</td>
-          <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.alwaysInFleet)}</td>
+          <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.endDate, inst.alwaysInFleet)}</td>
         </tr>
       `).join("");
     }
@@ -259,7 +265,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <td>${formatDate(inst.startDate)}</td>
                   ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
                   <td>${formatDate(inst.endDate)}</td>
-                  <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.alwaysInFleet)}</td>
+                  <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.endDate, inst.alwaysInFleet)}</td>
                 </tr>
               `).join("")}
             </tbody>
@@ -279,6 +285,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
     const enParc = reportInstallations.filter(i => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
     const horsParc = reportInstallations.filter(i => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
+    const renewedCount = client.installations.filter(i => i.status === "RENOUVELE").length;
 
     const clientLogoHtml = client.logoUrl
       ? `<img src="${client.logoUrl}" alt="Logo client" style="max-width: 180px; max-height: 120px;" />`
@@ -291,7 +298,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Rapport - ${client.name}</title>
+  <title>Rapport de suivi des garanties informatique - ${client.name}</title>
   <style>
     @media print {
       @page { margin: 15mm; size: ${orientation === "landscape" ? "landscape" : "portrait"}; }
@@ -387,6 +394,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div class="value">${horsParc.length}</div>
         <div class="label">Hors parc</div>
       </div>
+      ${showRenewedCount ? `<div class="stat-card stat-blue">
+        <div class="value">${renewedCount}</div>
+        <div class="label">Renouvelés</div>
+      </div>` : ""}
     </div>` : ""}
 
     <div class="section-title">Détail des installations</div>
@@ -395,12 +406,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   </div>
 
   <script>
-    // Remove browser headers/footers during print
     (function() {
-      var style = document.createElement('style');
-      style.textContent = '@page { margin: 15mm; } @media print { title { display: none; } }';
-      document.head.appendChild(style);
-      document.title = ' ';
+      document.title = 'Rapport de suivi des garanties informatique - ${client.name}';
     })();
   </script>
 </body>
@@ -533,22 +540,34 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
+        <button
+          onClick={() => setStatusFilter(statusFilter === "all" ? "all" : "all")}
+          className={`rounded-xl border p-4 text-center transition-all cursor-pointer ${statusFilter === "all" ? "border-slate-400 ring-2 ring-slate-300 bg-white" : "border-slate-200 bg-white hover:border-slate-300"}`}
+        >
           <p className="text-2xl font-bold text-slate-900">{client.installations.length}</p>
           <p className="text-xs text-slate-500 mt-1">Total</p>
-        </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+        </button>
+        <button
+          onClick={() => setStatusFilter(statusFilter === "en_parc" ? "all" : "en_parc")}
+          className={`rounded-xl border p-4 text-center transition-all cursor-pointer ${statusFilter === "en_parc" ? "border-emerald-400 ring-2 ring-emerald-300 bg-emerald-50" : "border-emerald-200 bg-emerald-50 hover:border-emerald-300"}`}
+        >
           <p className="text-2xl font-bold text-emerald-600">{enParc.length}</p>
           <p className="text-xs text-slate-500 mt-1">En parc</p>
-        </div>
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
+        </button>
+        <button
+          onClick={() => setStatusFilter(statusFilter === "hors_parc" ? "all" : "hors_parc")}
+          className={`rounded-xl border p-4 text-center transition-all cursor-pointer ${statusFilter === "hors_parc" ? "border-red-400 ring-2 ring-red-300 bg-red-50" : "border-red-200 bg-red-50 hover:border-red-300"}`}
+        >
           <p className="text-2xl font-bold text-red-600">{horsParc.length}</p>
           <p className="text-xs text-slate-500 mt-1">Hors parc</p>
-        </div>
-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
+        </button>
+        <button
+          onClick={() => setStatusFilter(statusFilter === "renouvele" ? "all" : "renouvele")}
+          className={`rounded-xl border p-4 text-center transition-all cursor-pointer ${statusFilter === "renouvele" ? "border-blue-400 ring-2 ring-blue-300 bg-blue-50" : "border-blue-200 bg-blue-50 hover:border-blue-300"}`}
+        >
           <p className="text-2xl font-bold text-blue-600">{renouvele.length}</p>
           <p className="text-xs text-slate-500 mt-1">Renouvelés</p>
-        </div>
+        </button>
       </div>
 
       {/* Tableau principal des installations avec toutes les infos */}
@@ -588,7 +607,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {sortedInstallations(client.installations).map((inst) => {
+              {sortedInstallations(client.installations.filter((inst) => {
+                if (statusFilter === "en_parc") return inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE";
+                if (statusFilter === "hors_parc") return inst.status === "HORS_PARC" || inst.status === "EN_PARC_HORS_GARANTIE";
+                if (statusFilter === "renouvele") return inst.status === "RENOUVELE";
+                return true;
+              })).map((inst) => {
                 const expired = isWarrantyExpired(inst.endDate);
                 const isEnParc = inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE";
                 return (
