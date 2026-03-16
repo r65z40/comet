@@ -7,6 +7,7 @@ import {
   syncInvoices,
   generateInstallations,
   updateInstallationStatuses,
+  cleanupStaleLogs,
 } from "@/lib/axonaut";
 
 export async function POST(req: NextRequest) {
@@ -67,6 +68,9 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  // Clean up stale "running" logs older than 5 minutes
+  await cleanupStaleLogs();
 
   const logs = await prisma.syncLog.findMany({
     orderBy: { startedAt: "desc" },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { RefreshCw, CheckCircle, XCircle, Loader2, Play, Zap, Bug, Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -46,20 +46,40 @@ export default function SyncPage() {
   const [showDebug, setShowDebug] = useState(false);
   const [loadingDebug, setLoadingDebug] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function fetchLogs() {
-    const res = await fetch("/api/sync");
-    const data = await res.json();
-    setLogs(data.logs || []);
+  const fetchLogs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/sync");
+      const data = await res.json();
+      setLogs(data.logs || []);
+    } catch {
+      // Network error, will retry on next poll
+    }
     setLoading(false);
-  }
+  }, []);
+
+  // Start polling every 2 seconds while syncing
+  const startPolling = useCallback(() => {
+    if (pollingRef.current) return;
+    pollingRef.current = setInterval(fetchLogs, 2000);
+  }, [fetchLogs]);
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+    return () => stopPolling();
+  }, [fetchLogs, stopPolling]);
 
   async function handleSync(type: string) {
     setSyncing(type);
+    startPolling();
     try {
       const res = await fetch("/api/sync", {
         method: "POST",
@@ -70,15 +90,17 @@ export default function SyncPage() {
       if (!res.ok) {
         alert(`Erreur: ${data.error || "Erreur inconnue"}`);
       }
-      await fetchLogs();
     } catch {
       // Error handled via logs
     }
+    stopPolling();
+    await fetchLogs();
     setSyncing(null);
   }
 
   async function handleFullSync() {
     setSyncing("full");
+    startPolling();
     try {
       const res = await fetch("/api/sync", {
         method: "POST",
@@ -89,10 +111,11 @@ export default function SyncPage() {
       if (!res.ok) {
         alert(`Erreur: ${data.error || "Erreur inconnue"}`);
       }
-      await fetchLogs();
     } catch {
       // Error handled via logs
     }
+    stopPolling();
+    await fetchLogs();
     setSyncing(null);
   }
 
@@ -120,6 +143,9 @@ export default function SyncPage() {
     }
     setLoadingDebug(false);
   }
+
+  // Extract running logs for live progress display
+  const runningLogs = logs.filter((l) => l.status === "running");
 
   return (
     <div className="space-y-6">
@@ -152,6 +178,32 @@ export default function SyncPage() {
           </button>
         </div>
       </div>
+
+      {/* Live progress panel */}
+      {runningLogs.length > 0 && (
+        <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-primary-600" />
+            <h3 className="text-sm font-medium text-primary-700">Synchronisation en cours...</h3>
+          </div>
+          {runningLogs.map((log) => (
+            <div key={log.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-2.5 border border-primary-100">
+              <div className="flex items-center gap-3">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-primary-500" />
+                <span className="text-sm font-medium text-slate-700 capitalize">{log.type}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                {log.itemCount > 0 && (
+                  <span className="text-xs font-medium text-primary-600 bg-primary-100 rounded-full px-2 py-0.5">
+                    {log.itemCount} éléments
+                  </span>
+                )}
+                <span className="text-xs text-slate-500 max-w-xs truncate">{log.message}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Panneau de diagnostic */}
       {showDebug && debug && (

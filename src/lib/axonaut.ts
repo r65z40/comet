@@ -116,6 +116,30 @@ function norm(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
 }
 
+// Update sync log with progress (throttled to avoid DB spam)
+async function updateProgress(logId: string, message: string, itemCount: number) {
+  await prisma.syncLog.update({
+    where: { id: logId },
+    data: { message, itemCount },
+  });
+}
+
+// Mark stale "running" logs (older than 5 minutes) as error
+export async function cleanupStaleLogs() {
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  await prisma.syncLog.updateMany({
+    where: {
+      status: "running",
+      startedAt: { lt: fiveMinutesAgo },
+    },
+    data: {
+      status: "error",
+      message: "Synchronisation interrompue (timeout)",
+      completedAt: new Date(),
+    },
+  });
+}
+
 export async function syncProducts() {
   const log = await prisma.syncLog.create({
     data: { type: "products", status: "running", message: "Synchronisation des produits..." },
@@ -170,6 +194,7 @@ export async function syncProducts() {
         totalSynced++;
       }
 
+      await updateProgress(log.id, `Produits: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
       page++;
     }
 
@@ -249,6 +274,7 @@ export async function syncClients() {
         totalSynced++;
       }
 
+      await updateProgress(log.id, `Clients: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
       page++;
     }
 
@@ -368,6 +394,7 @@ export async function syncInvoices() {
         totalSynced++;
       }
 
+      await updateProgress(log.id, `Factures: ${totalSynced} synchronisées (page ${page})...`, totalSynced);
       page++;
     }
 
@@ -559,16 +586,24 @@ export async function refreshProduct(axonautId: number) {
 }
 
 export async function refreshInvoice(axonautId: number) {
-  // Try direct endpoint first
-  let inv;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let inv: any = null;
+
+  // Try direct endpoint first (handles both wrapped and unwrapped responses)
   try {
     const data = await axonautFetchDirect(`/invoices/${axonautId}`);
-    if (data && data.id) inv = data;
-  } catch { /* endpoint not available */ }
+    // Handle both { id: ... } and { invoice: { id: ... } } response formats
+    if (data && data.id) {
+      inv = data;
+    } else if (data && data.invoice && data.invoice.id) {
+      inv = data.invoice;
+    }
+  } catch {
+    // Direct endpoint failed (404, etc.) - will try paginated search
+  }
 
   if (!inv) {
-    // Fallback: paginated search with a reasonable limit (50 pages)
-    // to avoid hammering the API and getting 429
+    // Fallback: paginated search with a reasonable limit
     for (let page = 1; page <= 50; page++) {
       const data = await axonautFetch("/invoices", page);
       const invoices = Array.isArray(data) ? data : data.invoices || [];
@@ -579,7 +614,10 @@ export async function refreshInvoice(axonautId: number) {
   }
 
   if (!inv) {
-    throw new Error(`Facture Axonaut #${axonautId} introuvable. Vérifiez que cette facture existe toujours dans Axonaut.`);
+    throw new Error(
+      `Facture Axonaut #${axonautId} introuvable via l'API. ` +
+      `Essayez d'abord une synchronisation complète des factures depuis la page Synchronisation.`
+    );
   }
 
   const companyId = inv.company_id || inv.company?.id;
@@ -587,7 +625,7 @@ export async function refreshInvoice(axonautId: number) {
     ? await prisma.client.findUnique({ where: { axonautId: companyId } })
     : null;
 
-  if (!client) throw new Error("Client non trouvé pour cette facture");
+  if (!client) throw new Error("Client non trouvé pour cette facture. Synchronisez d'abord les clients.");
 
   const invoice = await prisma.invoice.upsert({
     where: { axonautId: inv.id },
