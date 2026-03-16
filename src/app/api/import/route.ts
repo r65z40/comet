@@ -69,15 +69,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
     }
 
-    // file.text() always decodes as UTF-8, but Excel CSV exports from Windows
-    // are often encoded in Latin-1/Windows-1252. Detect and handle both.
+    // Excel CSV exports from Windows use Windows-1252 encoding, not UTF-8.
+    // Use fatal UTF-8 decoder to reliably detect encoding issues.
     const rawBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(rawBuffer);
 
-    // Heuristic: try UTF-8 first; if it produces replacement characters (U+FFFD),
-    // fall back to Windows-1252 (superset of Latin-1) which handles French accents.
-    let text = new TextDecoder("utf-8").decode(bytes);
-    if (text.includes("\uFFFD")) {
+    let text: string;
+    try {
+      // fatal: true throws on ANY invalid UTF-8 byte sequence
+      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch {
+      // Not valid UTF-8 → decode as Windows-1252 (handles French accents: é, è, ê, à, ç, etc.)
       text = new TextDecoder("windows-1252").decode(bytes);
     }
     const lines = text.split(/\r?\n/).filter((l) => l.trim());
