@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "InvoiceLine" ADD COLUMN "purchasePrice" DOUBLE PRECISION;
+ALTER TABLE "invoice_lines" ADD COLUMN "purchasePrice" DOUBLE PRECISION;
