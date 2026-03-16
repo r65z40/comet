@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "COMET - CEDELIA",
   description: "Suivi des équipements, produits et services installés chez les clients",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/logo.svg",
     apple: "/logo-192.png",
   },
 };
