@@ -69,18 +69,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
     }
 
-    // Excel CSV exports from Windows use Windows-1252 encoding, not UTF-8.
-    // Use fatal UTF-8 decoder to reliably detect encoding issues.
+    // Detect file encoding: Excel CSV exports from French Windows use
+    // Windows-1252/Latin-1, not UTF-8. We must handle both.
     const rawBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(rawBuffer);
 
     let text: string;
-    try {
-      // fatal: true throws on ANY invalid UTF-8 byte sequence
-      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    } catch {
-      // Not valid UTF-8 → decode as Windows-1252 (handles French accents: é, è, ê, à, ç, etc.)
-      text = new TextDecoder("windows-1252").decode(bytes);
+    // Check for UTF-8 BOM (EF BB BF) — if present, it's definitely UTF-8
+    const hasUtf8Bom = bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+
+    if (hasUtf8Bom) {
+      text = new TextDecoder("utf-8").decode(bytes);
+    } else {
+      // No BOM: try strict UTF-8 decoding first
+      let isValidUtf8 = true;
+      try {
+        text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      } catch {
+        isValidUtf8 = false;
+        text = "";
+      }
+
+      if (!isValidUtf8) {
+        // Not valid UTF-8 → decode as Latin-1 (covers all French accented chars)
+        // Buffer.from().toString('latin1') is always available in Node.js
+        text = Buffer.from(bytes).toString("latin1");
+      }
     }
     const lines = text.split(/\r?\n/).filter((l) => l.trim());
 
