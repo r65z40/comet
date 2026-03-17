@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   Monitor, ShieldCheck, ShieldX, RefreshCw, Users, Package, Clock,
   AlertTriangle, Calendar, GripVertical, Plus, X, Settings2,
@@ -550,7 +551,14 @@ export default function DashboardPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [cometExploding, setCometExploding] = useState(false);
   const layoutLoaded = useRef(false);
+
+  const triggerCometExplosion = useCallback(() => {
+    if (cometExploding) return;
+    setCometExploding(true);
+    setTimeout(() => setCometExploding(false), 2000);
+  }, [cometExploding]);
 
   // Load saved layout
   useEffect(() => {
@@ -666,9 +674,146 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Comet explosion overlay */}
+      {cometExploding && (
+        <div className="comet-explosion-overlay" aria-hidden="true">
+          <div className="comet-meteor" />
+          {Array.from({ length: 40 }).map((_, i) => (
+            <div
+              key={i}
+              className="comet-particle"
+              style={{
+                '--angle': `${Math.random() * 360}deg`,
+                '--distance': `${80 + Math.random() * 300}px`,
+                '--size': `${3 + Math.random() * 8}px`,
+                '--delay': `${Math.random() * 0.15}s`,
+                '--hue': `${190 + Math.random() * 40}`,
+              } as React.CSSProperties}
+            />
+          ))}
+          <div className="comet-shockwave" />
+          <div className="comet-flash" />
+        </div>
+      )}
+
+      <style jsx>{`
+        .comet-explosion-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          pointer-events: none;
+          overflow: hidden;
+        }
+
+        .comet-meteor {
+          position: absolute;
+          top: -60px;
+          right: -60px;
+          width: 30px;
+          height: 30px;
+          background: radial-gradient(circle, #fff 0%, #7dd3fc 40%, #0ea5e9 70%, transparent 100%);
+          border-radius: 50%;
+          box-shadow: 0 0 40px 15px rgba(14, 165, 233, 0.8), 0 0 80px 30px rgba(14, 165, 233, 0.4);
+          animation: meteorFly 0.5s ease-in forwards;
+        }
+
+        .comet-meteor::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 200px;
+          height: 4px;
+          background: linear-gradient(to right, rgba(125, 211, 252, 0.8), transparent);
+          transform-origin: left center;
+          transform: rotate(45deg);
+        }
+
+        @keyframes meteorFly {
+          0% { top: -60px; right: -60px; opacity: 1; }
+          100% { top: 50%; right: 50%; transform: translate(50%, -50%); opacity: 1; }
+        }
+
+        .comet-shockwave {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 0;
+          height: 0;
+          border-radius: 50%;
+          border: 3px solid rgba(14, 165, 233, 0.6);
+          transform: translate(-50%, -50%);
+          animation: shockwaveExpand 0.8s ease-out 0.45s forwards;
+        }
+
+        @keyframes shockwaveExpand {
+          0% { width: 0; height: 0; opacity: 1; border-width: 4px; }
+          100% { width: 200vmax; height: 200vmax; opacity: 0; border-width: 1px; }
+        }
+
+        .comet-flash {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 0;
+          height: 0;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(125,211,252,0.6) 30%, rgba(14,165,233,0.2) 60%, transparent 70%);
+          transform: translate(-50%, -50%);
+          animation: flashBang 0.7s ease-out 0.4s forwards;
+        }
+
+        @keyframes flashBang {
+          0% { width: 0; height: 0; opacity: 1; }
+          30% { width: 120vmax; height: 120vmax; opacity: 0.9; }
+          100% { width: 150vmax; height: 150vmax; opacity: 0; }
+        }
+
+        .comet-particle {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: var(--size);
+          height: var(--size);
+          background: hsl(var(--hue), 90%, 70%);
+          border-radius: 50%;
+          box-shadow: 0 0 6px hsl(var(--hue), 90%, 60%);
+          animation: particleExplode 1.2s ease-out calc(0.45s + var(--delay)) forwards;
+          opacity: 0;
+        }
+
+        @keyframes particleExplode {
+          0% { transform: translate(-50%, -50%) translate(0, 0); opacity: 1; }
+          20% { opacity: 1; }
+          100% {
+            transform: translate(-50%, -50%)
+              translate(
+                calc(cos(var(--angle)) * var(--distance)),
+                calc(sin(var(--angle)) * var(--distance))
+              );
+            opacity: 0;
+          }
+        }
+      `}</style>
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={triggerCometExplosion}
+              className="relative group cursor-pointer transition-transform hover:scale-110 active:scale-95"
+              title="Comète !"
+            >
+              <Image
+                src="/logo.svg"
+                alt="COMET Logo"
+                width={40}
+                height={40}
+                className="drop-shadow-md"
+              />
+            </button>
+            <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+          </div>
           <p className="text-sm text-slate-500 mt-1">Suivi des garanties et échéances</p>
         </div>
         <div className="flex items-center gap-2">
