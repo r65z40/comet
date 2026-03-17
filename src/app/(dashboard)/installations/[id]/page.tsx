@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Trash2, Pencil, Info, MessageSquare } from "lucide-react";
+import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Trash2, Pencil, Info, MessageSquare, Check, X } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired, getWarrantyLabel } from "@/lib/utils";
@@ -35,8 +35,8 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [alwaysInFleet, setAlwaysInFleet] = useState(false);
-  const [editingEndDate, setEditingEndDate] = useState(false);
-  const [newEndDate, setNewEndDate] = useState("");
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   useEffect(() => {
     fetch(`/api/installations/${id}`)
@@ -78,18 +78,23 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
     setInstallation((prev) => prev ? { ...prev, status: updated.status } : prev);
   }
 
-  async function saveEndDate() {
-    if (!newEndDate) return;
+  async function saveField(field: string) {
+    if (!editValue && field !== "family" && field !== "supplier") return;
     setSaving(true);
     const res = await fetch(`/api/installations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ endDate: newEndDate }),
+      body: JSON.stringify({ [field]: editValue }),
     });
     const updated = await res.json();
-    setInstallation((prev) => prev ? { ...prev, endDate: updated.endDate } : prev);
-    setEditingEndDate(false);
+    setInstallation((prev) => prev ? { ...prev, ...updated } : prev);
+    setEditingField(null);
     setSaving(false);
+  }
+
+  function startEdit(field: string, currentValue: string) {
+    setEditingField(field);
+    setEditValue(currentValue);
   }
 
   async function toggleAlwaysInFleet() {
@@ -216,55 +221,80 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem icon={Building2} label="Client" value={installation.client.name} />
               <InfoItem icon={Package} label="Produit" value={installation.product.name} />
-              <InfoItem icon={Truck} label="Fournisseur" value={installation.supplier || "—"} />
-              <InfoItem icon={Tag} label="Famille" value={installation.family || "—"} />
-              <InfoItem icon={Calendar} label="Début garantie" value={formatDate(installation.startDate)} />
-              <div className="flex items-start gap-3">
-                <div className="rounded-lg bg-slate-100 p-2">
-                  <Calendar className="h-4 w-4 text-slate-500" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs text-slate-400">Fin garantie</p>
-                  {editingEndDate ? (
-                    <div className="flex items-center gap-2 mt-1">
-                      <input
-                        type="date"
-                        value={newEndDate}
-                        onChange={(e) => setNewEndDate(e.target.value)}
-                        className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-sm text-slate-800 focus:border-primary-500 focus:outline-none"
-                      />
-                      <button
-                        onClick={saveEndDate}
-                        disabled={saving}
-                        className="rounded px-2 py-1 text-xs bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50"
-                      >
-                        OK
-                      </button>
-                      <button
-                        onClick={() => setEditingEndDate(false)}
-                        className="rounded px-2 py-1 text-xs border border-slate-200 text-slate-500 hover:bg-slate-50"
-                      >
-                        Annuler
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <p className={`text-sm font-medium ${expired ? "text-red-600" : "text-slate-800"}`}>{formatDate(installation.endDate)}</p>
-                      <button
-                        onClick={() => {
-                          setNewEndDate(new Date(installation.endDate).toISOString().split("T")[0]);
-                          setEditingEndDate(true);
-                        }}
-                        className="rounded p-0.5 text-slate-400 hover:text-primary-600 transition-colors"
-                        title="Modifier la date de fin"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <InfoItem icon={Calendar} label="Durée" value={`${installation.durationMonths} mois`} />
+              <EditableInfoItem
+                icon={Truck}
+                label="Fournisseur"
+                value={installation.supplier || ""}
+                displayValue={installation.supplier || "—"}
+                fieldName="supplier"
+                editingField={editingField}
+                editValue={editValue}
+                saving={saving}
+                onStartEdit={startEdit}
+                onSave={saveField}
+                onCancel={() => setEditingField(null)}
+                onChangeValue={setEditValue}
+              />
+              <EditableInfoItem
+                icon={Tag}
+                label="Famille"
+                value={installation.family || ""}
+                displayValue={installation.family || "—"}
+                fieldName="family"
+                editingField={editingField}
+                editValue={editValue}
+                saving={saving}
+                onStartEdit={startEdit}
+                onSave={saveField}
+                onCancel={() => setEditingField(null)}
+                onChangeValue={setEditValue}
+              />
+              <EditableInfoItem
+                icon={Calendar}
+                label="Début garantie"
+                value={new Date(installation.startDate).toISOString().split("T")[0]}
+                displayValue={formatDate(installation.startDate)}
+                fieldName="startDate"
+                inputType="date"
+                editingField={editingField}
+                editValue={editValue}
+                saving={saving}
+                onStartEdit={startEdit}
+                onSave={saveField}
+                onCancel={() => setEditingField(null)}
+                onChangeValue={setEditValue}
+              />
+              <EditableInfoItem
+                icon={Calendar}
+                label="Fin garantie"
+                value={new Date(installation.endDate).toISOString().split("T")[0]}
+                displayValue={formatDate(installation.endDate)}
+                displayClassName={expired ? "text-red-600" : undefined}
+                fieldName="endDate"
+                inputType="date"
+                editingField={editingField}
+                editValue={editValue}
+                saving={saving}
+                onStartEdit={startEdit}
+                onSave={saveField}
+                onCancel={() => setEditingField(null)}
+                onChangeValue={setEditValue}
+              />
+              <EditableInfoItem
+                icon={Calendar}
+                label="Durée"
+                value={String(installation.durationMonths)}
+                displayValue={`${installation.durationMonths} mois`}
+                fieldName="durationMonths"
+                inputType="number"
+                editingField={editingField}
+                editValue={editValue}
+                saving={saving}
+                onStartEdit={startEdit}
+                onSave={saveField}
+                onCancel={() => setEditingField(null)}
+                onChangeValue={setEditValue}
+              />
               {installation.invoice && (
                 <InfoItem
                   icon={FileText}
@@ -272,7 +302,21 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                   value={installation.invoice.invoiceNumber || formatDate(installation.invoice.invoiceDate)}
                 />
               )}
-              <InfoItem icon={Package} label="Quantité" value={String(installation.quantity)} />
+              <EditableInfoItem
+                icon={Package}
+                label="Quantité"
+                value={String(installation.quantity)}
+                displayValue={String(installation.quantity)}
+                fieldName="quantity"
+                inputType="number"
+                editingField={editingField}
+                editValue={editValue}
+                saving={saving}
+                onStartEdit={startEdit}
+                onSave={saveField}
+                onCancel={() => setEditingField(null)}
+                onChangeValue={setEditValue}
+              />
               <InfoItem icon={MessageSquare} label="Com Parc" value={installation.comParc || "—"} />
             </div>
           </div>
@@ -439,6 +483,86 @@ function InfoItem({ icon: Icon, label, value }: { icon: typeof Calendar; label: 
       <div>
         <p className="text-xs text-slate-400">{label}</p>
         <p className="text-sm font-medium text-slate-800">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function EditableInfoItem({
+  icon: Icon,
+  label,
+  value,
+  displayValue,
+  displayClassName,
+  fieldName,
+  inputType = "text",
+  editingField,
+  editValue,
+  saving,
+  onStartEdit,
+  onSave,
+  onCancel,
+  onChangeValue,
+}: {
+  icon: typeof Calendar;
+  label: string;
+  value: string;
+  displayValue: string;
+  displayClassName?: string;
+  fieldName: string;
+  inputType?: "text" | "date" | "number";
+  editingField: string | null;
+  editValue: string;
+  saving: boolean;
+  onStartEdit: (field: string, value: string) => void;
+  onSave: (field: string) => void;
+  onCancel: () => void;
+  onChangeValue: (value: string) => void;
+}) {
+  const isEditing = editingField === fieldName;
+  return (
+    <div className="flex items-start gap-3">
+      <div className="rounded-lg bg-slate-100 p-2">
+        <Icon className="h-4 w-4 text-slate-500" />
+      </div>
+      <div className="flex-1">
+        <p className="text-xs text-slate-400">{label}</p>
+        {isEditing ? (
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              type={inputType}
+              value={editValue}
+              onChange={(e) => onChangeValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") onSave(fieldName); if (e.key === "Escape") onCancel(); }}
+              autoFocus
+              className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-sm text-slate-800 focus:border-primary-500 focus:outline-none w-full max-w-[200px]"
+            />
+            <button
+              onClick={() => onSave(fieldName)}
+              disabled={saving}
+              className="rounded p-1 text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={onCancel}
+              className="rounded p-1 text-slate-400 hover:bg-slate-100 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <p className={`text-sm font-medium ${displayClassName || "text-slate-800"}`}>{displayValue}</p>
+            <button
+              onClick={() => onStartEdit(fieldName, value)}
+              className="rounded p-0.5 text-slate-400 hover:text-primary-600 transition-colors"
+              title={`Modifier ${label.toLowerCase()}`}
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

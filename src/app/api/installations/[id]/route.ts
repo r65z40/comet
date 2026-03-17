@@ -49,6 +49,21 @@ export async function PATCH(
   if (body.endDate) {
     updateData.endDate = new Date(body.endDate);
   }
+  if (body.startDate) {
+    updateData.startDate = new Date(body.startDate);
+  }
+  if (body.durationMonths !== undefined) {
+    updateData.durationMonths = parseInt(body.durationMonths, 10);
+  }
+  if (body.family !== undefined) {
+    updateData.family = body.family || null;
+  }
+  if (body.supplier !== undefined) {
+    updateData.supplier = body.supplier || null;
+  }
+  if (body.quantity !== undefined) {
+    updateData.quantity = parseFloat(body.quantity);
+  }
 
   const installation = await prisma.installation.update({
     where: { id },
