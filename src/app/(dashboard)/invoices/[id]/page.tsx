@@ -218,7 +218,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                       </td>
                       <td className="px-4 py-3 text-sm text-right">
                         {line.product?.durationMonths ? (
-                          <span className="rounded-full bg-primary-600/20 px-2 py-0.5 text-xs font-medium text-primary-600">
+                          <span className="rounded-full bg-primary-600/20 px-2 py-0.5 text-xs font-medium text-primary-600 whitespace-nowrap">
                             {line.product.durationMonths} mois
                           </span>
                         ) : (

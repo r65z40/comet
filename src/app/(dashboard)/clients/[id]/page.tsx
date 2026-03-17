@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -58,6 +58,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [sortKey, setSortKey] = useState<SortKey>("endDate");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [statusFilter, setStatusFilter] = useState<"all" | "en_parc" | "hors_parc" | "renouvele">("all");
+  const [installSearch, setInstallSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function toggleSort(key: SortKey) {
@@ -606,8 +607,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Tableau principal des installations avec toutes les infos */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200">
-          <h3 className="text-sm font-medium text-slate-900">Produits installés — Suivi des garanties</h3>
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+          <h3 className="text-sm font-medium text-slate-900 shrink-0">Produits installés — Suivi des garanties</h3>
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Rechercher un produit..."
+              value={installSearch}
+              onChange={(e) => setInstallSearch(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-9 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -646,6 +657,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 if (statusFilter === "hors_parc") return inst.status === "HORS_PARC" || inst.status === "EN_PARC_HORS_GARANTIE";
                 if (statusFilter === "renouvele") return inst.status === "RENOUVELE";
                 return true;
+              }).filter((inst) => {
+                if (!installSearch) return true;
+                const q = installSearch.toLowerCase();
+                return inst.product.name.toLowerCase().includes(q) || (inst.product.code && inst.product.code.toLowerCase().includes(q)) || (inst.family && inst.family.toLowerCase().includes(q)) || (inst.supplier && inst.supplier.toLowerCase().includes(q));
               })).map((inst) => {
                 const expired = isWarrantyExpired(inst.endDate);
                 const isEnParc = inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE";
@@ -654,7 +669,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   key={inst.id}
                   className="hover:bg-slate-50 transition-colors"
                 >
-                  <td className="px-4 py-3 max-w-[200px]">
+                  <td className="px-4 py-3 max-w-[350px]">
                     <Link href={`/installations/${inst.id}`} className="text-sm font-medium text-primary-600 hover:text-primary-700 block truncate" title={inst.product.name}>
                       {inst.product.name}
                     </Link>
