@@ -73,6 +73,7 @@ export async function GET() {
   await cleanupStaleLogs();
 
   const logs = await prisma.syncLog.findMany({
+    where: { type: { not: "EMAIL_ALERT" } },
     orderBy: { startedAt: "desc" },
     take: 50,
   });

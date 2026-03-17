@@ -126,6 +126,7 @@ export async function sendExpiryNotifications() {
   const { emails, delayDays } = await getNotificationConfig();
   if (emails.length === 0) return { sent: false, reason: "Aucun email destinataire configuré" };
 
+  const baseUrl = (process.env.AUTH_URL || "http://localhost:3000").replace(/\/$/, "");
   const now = getParisNow();
   const future = new Date(now);
   future.setDate(future.getDate() + delayDays);
@@ -136,7 +137,7 @@ export async function sendExpiryNotifications() {
       endDate: { gte: now, lte: future },
     },
     include: {
-      client: { select: { name: true } },
+      client: { select: { id: true, name: true } },
       product: { select: { name: true } },
     },
     orderBy: { endDate: "asc" },
@@ -152,8 +153,9 @@ export async function sendExpiryNotifications() {
         (new Date(i.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
       const color = daysLeft <= 7 ? "#ef4444" : daysLeft <= 30 ? "#f97316" : "#eab308";
+      const clientUrl = `${baseUrl}/clients/${i.client.id}`;
       return `<tr>
-        <td style="padding:8px;border-bottom:1px solid #e2e8f0">${i.client.name}</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0"><a href="${clientUrl}" style="color:#2563eb;text-decoration:none">${i.client.name}</a></td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0">${i.product.name}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0">${new Date(i.endDate).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;color:${color};font-weight:bold">${daysLeft}j</td>
