@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   Monitor, ShieldCheck, ShieldX, RefreshCw, Users, Package, Clock,
   AlertTriangle, Calendar, GripVertical, Plus, X, Settings2,
@@ -552,6 +551,7 @@ export default function DashboardPage() {
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [cometExploding, setCometExploding] = useState(false);
+  const [siteLogo, setSiteLogo] = useState<string>("");
   const layoutLoaded = useRef(false);
 
   const triggerCometExplosion = useCallback(() => {
@@ -559,6 +559,14 @@ export default function DashboardPage() {
     setCometExploding(true);
     setTimeout(() => setCometExploding(false), 2000);
   }, [cometExploding]);
+
+  // Load branding logo
+  useEffect(() => {
+    fetch("/api/branding")
+      .then((r) => r.json())
+      .then((d) => { if (d.site_logo) setSiteLogo(d.site_logo); })
+      .catch(() => {});
+  }, []);
 
   // Load saved layout
   useEffect(() => {
@@ -804,12 +812,11 @@ export default function DashboardPage() {
               className="relative group cursor-pointer transition-transform hover:scale-110 active:scale-95"
               title="Comète !"
             >
-              <Image
-                src="/logo.svg"
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={siteLogo || "/logo.png"}
                 alt="COMET Logo"
-                width={40}
-                height={40}
-                className="drop-shadow-md"
+                className="h-10 w-10 rounded-lg object-contain drop-shadow-md"
               />
             </button>
             <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
