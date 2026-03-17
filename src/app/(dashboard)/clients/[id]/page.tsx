@@ -316,7 +316,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   <title>Rapport de suivi des garanties informatique - ${esc(client.name)}</title>
   <style>
     @media print {
-      @page { margin: 15mm; size: ${orientation === "landscape" ? "landscape" : "portrait"}; }
+      @page { margin: 5mm; size: ${orientation === "landscape" ? "landscape" : "portrait"}; }
       @page:first { margin: 0; }
       html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
@@ -359,7 +359,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page .vertical-text { position: absolute; right: 0; top: 0; bottom: 0; writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; padding-right: 5px; }
     @media print { .cover-page .vertical-text { top: 50%; bottom: auto; transform: translateY(-50%); } }
 
-    .report-content { padding: 20px 15mm; }
+    .report-content { padding: 10px 5mm; }
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
 
     .stats { display: flex; gap: 16px; margin-bottom: 30px; flex-wrap: wrap; }
