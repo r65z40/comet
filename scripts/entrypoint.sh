@@ -71,10 +71,11 @@ BEGIN
 END $$;
 SQL
 
-  # Add clientType and logoUrl columns to clients table
-  psql "$DB_URL" <<'SQL2' || echo "Client columns migration returned non-zero (may be OK)"
+  # Add missing columns to various tables
+  psql "$DB_URL" <<'SQL2' || echo "Column migrations returned non-zero (may be OK)"
 DO $$
 BEGIN
+  -- clients: clientType, logoUrl
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'clients' AND column_name = 'clientType'
@@ -89,6 +90,33 @@ BEGIN
   ) THEN
     ALTER TABLE clients ADD COLUMN "logoUrl" TEXT;
     RAISE NOTICE 'Added logoUrl column.';
+  END IF;
+
+  -- installations: alwaysInFleet
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'installations' AND column_name = 'alwaysInFleet'
+  ) THEN
+    ALTER TABLE installations ADD COLUMN "alwaysInFleet" BOOLEAN NOT NULL DEFAULT false;
+    RAISE NOTICE 'Added alwaysInFleet column.';
+  END IF;
+
+  -- invoice_lines: purchasePrice
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'invoice_lines' AND column_name = 'purchasePrice'
+  ) THEN
+    ALTER TABLE invoice_lines ADD COLUMN "purchasePrice" DOUBLE PRECISION;
+    RAISE NOTICE 'Added purchasePrice column.';
+  END IF;
+
+  -- installations: composite index on status + endDate
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE tablename = 'installations' AND indexname = 'installations_status_endDate_idx'
+  ) THEN
+    CREATE INDEX "installations_status_endDate_idx" ON installations("status", "endDate");
+    RAISE NOTICE 'Added status+endDate composite index.';
   END IF;
 END $$;
 SQL2
