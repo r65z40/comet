@@ -44,6 +44,7 @@ export default function ClientsPage() {
     {
       key: "name",
       label: "Nom",
+      width: "40%",
       render: (c: Client) => <span className="font-medium text-slate-900">{c.name}</span>,
     },
     { key: "email", label: "Email" },

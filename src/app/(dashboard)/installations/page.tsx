@@ -72,6 +72,7 @@ export default function InstallationsPage() {
     {
       key: "client",
       label: "Client",
+      width: "25%",
       render: (i: Installation) => (
         <span className="font-medium text-slate-900">{i.client.name}</span>
       ),
@@ -79,12 +80,20 @@ export default function InstallationsPage() {
     {
       key: "product",
       label: "Produit",
+      width: "20%",
       render: (i: Installation) => (
-        <span className="block max-w-[200px] truncate" title={i.product.name}>{i.product.name}</span>
+        <span className="block truncate" title={i.product.name}>{i.product.name}</span>
       ),
     },
     { key: "family", label: "Famille" },
     { key: "supplier", label: "Fournisseur" },
+    {
+      key: "quantity",
+      label: "Qté",
+      render: (i: Installation) => (
+        <span className="text-xs">{i.quantity}</span>
+      ),
+    },
     {
       key: "startDate",
       label: "Début garantie",

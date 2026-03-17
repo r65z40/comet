@@ -7,6 +7,7 @@ interface Column<T> {
   key: string;
   label: string;
   sortable?: boolean;
+  width?: string;
   render?: (item: T) => React.ReactNode;
 }
 
@@ -88,6 +89,7 @@ export default function DataTable<T extends { id: string }>({
               {columns.map((col) => (
                 <th
                   key={col.key}
+                  style={col.width ? { width: col.width, minWidth: col.width } : undefined}
                   className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500 ${
                     col.sortable !== false ? "cursor-pointer select-none hover:text-slate-700 transition-colors" : ""
                   }`}

@@ -6,7 +6,8 @@ export default auth((req) => {
   const isLoginPage = req.nextUrl.pathname === "/login";
   const isAuthPage = req.nextUrl.pathname === "/login" ||
     req.nextUrl.pathname === "/forgot-password" ||
-    req.nextUrl.pathname === "/reset-password";
+    req.nextUrl.pathname === "/reset-password" ||
+    req.nextUrl.pathname === "/signout";
   const isApiAuth = req.nextUrl.pathname.startsWith("/api/auth");
   const isBranding = req.nextUrl.pathname === "/api/branding";
   const isCron = req.nextUrl.pathname === "/api/cron";

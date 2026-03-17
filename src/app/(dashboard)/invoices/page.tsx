@@ -53,7 +53,10 @@ export default function InvoicesPage() {
     {
       key: "client",
       label: "Client",
-      render: (inv: Invoice) => inv.client.name,
+      width: "35%",
+      render: (inv: Invoice) => (
+        <span className="font-medium text-slate-900">{inv.client.name}</span>
+      ),
     },
     {
       key: "invoiceDate",

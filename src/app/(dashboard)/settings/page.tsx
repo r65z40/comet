@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle } from "lucide-react";
 
 interface User {
   id: string;
@@ -83,6 +83,12 @@ export default function SettingsPage() {
   const [savingReport, setSavingReport] = useState(false);
   const [savedReport, setSavedReport] = useState(false);
   const companyLogoRef = useRef<HTMLInputElement>(null);
+
+  // Bulk delete
+  const [deleteTypes, setDeleteTypes] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteResult, setDeleteResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // User management
   const [users, setUsers] = useState<User[]>([]);
@@ -691,6 +697,34 @@ export default function SettingsPage() {
             {testingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
             Tester la connexion
           </button>
+          <button
+            onClick={async () => {
+              setSmtpTestResult(null);
+              setTestingSmtp(true);
+              try {
+                const res = await fetch("/api/notifications", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "test-email" }),
+                });
+                const data = await res.json();
+                if (res.ok) {
+                  setSmtpTestResult({ success: true, error: data.message });
+                } else {
+                  setSmtpTestResult({ success: false, error: data.error });
+                }
+              } catch {
+                setSmtpTestResult({ success: false, error: "Erreur de connexion" });
+              } finally {
+                setTestingSmtp(false);
+              }
+            }}
+            disabled={testingSmtp}
+            className="flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+          >
+            {testingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Envoyer un email de test
+          </button>
           {savedSmtp && <span className="text-xs text-emerald-600">Paramètres enregistrés</span>}
         </div>
 
@@ -700,7 +734,9 @@ export default function SettingsPage() {
               ? "border-emerald-200 bg-emerald-50 text-emerald-600"
               : "border-red-200 bg-red-50 text-red-600"
           }`}>
-            {smtpTestResult.success ? "Connexion SMTP réussie" : `Erreur : ${smtpTestResult.error}`}
+            {smtpTestResult.success
+              ? (smtpTestResult.error || "Connexion SMTP réussie")
+              : `Erreur : ${smtpTestResult.error}`}
           </div>
         )}
       </div>
@@ -1445,6 +1481,117 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Suppression de données */}
+      <div className="lg:col-span-2 rounded-xl border border-red-200 bg-white p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="rounded-lg bg-red-50 p-2">
+            <Trash2 className="h-4 w-4 text-red-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-slate-900">Supprimer des données</h3>
+            <p className="text-xs text-slate-400">Supprimez en masse les données de l&apos;application. Cette action est irréversible.</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { key: "installations", label: "Installations", desc: "Toutes les installations et garanties" },
+              { key: "invoices", label: "Factures", desc: "Factures et lignes de facturation" },
+              { key: "products", label: "Produits", desc: "Catalogue produits" },
+              { key: "clients", label: "Clients", desc: "Tous les clients" },
+            ].map(({ key, label, desc }) => (
+              <label
+                key={key}
+                className={`flex flex-col gap-1 rounded-lg border-2 p-3 cursor-pointer transition-colors ${
+                  deleteTypes.includes(key)
+                    ? "border-red-400 bg-red-50"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={deleteTypes.includes(key)}
+                    onChange={(e) => {
+                      if (e.target.checked) setDeleteTypes([...deleteTypes, key]);
+                      else setDeleteTypes(deleteTypes.filter((t) => t !== key));
+                      setDeleteConfirm("");
+                      setDeleteResult(null);
+                    }}
+                    className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                  />
+                  <span className="text-sm font-medium text-slate-900">{label}</span>
+                </div>
+                <span className="text-xs text-slate-400">{desc}</span>
+              </label>
+            ))}
+          </div>
+
+          {deleteTypes.length > 0 && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+                <p className="text-sm text-red-700 font-medium">
+                  Vous allez supprimer : {deleteTypes.map((t) => {
+                    const labels: Record<string, string> = { installations: "Installations", invoices: "Factures", products: "Produits", clients: "Clients" };
+                    return labels[t];
+                  }).join(", ")}
+                </p>
+              </div>
+              <p className="text-xs text-red-600">
+                Tapez <strong>SUPPRIMER</strong> pour confirmer :
+              </p>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder="SUPPRIMER"
+                className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+              />
+              <button
+                disabled={deleteConfirm !== "SUPPRIMER" || deleting}
+                onClick={async () => {
+                  setDeleting(true);
+                  setDeleteResult(null);
+                  try {
+                    const res = await fetch("/api/data", {
+                      method: "DELETE",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ types: deleteTypes }),
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      setDeleteResult({ success: true, message: data.message });
+                      setDeleteTypes([]);
+                      setDeleteConfirm("");
+                    } else {
+                      setDeleteResult({ success: false, message: data.error || "Erreur" });
+                    }
+                  } catch {
+                    setDeleteResult({ success: false, message: "Erreur de connexion" });
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Supprimer définitivement
+              </button>
+            </div>
+          )}
+
+          {deleteResult && (
+            <div className={`rounded-lg border p-3 text-sm ${
+              deleteResult.success ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
+            }`}>
+              {deleteResult.message}
+            </div>
+          )}
+        </div>
       </div>
 
     </div>
