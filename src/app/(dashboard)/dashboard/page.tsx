@@ -18,6 +18,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
   type PieLabelRenderProps,
 } from "recharts";
 
@@ -54,6 +55,38 @@ interface DashboardData {
 }
 
 const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#14b8a6", "#f97316"];
+
+const RADIAN = Math.PI / 180;
+function renderPieLabel(props: PieLabelRenderProps) {
+  const cx = Number(props.cx ?? 0);
+  const cy = Number(props.cy ?? 0);
+  const midAngle = Number(props.midAngle ?? 0);
+  const outerRadius = Number(props.outerRadius ?? 0);
+  const percent = Number(props.percent ?? 0);
+  const name = String(props.name ?? "");
+  if (percent < 0.05) return null; // Hide labels for slices < 5%
+  const radius = outerRadius + 20;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  return (
+    <text x={x} y={y} fill="#475569" textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={11}>
+      {name.length > 12 ? name.slice(0, 12) + "…" : name} ({(percent * 100).toFixed(0)}%)
+    </text>
+  );
+}
+
+function renderLegend(payload: readonly { color?: string; value?: string }[]) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", justifyContent: "center", paddingTop: 4 }}>
+      {payload.map((entry, i) => (
+        <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: entry.color, display: "inline-block" }} />
+          {entry.value}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function formatMonthFr(label: unknown) {
   if (typeof label !== "string") return String(label ?? "");
@@ -201,17 +234,17 @@ export default function DashboardPage() {
 
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par famille</h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={320}>
             <PieChart>
               <Pie
                 data={data.byFamily}
                 cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
+                cy="45%"
+                innerRadius={55}
+                outerRadius={90}
                 dataKey="value"
                 stroke="none"
-                label={(props: PieLabelRenderProps) => `${props.name ?? ""} (${((props.percent ?? 0) * 100).toFixed(0)}%)`}
+                label={renderPieLabel}
               >
                 {data.byFamily.map((_, i) => (
                   <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -225,6 +258,7 @@ export default function DashboardPage() {
                   color: "#334155",
                 }}
               />
+              <Legend content={({ payload }) => renderLegend(payload ?? [])} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -233,17 +267,17 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par fournisseur</h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={320}>
             <PieChart>
               <Pie
                 data={data.bySupplier}
                 cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
+                cy="45%"
+                innerRadius={55}
+                outerRadius={90}
                 dataKey="value"
                 stroke="none"
-                label={(props: PieLabelRenderProps) => `${props.name ?? ""} (${((props.percent ?? 0) * 100).toFixed(0)}%)`}
+                label={renderPieLabel}
               >
                 {data.bySupplier.map((_, i) => (
                   <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -257,6 +291,7 @@ export default function DashboardPage() {
                   color: "#334155",
                 }}
               />
+              <Legend content={({ payload }) => renderLegend(payload ?? [])} />
             </PieChart>
           </ResponsiveContainer>
         </div>
