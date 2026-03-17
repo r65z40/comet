@@ -1,26 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Monitor, ShieldCheck, ShieldX, RefreshCw, Users, Package, Clock, AlertTriangle, Calendar } from "lucide-react";
+import {
+  Monitor, ShieldCheck, ShieldX, RefreshCw, Users, Package, Clock,
+  AlertTriangle, Calendar, GripVertical, Plus, X, Settings2,
+  TrendingUp, Activity, FileText, BarChart3, PieChart as PieChartIcon,
+  DollarSign, Star, History,
+} from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { formatDate, daysUntil, formatCountdown, getCountdownColor } from "@/lib/utils";
+import { formatDate, daysUntil, formatCountdown, getCountdownColor, formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  type PieLabelRenderProps,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  LineChart, Line, type PieLabelRenderProps,
 } from "recharts";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface DashboardData {
   counts: {
@@ -52,9 +50,64 @@ interface DashboardData {
     client: { id: string; name: string };
     product: { id: string; name: string };
   }[];
+  topClients: { name: string; id: string; count: number }[];
+  recentActivity: { id: string; type: string; description: string; date: string }[];
+  financialSummary: { totalValue: number; avgDuration: number; renewalRate: number };
+  statusBreakdown: { status: string; count: number }[];
 }
 
+interface PanelConfig {
+  id: string;
+  type: string;
+  size: "small" | "medium" | "large" | "full";
+}
+
+// ─── Available panels registry ───────────────────────────────────────────────
+
+const PANEL_REGISTRY: Record<string, { label: string; icon: typeof Monitor; defaultSize: PanelConfig["size"]; description: string }> = {
+  stats_main: { label: "Statistiques principales", icon: Monitor, defaultSize: "full", description: "Total installations, en parc, hors parc, renouvelés" },
+  stats_expiring: { label: "Alertes d'expiration", icon: AlertTriangle, defaultSize: "full", description: "Compteurs 30/60/90 jours" },
+  stats_entities: { label: "Clients & Produits", icon: Users, defaultSize: "full", description: "Nombre de clients et produits" },
+  chart_monthly: { label: "Fins de garantie par mois", icon: BarChart3, defaultSize: "medium", description: "Graphique en barres des expirations mensuelles" },
+  chart_family: { label: "Répartition par famille", icon: PieChartIcon, defaultSize: "medium", description: "Camembert par famille de produit" },
+  chart_supplier: { label: "Répartition par fournisseur", icon: PieChartIcon, defaultSize: "medium", description: "Camembert par fournisseur" },
+  list_renewals: { label: "Prochaines fins de garantie", icon: Clock, defaultSize: "medium", description: "Liste des garanties arrivant à échéance" },
+  list_expired: { label: "Hors parc", icon: ShieldX, defaultSize: "full", description: "Installations récemment expirées" },
+  top_clients: { label: "Top clients", icon: Star, defaultSize: "medium", description: "Clients avec le plus d'installations" },
+  status_breakdown: { label: "Répartition par statut", icon: Activity, defaultSize: "medium", description: "Camembert des statuts d'installation" },
+  chart_trend: { label: "Tendance expirations", icon: TrendingUp, defaultSize: "medium", description: "Courbe d'évolution des expirations" },
+  financial_summary: { label: "Résumé financier", icon: DollarSign, defaultSize: "full", description: "Valeur totale, durée moyenne, taux de renouvellement" },
+  recent_activity: { label: "Activité récente", icon: History, defaultSize: "medium", description: "Dernières synchronisations et modifications" },
+};
+
+const DEFAULT_PANELS: PanelConfig[] = [
+  { id: "p1", type: "stats_main", size: "full" },
+  { id: "p2", type: "stats_expiring", size: "full" },
+  { id: "p3", type: "stats_entities", size: "full" },
+  { id: "p4", type: "chart_monthly", size: "medium" },
+  { id: "p5", type: "chart_family", size: "medium" },
+  { id: "p6", type: "chart_supplier", size: "medium" },
+  { id: "p7", type: "list_renewals", size: "medium" },
+  { id: "p8", type: "list_expired", size: "full" },
+];
+
+// ─── Chart helpers ───────────────────────────────────────────────────────────
+
 const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#14b8a6", "#f97316"];
+const STATUS_COLORS: Record<string, string> = {
+  EN_PARC: "#10b981",
+  EN_PARC_GARANTIE: "#3b82f6",
+  HORS_PARC: "#ef4444",
+  EN_PARC_HORS_GARANTIE: "#f59e0b",
+  RENOUVELE: "#8b5cf6",
+};
+const STATUS_LABELS: Record<string, string> = {
+  EN_PARC: "En parc",
+  EN_PARC_GARANTIE: "En parc (garantie)",
+  HORS_PARC: "Hors parc",
+  EN_PARC_HORS_GARANTIE: "En parc (hors garantie)",
+  RENOUVELE: "Renouvelé",
+};
 
 const RADIAN = Math.PI / 180;
 function renderPieLabel(props: PieLabelRenderProps) {
@@ -64,7 +117,7 @@ function renderPieLabel(props: PieLabelRenderProps) {
   const outerRadius = Number(props.outerRadius ?? 0);
   const percent = Number(props.percent ?? 0);
   const name = String(props.name ?? "");
-  if (percent < 0.05) return null; // Hide labels for slices < 5%
+  if (percent < 0.05) return null;
   const radius = outerRadius + 20;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
@@ -96,50 +149,113 @@ function formatMonthFr(label: unknown) {
 
 type FilterMode = "30" | "90" | "custom";
 
-export default function DashboardPage() {
+// ─── Panel Components ────────────────────────────────────────────────────────
+
+function StatsMainPanel({ data }: { data: DashboardData }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <StatCard title="Total installations" value={data.counts.total} icon={Monitor} color="blue" href="/installations" />
+      <StatCard title="En parc" value={data.counts.enGarantie} icon={ShieldCheck} color="green" href="/installations?status=EN_PARC" />
+      <StatCard title="Hors parc" value={data.counts.horsGarantie} icon={ShieldX} color="red" href="/installations?status=HORS_PARC" />
+      <StatCard title="Renouvelés" value={data.counts.renouvele} icon={RefreshCw} color="blue" href="/installations?status=RENOUVELE" />
+    </div>
+  );
+}
+
+function StatsExpiringPanel({ data }: { data: DashboardData }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <Link href="/installations?expiring=30" className="rounded-xl border border-red-200 bg-red-50 p-4 hover:bg-red-100 transition-colors">
+        <div className="flex items-center gap-2 mb-1">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <span className="text-sm font-medium text-red-600">Expire dans 30 jours</span>
+        </div>
+        <p className="text-2xl font-bold text-slate-900">{data.counts.expiring30}</p>
+      </Link>
+      <Link href="/installations?expiring=60" className="rounded-xl border border-orange-200 bg-orange-50 p-4 hover:bg-orange-100 transition-colors">
+        <div className="flex items-center gap-2 mb-1">
+          <Clock className="h-4 w-4 text-orange-600" />
+          <span className="text-sm font-medium text-orange-600">Expire dans 60 jours</span>
+        </div>
+        <p className="text-2xl font-bold text-slate-900">{data.counts.expiring60}</p>
+      </Link>
+      <Link href="/installations?expiring=90" className="rounded-xl border border-amber-200 bg-amber-50 p-4 hover:bg-amber-100 transition-colors">
+        <div className="flex items-center gap-2 mb-1">
+          <Clock className="h-4 w-4 text-amber-600" />
+          <span className="text-sm font-medium text-amber-600">Expire dans 90 jours</span>
+        </div>
+        <p className="text-2xl font-bold text-slate-900">{data.counts.expiring90}</p>
+      </Link>
+    </div>
+  );
+}
+
+function StatsEntitiesPanel({ data }: { data: DashboardData }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <StatCard title="Clients" value={data.counts.totalClients} icon={Users} color="blue" href="/clients" />
+      <StatCard title="Produits" value={data.counts.totalProducts} icon={Package} color="blue" href="/products" />
+    </div>
+  );
+}
+
+function ChartMonthlyPanel({ data }: { data: DashboardData }) {
   const router = useRouter();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Fins de garantie par mois</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={data.byMonth}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="month" tickFormatter={formatMonthFr} tick={{ fill: "#64748b", fontSize: 12 }} />
+          <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
+          <Tooltip contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", color: "#334155" }} labelFormatter={formatMonthFr} />
+          <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Fins de garantie" cursor="pointer"
+            onClick={(_: unknown, index: number) => { const month = data.byMonth[index]?.month; if (month) router.push(`/installations?month=${month}`); }} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ChartFamilyPanel({ data }: { data: DashboardData }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par famille</h3>
+      <ResponsiveContainer width="100%" height={320}>
+        <PieChart>
+          <Pie data={data.byFamily} cx="50%" cy="45%" innerRadius={55} outerRadius={90} dataKey="value" stroke="none" label={renderPieLabel}>
+            {data.byFamily.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+          </Pie>
+          <Tooltip contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", color: "#334155" }} />
+          <Legend content={({ payload }) => renderLegend(payload ?? [])} />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ChartSupplierPanel({ data }: { data: DashboardData }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par fournisseur</h3>
+      <ResponsiveContainer width="100%" height={320}>
+        <PieChart>
+          <Pie data={data.bySupplier} cx="50%" cy="45%" innerRadius={55} outerRadius={90} dataKey="value" stroke="none" label={renderPieLabel}>
+            {data.bySupplier.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+          </Pie>
+          <Tooltip contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", color: "#334155" }} />
+          <Legend content={({ payload }) => renderLegend(payload ?? [])} />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ListRenewalsPanel({ data }: { data: DashboardData }) {
   const [filterMode, setFilterMode] = useState<FilterMode>("90");
   const [customDate, setCustomDate] = useState("");
 
-  useEffect(() => {
-    fetch("/api/dashboard/stats")
-      .then((r) => {
-        if (!r.ok) throw new Error(`Erreur ${r.status}`);
-        return r.json();
-      })
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <LoadingSpinner />;
-
-  if (error || !data) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-          <p className="text-red-600 font-medium mb-2">Erreur de chargement</p>
-          <p className="text-sm text-slate-500">{error || "Données indisponibles"}</p>
-          <button
-            onClick={() => { setError(null); setLoading(true); fetch("/api/dashboard/stats").then(r => { if (!r.ok) throw new Error(`Erreur ${r.status}`); return r.json(); }).then(setData).catch(e => setError(e.message)).finally(() => setLoading(false)); }}
-            className="mt-3 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-500 transition"
-          >
-            Réessayer
-          </button>
-          <p className="text-xs text-slate-400 mt-3">
-            Si le problème persiste, redémarrez les containers :<br />
-            <code className="text-primary-600">docker compose down && docker compose up -d</code>
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Filter upcoming renewals based on selected filter
   const filterDays = filterMode === "30" ? 30 : filterMode === "90" ? 90 : null;
   const filterEndDate = filterMode === "custom" && customDate ? new Date(customDate) : null;
 
@@ -152,261 +268,491 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">Suivi des garanties et échéances</p>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-medium text-slate-500">Prochaines fins de garantie</h3>
+        <Link href="/installations?status=EN_PARC" className="text-xs text-primary-600 hover:text-primary-700">Voir tout</Link>
       </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total installations" value={data.counts.total} icon={Monitor} color="blue" href="/installations" />
-        <StatCard title="En parc" value={data.counts.enGarantie} icon={ShieldCheck} color="green" href="/installations?status=EN_PARC" />
-        <StatCard
-          title="Hors parc"
-          value={data.counts.horsGarantie}
-          icon={ShieldX}
-          color="red"
-          href="/installations?status=HORS_PARC"
-        />
-        <StatCard title="Renouvelés" value={data.counts.renouvele} icon={RefreshCw} color="blue" href="/installations?status=RENOUVELE" />
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        {(["30", "90"] as const).map((mode) => (
+          <button key={mode} onClick={() => setFilterMode(mode)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${filterMode === mode ? "bg-primary-600 text-white" : "border border-slate-200 text-slate-500 hover:bg-slate-50"}`}>
+            {mode} jours
+          </button>
+        ))}
+        <button onClick={() => setFilterMode("custom")}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterMode === "custom" ? "bg-primary-600 text-white" : "border border-slate-200 text-slate-500 hover:bg-slate-50"}`}>
+          <Calendar className="h-3 w-3" /> Date
+        </button>
+        {filterMode === "custom" && (
+          <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 focus:border-primary-500 focus:outline-none" />
+        )}
       </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Link href="/installations?expiring=30" className="rounded-xl border border-red-200 bg-red-50 p-4 hover:bg-red-50 transition-colors">
-          <div className="flex items-center gap-2 mb-1">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <span className="text-sm font-medium text-red-600">Expire dans 30 jours</span>
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{data.counts.expiring30}</p>
-        </Link>
-        <Link href="/installations?expiring=60" className="rounded-xl border border-orange-200 bg-orange-50 p-4 hover:bg-orange-50 transition-colors">
-          <div className="flex items-center gap-2 mb-1">
-            <Clock className="h-4 w-4 text-orange-600" />
-            <span className="text-sm font-medium text-orange-600">Expire dans 60 jours</span>
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{data.counts.expiring60}</p>
-        </Link>
-        <Link href="/installations?expiring=90" className="rounded-xl border border-amber-200 bg-amber-50 p-4 hover:bg-amber-50 transition-colors">
-          <div className="flex items-center gap-2 mb-1">
-            <Clock className="h-4 w-4 text-amber-600" />
-            <span className="text-sm font-medium text-amber-600">Expire dans 90 jours</span>
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{data.counts.expiring90}</p>
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard title="Clients" value={data.counts.totalClients} icon={Users} color="blue" href="/clients" />
-        <StatCard title="Produits" value={data.counts.totalProducts} icon={Package} color="blue" href="/products" />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <h3 className="text-sm font-medium text-slate-500 mb-4">Fins de garantie par mois</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.byMonth}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="month" tickFormatter={formatMonthFr} tick={{ fill: "#64748b", fontSize: 12 }} />
-              <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  color: "#334155",
-                }}
-                labelFormatter={formatMonthFr}
-              />
-              <Bar
-                dataKey="count"
-                fill="#3b82f6"
-                radius={[4, 4, 0, 0]}
-                name="Fins de garantie"
-                cursor="pointer"
-                onClick={(_: unknown, index: number) => {
-                  const month = data.byMonth[index]?.month;
-                  if (month) router.push(`/installations?month=${month}`);
-                }}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par famille</h3>
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie
-                data={data.byFamily}
-                cx="50%"
-                cy="45%"
-                innerRadius={55}
-                outerRadius={90}
-                dataKey="value"
-                stroke="none"
-                label={renderPieLabel}
-              >
-                {data.byFamily.map((_, i) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  color: "#334155",
-                }}
-              />
-              <Legend content={({ payload }) => renderLegend(payload ?? [])} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par fournisseur</h3>
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie
-                data={data.bySupplier}
-                cx="50%"
-                cy="45%"
-                innerRadius={55}
-                outerRadius={90}
-                dataKey="value"
-                stroke="none"
-                label={renderPieLabel}
-              >
-                {data.bySupplier.map((_, i) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  color: "#334155",
-                }}
-              />
-              <Legend content={({ payload }) => renderLegend(payload ?? [])} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-slate-500">Prochaines fins de garantie</h3>
-            <Link href="/installations?status=EN_PARC" className="text-xs text-primary-600 hover:text-primary-700">
-              Voir tout
-            </Link>
-          </div>
-          {/* Filtres de période */}
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <button
-              onClick={() => setFilterMode("30")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                filterMode === "30"
-                  ? "bg-primary-600 text-white"
-                  : "border border-slate-200 text-slate-500 hover:bg-slate-50"
-              }`}
-            >
-              30 jours
-            </button>
-            <button
-              onClick={() => setFilterMode("90")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                filterMode === "90"
-                  ? "bg-primary-600 text-white"
-                  : "border border-slate-200 text-slate-500 hover:bg-slate-50"
-              }`}
-            >
-              90 jours
-            </button>
-            <button
-              onClick={() => setFilterMode("custom")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors inline-flex items-center gap-1 ${
-                filterMode === "custom"
-                  ? "bg-primary-600 text-white"
-                  : "border border-slate-200 text-slate-500 hover:bg-slate-50"
-              }`}
-            >
-              <Calendar className="h-3 w-3" />
-              Date
-            </button>
-            {filterMode === "custom" && (
-              <input
-                type="date"
-                value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 focus:border-primary-500 focus:outline-none"
-              />
-            )}
-          </div>
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {filteredRenewals.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-8">
-                Aucune échéance dans {filterMode === "custom" ? "la période sélectionnée" : `les ${filterMode === "30" ? "30" : "90"} prochains jours`}
-              </p>
-            ) : (
-              filteredRenewals.map((r) => {
-                const days = daysUntil(r.endDate);
-                return (
-                  <Link
-                    key={r.id}
-                    href={`/installations/${r.id}`}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-800 truncate">{r.product.name}</p>
-                      <p className="text-xs text-slate-400">{r.client.name}</p>
-                    </div>
-                    <div className="flex items-center gap-3 ml-3">
-                      <div className={`flex items-center gap-1 text-xs font-bold ${getCountdownColor(r.endDate)}`}>
-                        <Clock className="h-3 w-3" />
-                        <span>{days}j</span>
-                      </div>
-                      <span className="text-xs text-slate-400">{formatDate(r.endDate)}</span>
-                    </div>
-                  </Link>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </div>
-
-      {data.recentlyExpired.length > 0 && (
-        <div className="rounded-xl border border-red-200 bg-white p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <ShieldX className="h-4 w-4 text-red-600" />
-              <h3 className="text-sm font-medium text-red-600">Hors parc</h3>
-            </div>
-            <Link href="/installations?status=HORS_PARC" className="text-xs text-primary-600 hover:text-primary-700">
-              Voir tout
-            </Link>
-          </div>
-          <div className="space-y-2 max-h-[250px] overflow-y-auto">
-            {data.recentlyExpired.map((r) => (
-              <Link
-                key={r.id}
-                href={`/installations/${r.id}`}
-                className="flex items-center justify-between rounded-lg border border-slate-200 p-2.5 hover:bg-slate-50 transition-colors"
-              >
+      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+        {filteredRenewals.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-8">Aucune échéance dans la période</p>
+        ) : (
+          filteredRenewals.map((r) => {
+            const days = daysUntil(r.endDate);
+            return (
+              <Link key={r.id} href={`/installations/${r.id}`}
+                className="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-slate-800 truncate">{r.product.name}</p>
                   <p className="text-xs text-slate-400">{r.client.name}</p>
                 </div>
-                <div className="text-right ml-3">
-                  <p className="text-xs text-red-600 font-medium">{formatCountdown(r.endDate)}</p>
+                <div className="flex items-center gap-3 ml-3">
+                  <div className={`flex items-center gap-1 text-xs font-bold ${getCountdownColor(r.endDate)}`}>
+                    <Clock className="h-3 w-3" /><span>{days}j</span>
+                  </div>
+                  <span className="text-xs text-slate-400">{formatDate(r.endDate)}</span>
                 </div>
               </Link>
-            ))}
-          </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ListExpiredPanel({ data }: { data: DashboardData }) {
+  if (data.recentlyExpired.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-red-200 bg-white p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <ShieldX className="h-4 w-4 text-red-600" />
+          <h3 className="text-sm font-medium text-red-600">Hors parc</h3>
         </div>
+        <Link href="/installations?status=HORS_PARC" className="text-xs text-primary-600 hover:text-primary-700">Voir tout</Link>
+      </div>
+      <div className="space-y-2 max-h-[250px] overflow-y-auto">
+        {data.recentlyExpired.map((r) => (
+          <Link key={r.id} href={`/installations/${r.id}`}
+            className="flex items-center justify-between rounded-lg border border-slate-200 p-2.5 hover:bg-slate-50 transition-colors">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-slate-800 truncate">{r.product.name}</p>
+              <p className="text-xs text-slate-400">{r.client.name}</p>
+            </div>
+            <div className="text-right ml-3">
+              <p className="text-xs text-red-600 font-medium">{formatCountdown(r.endDate)}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TopClientsPanel({ data }: { data: DashboardData }) {
+  const topClients = data.topClients || [];
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Top clients (par installations)</h3>
+      {topClients.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-8">Aucune donnée</p>
+      ) : (
+        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          {topClients.map((c, i) => (
+            <Link key={c.id} href={`/clients/${c.id}`}
+              className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary-600">
+                {i + 1}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-800 truncate">{c.name}</p>
+              </div>
+              <span className="text-sm font-bold text-slate-600">{c.count}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusBreakdownPanel({ data }: { data: DashboardData }) {
+  const breakdown = data.statusBreakdown || [];
+  if (breakdown.length === 0) return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par statut</h3>
+      <p className="text-sm text-slate-400 text-center py-8">Aucune donnée</p>
+    </div>
+  );
+  const chartData = breakdown.map((s) => ({
+    name: STATUS_LABELS[s.status] || s.status,
+    value: s.count,
+    fill: STATUS_COLORS[s.status] || "#94a3b8",
+  }));
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par statut</h3>
+      <ResponsiveContainer width="100%" height={320}>
+        <PieChart>
+          <Pie data={chartData} cx="50%" cy="45%" innerRadius={55} outerRadius={90} dataKey="value" stroke="none" label={renderPieLabel}>
+            {chartData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+          </Pie>
+          <Tooltip contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", color: "#334155" }} />
+          <Legend content={({ payload }) => renderLegend(payload ?? [])} />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ChartTrendPanel({ data }: { data: DashboardData }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Tendance des expirations</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data.byMonth}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="month" tickFormatter={formatMonthFr} tick={{ fill: "#64748b", fontSize: 12 }} />
+          <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
+          <Tooltip contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", color: "#334155" }} labelFormatter={formatMonthFr} />
+          <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4, fill: "#3b82f6" }} name="Expirations" />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function FinancialSummaryPanel({ data }: { data: DashboardData }) {
+  const fin = data.financialSummary;
+  if (!fin) return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Résumé financier</h3>
+      <p className="text-sm text-slate-400 text-center py-4">Aucune donnée</p>
+    </div>
+  );
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Résumé financier</h3>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-center">
+          <DollarSign className="h-5 w-5 text-emerald-600 mx-auto mb-1" />
+          <p className="text-xl font-bold text-slate-900">{formatCurrency(fin.totalValue)}</p>
+          <p className="text-xs text-slate-500">Valeur totale</p>
+        </div>
+        <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-center">
+          <Clock className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+          <p className="text-xl font-bold text-slate-900">{fin.avgDuration.toFixed(0)} mois</p>
+          <p className="text-xs text-slate-500">Durée moyenne</p>
+        </div>
+        <div className="rounded-lg bg-purple-50 border border-purple-200 p-4 text-center">
+          <RefreshCw className="h-5 w-5 text-purple-600 mx-auto mb-1" />
+          <p className="text-xl font-bold text-slate-900">{fin.renewalRate.toFixed(1)}%</p>
+          <p className="text-xs text-slate-500">Taux de renouvellement</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecentActivityPanel({ data }: { data: DashboardData }) {
+  const activity = data.recentActivity || [];
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Activité récente</h3>
+      {activity.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-8">Aucune activité récente</p>
+      ) : (
+        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          {activity.map((a) => (
+            <div key={a.id} className="flex items-start gap-3 rounded-lg border border-slate-200 p-3">
+              <div className={`mt-0.5 rounded-full p-1.5 ${a.type === "sync" ? "bg-blue-50 text-blue-600" : a.type === "import" ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"}`}>
+                {a.type === "sync" ? <RefreshCw className="h-3 w-3" /> : a.type === "import" ? <FileText className="h-3 w-3" /> : <Activity className="h-3 w-3" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-slate-700">{a.description}</p>
+                <p className="text-xs text-slate-400">{formatDate(a.date)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Panel renderer ──────────────────────────────────────────────────────────
+
+function renderPanel(panel: PanelConfig, data: DashboardData) {
+  switch (panel.type) {
+    case "stats_main": return <StatsMainPanel data={data} />;
+    case "stats_expiring": return <StatsExpiringPanel data={data} />;
+    case "stats_entities": return <StatsEntitiesPanel data={data} />;
+    case "chart_monthly": return <ChartMonthlyPanel data={data} />;
+    case "chart_family": return <ChartFamilyPanel data={data} />;
+    case "chart_supplier": return <ChartSupplierPanel data={data} />;
+    case "list_renewals": return <ListRenewalsPanel data={data} />;
+    case "list_expired": return <ListExpiredPanel data={data} />;
+    case "top_clients": return <TopClientsPanel data={data} />;
+    case "status_breakdown": return <StatusBreakdownPanel data={data} />;
+    case "chart_trend": return <ChartTrendPanel data={data} />;
+    case "financial_summary": return <FinancialSummaryPanel data={data} />;
+    case "recent_activity": return <RecentActivityPanel data={data} />;
+    default: return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-400">Panneau inconnu</div>;
+  }
+}
+
+// ─── Add Panel Modal ─────────────────────────────────────────────────────────
+
+function AddPanelModal({ currentPanels, onAdd, onClose }: {
+  currentPanels: PanelConfig[];
+  onAdd: (type: string) => void;
+  onClose: () => void;
+}) {
+  const usedTypes = new Set(currentPanels.map((p) => p.type));
+  const available = Object.entries(PANEL_REGISTRY).filter(([type]) => !usedTypes.has(type));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h3 className="text-lg font-semibold text-slate-900">Ajouter un panneau</h3>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="max-h-96 overflow-y-auto p-4 space-y-2">
+          {available.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">Tous les panneaux sont déjà affichés</p>
+          ) : (
+            available.map(([type, info]) => (
+              <button key={type} onClick={() => { onAdd(type); onClose(); }}
+                className="flex w-full items-center gap-4 rounded-lg border border-slate-200 p-4 text-left hover:bg-slate-50 transition-colors">
+                <div className="rounded-lg bg-primary-50 p-2.5">
+                  <info.icon className="h-5 w-5 text-primary-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-900">{info.label}</p>
+                  <p className="text-xs text-slate-400">{info.description}</p>
+                </div>
+                <Plus className="h-4 w-4 text-slate-400" />
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Dashboard ──────────────────────────────────────────────────────────
+
+export default function DashboardPage() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [panels, setPanels] = useState<PanelConfig[]>(DEFAULT_PANELS);
+  const [editMode, setEditMode] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const layoutLoaded = useRef(false);
+
+  // Load saved layout
+  useEffect(() => {
+    fetch("/api/dashboard/layout")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.layout && Array.isArray(d.layout) && d.layout.length > 0) {
+          setPanels(d.layout);
+        }
+        layoutLoaded.current = true;
+      })
+      .catch(() => { layoutLoaded.current = true; });
+  }, []);
+
+  // Load dashboard data
+  useEffect(() => {
+    fetch("/api/dashboard/stats")
+      .then((r) => { if (!r.ok) throw new Error(`Erreur ${r.status}`); return r.json(); })
+      .then(setData)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Save layout
+  const saveLayout = useCallback((newPanels: PanelConfig[]) => {
+    setPanels(newPanels);
+    if (layoutLoaded.current) {
+      fetch("/api/dashboard/layout", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panels: newPanels }),
+      }).catch(() => {});
+    }
+  }, []);
+
+  function addPanel(type: string) {
+    const info = PANEL_REGISTRY[type];
+    if (!info) return;
+    const newPanel: PanelConfig = { id: `p_${Date.now()}`, type, size: info.defaultSize };
+    saveLayout([...panels, newPanel]);
+  }
+
+  function removePanel(id: string) {
+    saveLayout(panels.filter((p) => p.id !== id));
+  }
+
+  function changePanelSize(id: string) {
+    const sizes: PanelConfig["size"][] = ["small", "medium", "large", "full"];
+    saveLayout(panels.map((p) => {
+      if (p.id !== id) return p;
+      const idx = sizes.indexOf(p.size);
+      return { ...p, size: sizes[(idx + 1) % sizes.length] };
+    }));
+  }
+
+  // Drag and drop
+  function handleDragStart(idx: number) {
+    setDraggedIdx(idx);
+  }
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    setDragOverIdx(idx);
+  }
+
+  function handleDrop(idx: number) {
+    if (draggedIdx === null || draggedIdx === idx) {
+      setDraggedIdx(null);
+      setDragOverIdx(null);
+      return;
+    }
+    const newPanels = [...panels];
+    const [moved] = newPanels.splice(draggedIdx, 1);
+    newPanels.splice(idx, 0, moved);
+    saveLayout(newPanels);
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  }
+
+  function handleDragEnd() {
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  }
+
+  function resetLayout() {
+    saveLayout([...DEFAULT_PANELS]);
+  }
+
+  if (loading) return <LoadingSpinner />;
+
+  if (error || !data) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-red-600 font-medium mb-2">Erreur de chargement</p>
+          <p className="text-sm text-slate-500">{error || "Données indisponibles"}</p>
+          <button onClick={() => { setError(null); setLoading(true); fetch("/api/dashboard/stats").then(r => { if (!r.ok) throw new Error(`Erreur ${r.status}`); return r.json(); }).then(setData).catch(e => setError(e.message)).finally(() => setLoading(false)); }}
+            className="mt-3 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-500 transition">
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const sizeClasses: Record<PanelConfig["size"], string> = {
+    small: "col-span-1",
+    medium: "col-span-1 lg:col-span-1",
+    large: "col-span-1 lg:col-span-2",
+    full: "col-span-1 lg:col-span-2",
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+          <p className="text-sm text-slate-500 mt-1">Suivi des garanties et échéances</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {editMode && (
+            <>
+              <button onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-xs font-medium text-white hover:bg-primary-700 transition-colors">
+                <Plus className="h-3.5 w-3.5" /> Ajouter
+              </button>
+              <button onClick={resetLayout}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors">
+                <RefreshCw className="h-3.5 w-3.5" /> Réinitialiser
+              </button>
+            </>
+          )}
+          <button onClick={() => setEditMode(!editMode)}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+              editMode ? "bg-slate-900 text-white hover:bg-slate-800" : "border border-slate-300 text-slate-500 hover:bg-slate-50"
+            }`}>
+            <Settings2 className="h-3.5 w-3.5" />
+            {editMode ? "Terminer" : "Personnaliser"}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {panels.map((panel, idx) => {
+          const info = PANEL_REGISTRY[panel.type];
+          const sizeLabel = panel.size === "full" ? "Pleine" : panel.size === "large" ? "Grande" : panel.size === "medium" ? "Moyenne" : "Petite";
+          return (
+            <div
+              key={panel.id}
+              className={`${sizeClasses[panel.size]} ${
+                editMode ? "relative group" : ""
+              } ${dragOverIdx === idx ? "ring-2 ring-primary-400 ring-offset-2 rounded-xl" : ""} ${
+                draggedIdx === idx ? "opacity-50" : ""
+              } transition-all`}
+              draggable={editMode}
+              onDragStart={() => handleDragStart(idx)}
+              onDragOver={(e) => handleDragOver(e, idx)}
+              onDrop={() => handleDrop(idx)}
+              onDragEnd={handleDragEnd}
+            >
+              {editMode && (
+                <div className="absolute -top-2 left-0 right-0 z-10 flex items-center justify-between px-2">
+                  <div className="flex items-center gap-1.5 rounded-lg bg-slate-900/90 px-2.5 py-1 text-white shadow-lg backdrop-blur-sm cursor-grab active:cursor-grabbing">
+                    <GripVertical className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium">{info?.label || panel.type}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => changePanelSize(panel.id)}
+                      className="rounded-md bg-slate-900/90 px-2 py-1 text-[10px] font-medium text-white shadow-lg backdrop-blur-sm hover:bg-slate-800 transition-colors"
+                      title="Changer la taille">
+                      {sizeLabel}
+                    </button>
+                    <button onClick={() => removePanel(panel.id)}
+                      className="rounded-md bg-red-600/90 p-1 text-white shadow-lg backdrop-blur-sm hover:bg-red-500 transition-colors"
+                      title="Supprimer">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className={editMode ? "mt-4" : ""}>
+                {renderPanel(panel, data)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {panels.length === 0 && (
+        <div className="rounded-xl border-2 border-dashed border-slate-300 p-12 text-center">
+          <Settings2 className="h-8 w-8 text-slate-400 mx-auto mb-3" />
+          <p className="text-sm text-slate-500 mb-3">Aucun panneau affiché</p>
+          <button onClick={() => setShowAddModal(true)}
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors">
+            Ajouter un panneau
+          </button>
+        </div>
+      )}
+
+      {showAddModal && (
+        <AddPanelModal currentPanels={panels} onAdd={addPanel} onClose={() => setShowAddModal(false)} />
       )}
     </div>
   );

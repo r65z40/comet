@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock } from "lucide-react";
 
 interface User {
   id: string;
@@ -34,6 +34,26 @@ export default function SettingsPage() {
   const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; error?: string } | null>(null);
   const [sendingNotif, setSendingNotif] = useState(false);
   const [notifResult, setNotifResult] = useState<string | null>(null);
+
+  // Alert scheduling settings
+  const [alertEnabled, setAlertEnabled] = useState(false);
+  const [alertFrequency, setAlertFrequency] = useState("weekly"); // daily, weekly, monthly
+  const [alertDay, setAlertDay] = useState("1"); // day of week (1=Monday) or day of month
+  const [alertTime, setAlertTime] = useState("08:00");
+  const [alertTypes, setAlertTypes] = useState({
+    expiring: true,
+    expired: true,
+    renewed: false,
+    summary: true,
+  });
+  const [alertThresholds, setAlertThresholds] = useState({
+    days7: true,
+    days30: true,
+    days60: false,
+    days90: false,
+  });
+  const [savingAlerts, setSavingAlerts] = useState(false);
+  const [savedAlerts, setSavedAlerts] = useState(false);
 
   // Site branding
   const [siteLogo, setSiteLogo] = useState("");
@@ -96,6 +116,17 @@ export default function SettingsPage() {
         setSmtpFrom(data.smtp_from || "");
         setNotifEmails(data.notification_emails || "");
         setNotifDelay(data.notification_delay_days || "30");
+        // Alert scheduling
+        setAlertEnabled(data.alert_enabled === "true");
+        setAlertFrequency(data.alert_frequency || "weekly");
+        setAlertDay(data.alert_day || "1");
+        setAlertTime(data.alert_time || "08:00");
+        try {
+          if (data.alert_types) setAlertTypes(JSON.parse(data.alert_types));
+        } catch { /* keep defaults */ }
+        try {
+          if (data.alert_thresholds) setAlertThresholds(JSON.parse(data.alert_thresholds));
+        } catch { /* keep defaults */ }
         setReportTitle(data.report_title || "");
         setReportSubtitle(data.report_subtitle || "");
         setReportMessage(data.report_message || "");
@@ -236,6 +267,25 @@ export default function SettingsPage() {
       setNotifResult("Erreur lors de l'envoi");
     }
     setSendingNotif(false);
+  }
+
+  async function handleSaveAlerts() {
+    setSavingAlerts(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        alert_enabled: alertEnabled ? "true" : "false",
+        alert_frequency: alertFrequency,
+        alert_day: alertDay,
+        alert_time: alertTime,
+        alert_types: JSON.stringify(alertTypes),
+        alert_thresholds: JSON.stringify(alertThresholds),
+      }),
+    });
+    setSavingAlerts(false);
+    setSavedAlerts(true);
+    setTimeout(() => setSavedAlerts(false), 3000);
   }
 
   async function handleSaveSiteLogo() {
@@ -729,6 +779,158 @@ export default function SettingsPage() {
             {notifResult}
           </div>
         )}
+      </div>
+
+      {/* Planification des alertes email */}
+      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary-50 p-2">
+              <CalendarClock className="h-4 w-4 text-primary-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Planification des alertes</h3>
+              <p className="text-xs text-slate-400">Configurez l&apos;envoi automatique des alertes par email</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setAlertEnabled(!alertEnabled)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              alertEnabled ? "bg-primary-600" : "bg-slate-300"
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+              alertEnabled ? "translate-x-6" : "translate-x-1"
+            }`} />
+          </button>
+        </div>
+
+        {alertEnabled && (
+          <>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-2">Fréquence d&apos;envoi</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: "daily", label: "Quotidien" },
+                    { value: "weekly", label: "Hebdomadaire" },
+                    { value: "monthly", label: "Mensuel" },
+                  ].map((opt) => (
+                    <button key={opt.value} onClick={() => setAlertFrequency(opt.value)}
+                      className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                        alertFrequency === opt.value
+                          ? "border-primary-500 bg-primary-50 text-primary-600"
+                          : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"
+                      }`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-2">Heure d&apos;envoi</label>
+                <input
+                  type="time"
+                  value={alertTime}
+                  onChange={(e) => setAlertTime(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+
+              {alertFrequency === "weekly" && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">Jour de la semaine</label>
+                  <select value={alertDay} onChange={(e) => setAlertDay(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                    <option value="1">Lundi</option>
+                    <option value="2">Mardi</option>
+                    <option value="3">Mercredi</option>
+                    <option value="4">Jeudi</option>
+                    <option value="5">Vendredi</option>
+                    <option value="6">Samedi</option>
+                    <option value="0">Dimanche</option>
+                  </select>
+                </div>
+              )}
+
+              {alertFrequency === "monthly" && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">Jour du mois</label>
+                  <select value={alertDay} onChange={(e) => setAlertDay(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                    {Array.from({ length: 28 }, (_, i) => (
+                      <option key={i + 1} value={String(i + 1)}>{i + 1}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Types d&apos;alertes à envoyer</label>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {[
+                  { key: "expiring" as const, label: "Garanties bientôt expirées", desc: "Installations dont la garantie arrive à échéance" },
+                  { key: "expired" as const, label: "Garanties expirées", desc: "Installations dont la garantie est dépassée" },
+                  { key: "renewed" as const, label: "Renouvellements effectués", desc: "Installations renouvelées récemment" },
+                  { key: "summary" as const, label: "Résumé hebdomadaire", desc: "Vue d'ensemble de l'état des garanties" },
+                ].map((item) => (
+                  <label key={item.key}
+                    className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                      alertTypes[item.key] ? "border-primary-300 bg-primary-50/50" : "border-slate-200 hover:bg-slate-50"
+                    }`}>
+                    <input
+                      type="checkbox"
+                      checked={alertTypes[item.key]}
+                      onChange={(e) => setAlertTypes({ ...alertTypes, [item.key]: e.target.checked })}
+                      className="h-4 w-4 mt-0.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">{item.label}</p>
+                      <p className="text-xs text-slate-400">{item.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Seuils d&apos;alerte (jours avant expiration)</label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { key: "days7" as const, label: "7 jours", active: "border-red-300 bg-red-50 text-red-600" },
+                  { key: "days30" as const, label: "30 jours", active: "border-orange-300 bg-orange-50 text-orange-600" },
+                  { key: "days60" as const, label: "60 jours", active: "border-amber-300 bg-amber-50 text-amber-600" },
+                  { key: "days90" as const, label: "90 jours", active: "border-yellow-300 bg-yellow-50 text-yellow-600" },
+                ].map((item) => (
+                  <button key={item.key}
+                    onClick={() => setAlertThresholds({ ...alertThresholds, [item.key]: !alertThresholds[item.key] })}
+                    className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                      alertThresholds[item.key]
+                        ? item.active
+                        : "border-slate-200 bg-slate-100 text-slate-400"
+                    }`}>
+                    {alertThresholds[item.key] ? "\u2713 " : ""}{item.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400 mt-1.5">Sélectionnez les seuils pour lesquels vous souhaitez recevoir des alertes</p>
+            </div>
+          </>
+        )}
+
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={handleSaveAlerts}
+            disabled={savingAlerts}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+          >
+            {savingAlerts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Enregistrer
+          </button>
+          {savedAlerts && <span className="text-xs text-emerald-600">Configuration des alertes enregistrée</span>}
+        </div>
       </div>
 
       {/* Personnalisation du rapport */}

@@ -34,6 +34,10 @@ export async function GET() {
       totalProducts,
       upcomingRenewals,
       recentlyExpired,
+      topClientsRaw,
+      statusBreakdown,
+      financialRaw,
+      recentSyncLogs,
     ] = await Promise.all([
       prisma.installation.count(),
       prisma.installation.count({ where: { status: { in: ["EN_PARC", "EN_PARC_GARANTIE"] } } }),
@@ -98,7 +102,61 @@ export async function GET() {
         orderBy: { endDate: "desc" },
         take: 10,
       }),
+      // Top clients by installation count
+      prisma.installation.groupBy({
+        by: ["clientId"],
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 10,
+      }),
+      // Status breakdown
+      prisma.installation.groupBy({
+        by: ["status"],
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+      }),
+      // Financial data (avg duration, total value from invoice lines)
+      prisma.installation.aggregate({
+        _avg: { durationMonths: true },
+        _count: { id: true },
+      }),
+      // Recent sync logs
+      prisma.syncLog.findMany({
+        orderBy: { startedAt: "desc" },
+        take: 10,
+      }),
     ]);
+
+    // Resolve top client names
+    const topClientIds = topClientsRaw.map((c) => c.clientId);
+    const topClientNames = topClientIds.length > 0
+      ? await prisma.client.findMany({
+          where: { id: { in: topClientIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const clientNameMap = new Map(topClientNames.map((c) => [c.id, c.name]));
+    const topClients = topClientsRaw.map((c) => ({
+      id: c.clientId,
+      name: clientNameMap.get(c.clientId) || "Inconnu",
+      count: c._count.id,
+    }));
+
+    // Financial summary
+    const totalCount = financialRaw._count.id || 1;
+    const renewalRate = totalCount > 0 ? (renouvele / totalCount) * 100 : 0;
+
+    // Get total invoice value
+    const totalValueResult = await prisma.invoiceLine.aggregate({ _sum: { totalPrice: true } });
+    const totalValue = totalValueResult._sum.totalPrice || 0;
+
+    // Recent activity from sync logs
+    const recentActivity = recentSyncLogs.map((log) => ({
+      id: log.id,
+      type: "sync",
+      description: `${log.type} — ${log.status}${log.itemCount > 0 ? ` (${log.itemCount} éléments)` : ""}${log.message ? `: ${log.message}` : ""}`,
+      date: log.startedAt.toISOString(),
+    }));
 
     return NextResponse.json({
       counts: {
@@ -123,6 +181,17 @@ export async function GET() {
       byMonth,
       upcomingRenewals,
       recentlyExpired,
+      topClients,
+      statusBreakdown: statusBreakdown.map((s) => ({
+        status: s.status,
+        count: s._count.id,
+      })),
+      financialSummary: {
+        totalValue,
+        avgDuration: financialRaw._avg.durationMonths || 0,
+        renewalRate,
+      },
+      recentActivity,
     });
   } catch (error) {
     console.error("Dashboard stats error:", error);
