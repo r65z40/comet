@@ -628,6 +628,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   { key: "product" as SortKey, label: "Produit" },
                   { key: "family" as SortKey, label: "Famille" },
                   { key: "supplier" as SortKey, label: "Fournisseur" },
+                  { key: null, label: "Qté" },
                   { key: null, label: "Facture" },
                   { key: "startDate" as SortKey, label: "Début" },
                   { key: "durationMonths" as SortKey, label: "Durée" },
@@ -677,6 +678,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-600">{inst.family || "—"}</td>
                   <td className="px-4 py-3 text-sm text-slate-600">{inst.supplier || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600 text-center">{inst.quantity}</td>
                   <td className="px-4 py-3 text-sm text-slate-500">
                     {inst.invoice ? (
                       <Link href={`/invoices/${inst.invoice.id}`} className="text-primary-600 hover:text-primary-700">
@@ -745,7 +747,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               })}
               {client.installations.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-400">Aucune installation</td>
+                  <td colSpan={11} className="px-4 py-8 text-center text-sm text-slate-400">Aucune installation</td>
                 </tr>
               )}
             </tbody>

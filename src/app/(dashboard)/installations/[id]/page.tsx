@@ -30,13 +30,14 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
   const router = useRouter();
   const [installation, setInstallation] = useState<InstallationDetail | null>(null);
   const [notes, setNotes] = useState("");
-  const [comParc, setComParc] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [alwaysInFleet, setAlwaysInFleet] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [familyOptions, setFamilyOptions] = useState<string[]>([]);
+  const [supplierOptions, setSupplierOptions] = useState<string[]>([]);
 
   useEffect(() => {
     fetch(`/api/installations/${id}`)
@@ -44,7 +45,6 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
       .then((data) => {
         setInstallation(data);
         setNotes(data.notes || "");
-        setComParc(data.comParc || "");
         setAlwaysInFleet(data.alwaysInFleet || false);
         // Migrate old statuses on the fly for display
         let s = data.status;
@@ -53,6 +53,12 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
         setStatus(s);
       })
       .finally(() => setLoading(false));
+    fetch("/api/installations/options")
+      .then((r) => r.json())
+      .then((data) => {
+        setFamilyOptions(data.families || []);
+        setSupplierOptions(data.suppliers || []);
+      });
   }, [id]);
 
   async function saveNotes() {
@@ -60,10 +66,10 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
     const res = await fetch(`/api/installations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes, comParc }),
+      body: JSON.stringify({ notes }),
     });
     const updated = await res.json();
-    setInstallation((prev) => prev ? { ...prev, notes: updated.notes, comParc: updated.comParc } : prev);
+    setInstallation((prev) => prev ? { ...prev, notes: updated.notes } : prev);
     setSaving(false);
   }
 
@@ -79,7 +85,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
   }
 
   async function saveField(field: string) {
-    if (!editValue && field !== "family" && field !== "supplier") return;
+    if (!editValue && field !== "family" && field !== "supplier" && field !== "comParc") return;
     setSaving(true);
     const res = await fetch(`/api/installations/${id}`, {
       method: "PATCH",
@@ -221,12 +227,13 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem icon={Building2} label="Client" value={installation.client.name} />
               <InfoItem icon={Package} label="Produit" value={installation.product.name} />
-              <EditableInfoItem
+              <SelectableInfoItem
                 icon={Truck}
                 label="Fournisseur"
                 value={installation.supplier || ""}
                 displayValue={installation.supplier || "—"}
                 fieldName="supplier"
+                options={supplierOptions}
                 editingField={editingField}
                 editValue={editValue}
                 saving={saving}
@@ -235,12 +242,13 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                 onCancel={() => setEditingField(null)}
                 onChangeValue={setEditValue}
               />
-              <EditableInfoItem
+              <SelectableInfoItem
                 icon={Tag}
                 label="Famille"
                 value={installation.family || ""}
                 displayValue={installation.family || "—"}
                 fieldName="family"
+                options={familyOptions}
                 editingField={editingField}
                 editValue={editValue}
                 saving={saving}
@@ -317,7 +325,20 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                 onCancel={() => setEditingField(null)}
                 onChangeValue={setEditValue}
               />
-              <InfoItem icon={MessageSquare} label="Com Parc" value={installation.comParc || "—"} />
+              <EditableInfoItem
+                icon={MessageSquare}
+                label="Com Parc"
+                value={installation.comParc || ""}
+                displayValue={installation.comParc || "—"}
+                fieldName="comParc"
+                editingField={editingField}
+                editValue={editValue}
+                saving={saving}
+                onStartEdit={startEdit}
+                onSave={saveField}
+                onCancel={() => setEditingField(null)}
+                onChangeValue={setEditValue}
+              />
             </div>
           </div>
 
@@ -400,7 +421,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs text-slate-400">Com Parc &amp; Notes</label>
+                <label className="block text-xs text-slate-400">Notes</label>
                 <button
                   onClick={saveNotes}
                   disabled={saving}
@@ -410,15 +431,6 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                   {saving ? "Enregistrement..." : "Enregistrer"}
                 </button>
               </div>
-              <label className="block text-xs text-slate-400 mb-1">Com Parc</label>
-              <textarea
-                value={comParc}
-                onChange={(e) => setComParc(e.target.value)}
-                placeholder="Informations propriétaire / commentaire parc..."
-                rows={2}
-                className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none resize-none mb-3"
-              />
-              <label className="block text-xs text-slate-400 mb-1">Notes</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -554,6 +566,93 @@ function EditableInfoItem({
         ) : (
           <div className="flex items-center gap-2">
             <p className={`text-sm font-medium ${displayClassName || "text-slate-800"}`}>{displayValue}</p>
+            <button
+              onClick={() => onStartEdit(fieldName, value)}
+              className="rounded p-0.5 text-slate-400 hover:text-primary-600 transition-colors"
+              title={`Modifier ${label.toLowerCase()}`}
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SelectableInfoItem({
+  icon: Icon,
+  label,
+  value,
+  displayValue,
+  fieldName,
+  options,
+  editingField,
+  editValue,
+  saving,
+  onStartEdit,
+  onSave,
+  onCancel,
+  onChangeValue,
+}: {
+  icon: typeof Calendar;
+  label: string;
+  value: string;
+  displayValue: string;
+  fieldName: string;
+  options: string[];
+  editingField: string | null;
+  editValue: string;
+  saving: boolean;
+  onStartEdit: (field: string, value: string) => void;
+  onSave: (field: string) => void;
+  onCancel: () => void;
+  onChangeValue: (value: string) => void;
+}) {
+  const isEditing = editingField === fieldName;
+  return (
+    <div className="flex items-start gap-3">
+      <div className="rounded-lg bg-slate-100 p-2">
+        <Icon className="h-4 w-4 text-slate-500" />
+      </div>
+      <div className="flex-1">
+        <p className="text-xs text-slate-400">{label}</p>
+        {isEditing ? (
+          <div className="flex items-center gap-2 mt-1">
+            <div className="relative w-full max-w-[200px]">
+              <input
+                type="text"
+                list={`${fieldName}-options`}
+                value={editValue}
+                onChange={(e) => onChangeValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") onSave(fieldName); if (e.key === "Escape") onCancel(); }}
+                autoFocus
+                placeholder={`Saisir ou choisir...`}
+                className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-sm text-slate-800 focus:border-primary-500 focus:outline-none w-full"
+              />
+              <datalist id={`${fieldName}-options`}>
+                {options.map((opt) => (
+                  <option key={opt} value={opt} />
+                ))}
+              </datalist>
+            </div>
+            <button
+              onClick={() => onSave(fieldName)}
+              disabled={saving}
+              className="rounded p-1 text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={onCancel}
+              className="rounded p-1 text-slate-400 hover:bg-slate-100 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-slate-800">{displayValue}</p>
             <button
               onClick={() => onStartEdit(fieldName, value)}
               className="rounded p-0.5 text-slate-400 hover:text-primary-600 transition-colors"
