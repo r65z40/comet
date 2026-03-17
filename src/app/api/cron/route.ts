@@ -84,7 +84,27 @@ export async function GET(req: NextRequest) {
     const config: Record<string, string> = {};
     for (const s of settings) config[s.key] = s.value;
 
+    const parisHour = getParisHour();
+    const parisMinute = getParisMinute();
+    const parisTimeStr = `${String(parisHour).padStart(2, "0")}:${String(parisMinute).padStart(2, "0")}`;
+    const todayStr = getParisDateString();
+
+    // Helper to log all cron outcomes for debugging
+    const logCron = async (status: string, message: string, itemCount = 0) => {
+      await prisma.syncLog.create({
+        data: {
+          type: "EMAIL_ALERT",
+          status,
+          message: `${todayStr} ${parisTimeStr} - ${message}`,
+          itemCount,
+          startedAt: new Date(),
+          completedAt: new Date(),
+        },
+      }).catch(() => {});
+    };
+
     if (config.alert_enabled !== "true") {
+      await logCron("SKIPPED", "Alertes désactivées");
       return NextResponse.json({ skipped: true, reason: "Alertes désactivées" });
     }
 
@@ -93,9 +113,6 @@ export async function GET(req: NextRequest) {
     const alertTime = config.alert_time || "08:00";
     const [targetHour, targetMinute] = alertTime.split(":").map(Number);
 
-    const parisHour = getParisHour();
-    const parisMinute = getParisMinute();
-
     // Check if current time matches the configured alert time (15-minute window for 5-min polling)
     const isTimeMatch =
       parisHour === targetHour &&
@@ -103,10 +120,14 @@ export async function GET(req: NextRequest) {
       parisMinute < targetMinute + 15;
 
     if (!isTimeMatch) {
+      // Log only once per hour to avoid flooding (log when minute < 5, i.e. first cron call of the hour)
+      if (parisMinute < 5) {
+        await logCron("SKIPPED", `Hors créneau (heure: ${parisTimeStr}, cible: ${alertTime})`);
+      }
       return NextResponse.json({
         skipped: true,
         reason: "Hors créneau",
-        parisTime: `${String(parisHour).padStart(2, "0")}:${String(parisMinute).padStart(2, "0")}`,
+        parisTime: parisTimeStr,
         targetTime: alertTime,
       });
     }
@@ -115,6 +136,7 @@ export async function GET(req: NextRequest) {
     if (frequency === "weekly") {
       const parisDow = getParisDayOfWeek();
       if (parisDow !== alertDay) {
+        await logCron("SKIPPED", `Pas le bon jour (aujourd'hui: ${parisDow}, configuré: ${alertDay})`);
         return NextResponse.json({
           skipped: true,
           reason: `Pas le bon jour (aujourd'hui: ${parisDow}, configuré: ${alertDay})`,
@@ -123,6 +145,7 @@ export async function GET(req: NextRequest) {
     } else if (frequency === "monthly") {
       const parisDay = getParisDayOfMonth();
       if (parisDay !== alertDay) {
+        await logCron("SKIPPED", `Pas le bon jour du mois (aujourd'hui: ${parisDay}, configuré: ${alertDay})`);
         return NextResponse.json({
           skipped: true,
           reason: `Pas le bon jour du mois (aujourd'hui: ${parisDay}, configuré: ${alertDay})`,
@@ -132,7 +155,6 @@ export async function GET(req: NextRequest) {
     // "daily" frequency => no day check needed
 
     // Prevent duplicate sends: check if we already sent today (Paris time)
-    const todayStr = getParisDateString();
     // Check logs from last 36h to cover timezone edge cases
     const recentCutoff = new Date();
     recentCutoff.setHours(recentCutoff.getHours() - 36);
