@@ -147,10 +147,13 @@ echo "=== Starting application ==="
 CRON_SECRET="${CRON_SECRET:-comet_cron_secret_2024}"
 (
   # Wait for the app to be ready
-  sleep 15
+  sleep 20
   echo "=== Cron scheduler started (every 5 min, TZ=Europe/Paris) ==="
   while true; do
-    curl -s "http://localhost:3000/api/cron?secret=${CRON_SECRET}" > /dev/null 2>&1 || true
+    RESULT=$(curl -sf --max-time 30 "http://localhost:3000/api/cron?secret=${CRON_SECRET}" 2>&1) || true
+    if [ -n "$RESULT" ]; then
+      echo "[CRON] $(date '+%Y-%m-%d %H:%M:%S') $RESULT"
+    fi
     sleep 300
   done
 ) &

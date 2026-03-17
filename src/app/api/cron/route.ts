@@ -2,26 +2,52 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendExpiryNotifications } from "@/lib/email";
 
-// Paris timezone helper
-function getParisTime(): Date {
-  return new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+// Paris timezone helpers using Intl for reliable timezone handling
+function getParisComponents() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    weekday: "short",
+  });
+  const parts = formatter.formatToParts(now);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || "";
+  return {
+    year: parseInt(get("year")),
+    month: parseInt(get("month")),
+    day: parseInt(get("day")),
+    hour: parseInt(get("hour")),
+    minute: parseInt(get("minute")),
+    weekday: get("weekday"), // "Mon", "Tue", etc.
+  };
 }
 
 function getParisHour(): number {
-  return getParisTime().getHours();
+  return getParisComponents().hour;
 }
 
 function getParisMinute(): number {
-  return getParisTime().getMinutes();
+  return getParisComponents().minute;
 }
 
 function getParisDayOfWeek(): number {
   // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  return getParisTime().getDay();
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return dayMap[getParisComponents().weekday] ?? 0;
 }
 
 function getParisDayOfMonth(): number {
-  return getParisTime().getDate();
+  return getParisComponents().day;
+}
+
+function getParisDateString(): string {
+  const c = getParisComponents();
+  return `${c.year}-${String(c.month).padStart(2, "0")}-${String(c.day).padStart(2, "0")}`;
 }
 
 /**
@@ -70,11 +96,11 @@ export async function GET(req: NextRequest) {
     const parisHour = getParisHour();
     const parisMinute = getParisMinute();
 
-    // Check if current time matches the configured alert time (10-minute window)
+    // Check if current time matches the configured alert time (15-minute window for 5-min polling)
     const isTimeMatch =
       parisHour === targetHour &&
       parisMinute >= targetMinute &&
-      parisMinute < targetMinute + 10;
+      parisMinute < targetMinute + 15;
 
     if (!isTimeMatch) {
       return NextResponse.json({
@@ -105,15 +131,20 @@ export async function GET(req: NextRequest) {
     }
     // "daily" frequency => no day check needed
 
-    // Prevent duplicate sends: check if we already sent today
-    const todayStr = getParisTime().toISOString().split("T")[0];
-    const existingLog = await prisma.syncLog.findFirst({
+    // Prevent duplicate sends: check if we already sent today (Paris time)
+    const todayStr = getParisDateString();
+    // Check logs from last 36h to cover timezone edge cases
+    const recentCutoff = new Date();
+    recentCutoff.setHours(recentCutoff.getHours() - 36);
+    const recentLogs = await prisma.syncLog.findMany({
       where: {
         type: "EMAIL_ALERT",
         status: "SUCCESS",
-        startedAt: { gte: new Date(todayStr + "T00:00:00Z") },
+        startedAt: { gte: recentCutoff },
       },
     });
+    // Check if any log's message contains today's Paris date
+    const existingLog = recentLogs.find(log => log.message?.includes(todayStr));
 
     if (existingLog) {
       return NextResponse.json({
@@ -126,14 +157,14 @@ export async function GET(req: NextRequest) {
     // Send the notifications
     const result = await sendExpiryNotifications();
 
-    // Log the result
+    // Log the result (include Paris date for duplicate detection)
     await prisma.syncLog.create({
       data: {
         type: "EMAIL_ALERT",
         status: result.sent ? "SUCCESS" : "SKIPPED",
         message: result.sent
-          ? `${result.count} notification(s) envoyée(s)`
-          : result.reason || "Aucune notification",
+          ? `${todayStr} - ${result.count} notification(s) envoyée(s)`
+          : `${todayStr} - ${result.reason || "Aucune notification"}`,
         itemCount: result.sent ? (result.count ?? 0) : 0,
         startedAt: new Date(),
         completedAt: new Date(),

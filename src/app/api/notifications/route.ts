@@ -85,5 +85,43 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Debug: check current cron state
+  if (body.action === "debug-cron") {
+    try {
+      const { prisma } = await import("@/lib/db");
+      const settingKeys = [
+        "alert_enabled", "alert_frequency", "alert_day",
+        "alert_time", "notification_emails", "notification_delay_days",
+      ];
+      const settings = await prisma.setting.findMany({
+        where: { key: { in: settingKeys } },
+      });
+      const config: Record<string, string> = {};
+      for (const s of settings) config[s.key] = s.value;
+
+      // Get recent cron logs
+      const recentLogs = await prisma.syncLog.findMany({
+        where: { type: "EMAIL_ALERT" },
+        orderBy: { startedAt: "desc" },
+        take: 10,
+      });
+
+      const parisNow = new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" });
+
+      return NextResponse.json({
+        parisTime: parisNow,
+        cronSecret: process.env.CRON_SECRET ? "configured" : "not set (using default)",
+        alertSettings: config,
+        recentLogs: recentLogs.map(l => ({
+          status: l.status,
+          message: l.message,
+          at: l.startedAt?.toISOString(),
+        })),
+      });
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    }
+  }
+
   return NextResponse.json({ error: "Action invalide" }, { status: 400 });
 }

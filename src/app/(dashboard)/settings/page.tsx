@@ -54,6 +54,8 @@ export default function SettingsPage() {
   });
   const [savingAlerts, setSavingAlerts] = useState(false);
   const [savedAlerts, setSavedAlerts] = useState(false);
+  const [cronDebug, setCronDebug] = useState<Record<string, unknown> | null>(null);
+  const [debuggingCron, setDebuggingCron] = useState(false);
 
   // Site branding
   const [siteLogo, setSiteLogo] = useState("");
@@ -82,6 +84,7 @@ export default function SettingsPage() {
   const [reportFooterText, setReportFooterText] = useState("");
   const [reportOrientation, setReportOrientation] = useState("portrait");
   const [reportCoverBg, setReportCoverBg] = useState("");
+  const [reportCoverBgOpacity, setReportCoverBgOpacity] = useState("15");
   const reportCoverBgRef = useRef<HTMLInputElement>(null);
   const [savingReport, setSavingReport] = useState(false);
   const [savedReport, setSavedReport] = useState(false);
@@ -148,6 +151,7 @@ export default function SettingsPage() {
         setReportFooterText(data.report_footer_text || "");
         setReportOrientation(data.report_orientation || "portrait");
         setReportCoverBg(data.report_cover_bg || "");
+        setReportCoverBgOpacity(data.report_cover_bg_opacity || "15");
         setSiteLogo(data.site_logo || "");
         setSiteFavicon(data.site_favicon || "");
       })
@@ -274,6 +278,22 @@ export default function SettingsPage() {
     setSendingNotif(false);
   }
 
+  async function handleDebugCron() {
+    setDebuggingCron(true);
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "debug-cron" }),
+      });
+      const data = await res.json();
+      setCronDebug(data);
+    } catch {
+      setCronDebug({ error: "Erreur de connexion" });
+    }
+    setDebuggingCron(false);
+  }
+
   async function handleSaveAlerts() {
     setSavingAlerts(true);
     await fetch("/api/settings", {
@@ -329,6 +349,7 @@ export default function SettingsPage() {
         report_footer_text: reportFooterText,
         report_orientation: reportOrientation,
         report_cover_bg: reportCoverBg,
+        report_cover_bg_opacity: reportCoverBgOpacity,
       }),
     });
     setSavingReport(false);
@@ -966,8 +987,32 @@ export default function SettingsPage() {
             {savingAlerts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Enregistrer
           </button>
+          <button
+            onClick={handleDebugCron}
+            disabled={debuggingCron}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+          >
+            {debuggingCron ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
+            Diagnostiquer
+          </button>
           {savedAlerts && <span className="text-xs text-emerald-600">Configuration des alertes enregistrée</span>}
         </div>
+        {cronDebug && (
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs font-mono text-slate-600 space-y-2">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-slate-700">Diagnostic des alertes planifiées</span>
+              <button onClick={() => setCronDebug(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div><span className="text-slate-400">Heure Paris :</span> {String((cronDebug as Record<string, unknown>).parisTime || "—")}</div>
+            <div><span className="text-slate-400">CRON_SECRET :</span> {String((cronDebug as Record<string, unknown>).cronSecret || "—")}</div>
+            <div className="pt-1"><span className="text-slate-400">Paramètres enregistrés :</span></div>
+            <pre className="bg-white rounded p-2 border border-slate-100 overflow-x-auto">{JSON.stringify((cronDebug as Record<string, unknown>).alertSettings, null, 2)}</pre>
+            <div className="pt-1"><span className="text-slate-400">Derniers logs :</span></div>
+            <pre className="bg-white rounded p-2 border border-slate-100 overflow-x-auto max-h-40 overflow-y-auto">{JSON.stringify((cronDebug as Record<string, unknown>).recentLogs, null, 2)}</pre>
+          </div>
+        )}
       </div>
 
       {/* Personnalisation du rapport */}
@@ -1091,6 +1136,33 @@ export default function SettingsPage() {
           />
           <p className="text-xs text-slate-400 mt-1">Image affichée en fond de la première page du rapport (max 5 Mo, recommandé : 1920x1080)</p>
         </div>
+
+        {reportCoverBg && (
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">
+              Opacité de l&apos;image de fond ({reportCoverBgOpacity}%)
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="5"
+                max="100"
+                value={reportCoverBgOpacity}
+                onChange={(e) => setReportCoverBgOpacity(e.target.value)}
+                className="flex-1 h-2 rounded-lg appearance-none bg-slate-200 accent-primary-600"
+              />
+              <input
+                type="number"
+                min="5"
+                max="100"
+                value={reportCoverBgOpacity}
+                onChange={(e) => setReportCoverBgOpacity(e.target.value)}
+                className="w-16 rounded-lg border border-slate-200 bg-slate-100 px-2 py-1.5 text-sm text-center text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Contrôle la transparence de l&apos;image de fond (5% = très transparent, 100% = opaque)</p>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1.5">
