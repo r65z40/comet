@@ -27,6 +27,8 @@ services:
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
       AXONAUT_API_KEY: ${AXONAUT_API_KEY:-}
       AXONAUT_API_URL: ${AXONAUT_API_URL:-https://axonaut.com/api/v2}
+      TZ: Europe/Paris
+      CRON_SECRET: ${CRON_SECRET:-comet_cron_secret_2024}
     depends_on:
       db:
         condition: service_healthy

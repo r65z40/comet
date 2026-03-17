@@ -29,10 +29,14 @@ export async function POST(req: NextRequest) {
   if (body.action === "send") {
     try {
       const result = await sendExpiryNotifications();
-      return NextResponse.json(result);
+      // Include Paris time for debugging
+      const parisTime = new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" });
+      return NextResponse.json({ ...result, parisTime });
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Erreur d'envoi";
+      const stack = err instanceof Error ? err.stack : undefined;
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Erreur d'envoi" },
+        { error: message, details: stack },
         { status: 500 }
       );
     }

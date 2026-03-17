@@ -65,20 +65,23 @@ export async function getNotificationConfig() {
 function createTransporter(config: SmtpConfig) {
   // Port 465 = implicit TLS (secure: true)
   // Port 587/other = STARTTLS (secure: false, upgrade via STARTTLS)
-  const isImplicitTLS = config.port === 465;
+  const useSecure = config.secure || config.port === 465;
 
   return nodemailer.createTransport({
     host: config.host,
     port: config.port,
-    secure: isImplicitTLS,
+    secure: useSecure,
     auth: {
       user: config.user,
       pass: config.pass,
     },
     tls: {
-      // Allow STARTTLS upgrade on non-465 ports
-      rejectUnauthorized: true,
+      // Accept self-signed certificates (common in corporate environments)
+      rejectUnauthorized: false,
     },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
   });
 }
 
@@ -113,11 +116,15 @@ export async function testSmtpConnection(providedConfig?: SmtpConfig): Promise<{
   }
 }
 
+function getParisNow(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+}
+
 export async function sendExpiryNotifications() {
   const { emails, delayDays } = await getNotificationConfig();
   if (emails.length === 0) return { sent: false, reason: "Aucun email destinataire configuré" };
 
-  const now = new Date();
+  const now = getParisNow();
   const future = new Date(now);
   future.setDate(future.getDate() + delayDays);
 
@@ -146,7 +153,7 @@ export async function sendExpiryNotifications() {
       return `<tr>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0">${i.client.name}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0">${i.product.name}</td>
-        <td style="padding:8px;border-bottom:1px solid #e2e8f0">${new Date(i.endDate).toLocaleDateString("fr-FR")}</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0">${new Date(i.endDate).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;color:${color};font-weight:bold">${daysLeft}j</td>
       </tr>`;
     })

@@ -95,12 +95,6 @@ export default function SettingsPage() {
   const [savingUser, setSavingUser] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // CSV Import
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importSeparator, setImportSeparator] = useState(";");
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ success: boolean; message: string; created?: number; total?: number; errors?: string[] } | null>(null);
-  const importFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -1444,123 +1438,6 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* Import CSV */}
-      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="rounded-lg bg-primary-50 p-2">
-            <Upload className="h-4 w-4 text-primary-600" />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-slate-900">Importer des données (CSV)</h3>
-            <p className="text-xs text-slate-400">Importez vos factures, produits et installations depuis un fichier CSV</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-            <input
-              ref={importFileRef}
-              type="file"
-              accept=".csv,.txt,.tsv"
-              className="hidden"
-              onChange={(e) => {
-                setImportFile(e.target.files?.[0] || null);
-                setImportResult(null);
-              }}
-            />
-            {importFile ? (
-              <div className="flex items-center justify-center gap-3">
-                <FileText className="h-8 w-8 text-primary-500" />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-slate-900">{importFile.name}</p>
-                  <p className="text-xs text-slate-400">{(importFile.size / 1024).toFixed(1)} Ko</p>
-                </div>
-                <button
-                  onClick={() => { setImportFile(null); setImportResult(null); if (importFileRef.current) importFileRef.current.value = ""; }}
-                  className="ml-2 rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => importFileRef.current?.click()}
-                className="flex flex-col items-center gap-2 mx-auto"
-              >
-                <Upload className="h-8 w-8 text-slate-400" />
-                <span className="text-sm text-slate-500">Cliquez pour sélectionner un fichier CSV</span>
-                <span className="text-xs text-slate-400">Formats acceptés : .csv, .txt, .tsv</span>
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Séparateur</label>
-              <select
-                value={importSeparator}
-                onChange={(e) => setImportSeparator(e.target.value)}
-                className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              >
-                <option value=";">Point-virgule ( ; )</option>
-                <option value=",">Virgule ( , )</option>
-                <option value={"\t"}>Tabulation</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-            <p className="text-xs font-medium text-slate-600 mb-1">Colonnes attendues :</p>
-            <p className="text-xs text-slate-400">Num_Facture ; Date_Facturation ; Client ; Nom produit ; Description ; Quantité ; Prix achat ; Prix vente ; Marge ; Famille_Parc ; Echeance_Garantie ; Renouveler ; Toujours en parc ; Fournisseur</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={async () => {
-                if (!importFile) return;
-                setImporting(true);
-                setImportResult(null);
-                try {
-                  const formData = new FormData();
-                  formData.append("file", importFile);
-                  formData.append("separator", importSeparator);
-                  const res = await fetch("/api/import", { method: "POST", body: formData });
-                  const data = await res.json();
-                  if (res.ok) {
-                    setImportResult({ success: true, message: data.message, created: data.created, total: data.total, errors: data.errors });
-                  } else {
-                    setImportResult({ success: false, message: data.error || "Erreur inconnue" });
-                  }
-                } catch {
-                  setImportResult({ success: false, message: "Erreur de connexion" });
-                } finally {
-                  setImporting(false);
-                }
-              }}
-              disabled={!importFile || importing}
-              className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
-            >
-              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Importer
-            </button>
-          </div>
-
-          {importResult && (
-            <div className={`rounded-lg border p-4 ${importResult.success ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
-              <p className={`text-sm font-medium ${importResult.success ? "text-emerald-700" : "text-red-700"}`}>
-                {importResult.message}
-              </p>
-              {importResult.errors && importResult.errors.length > 0 && (
-                <div className="mt-2 max-h-32 overflow-y-auto">
-                  {importResult.errors.map((err, i) => (
-                    <p key={i} className="text-xs text-amber-600">{err}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

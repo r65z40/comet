@@ -127,4 +127,18 @@ else
 fi
 
 echo "=== Starting application ==="
+
+# Start background cron loop: calls /api/cron every 5 minutes
+# This checks alert scheduling settings and sends email notifications
+CRON_SECRET="${CRON_SECRET:-comet_cron_secret_2024}"
+(
+  # Wait for the app to be ready
+  sleep 15
+  echo "=== Cron scheduler started (every 5 min, TZ=Europe/Paris) ==="
+  while true; do
+    curl -s "http://localhost:3000/api/cron?secret=${CRON_SECRET}" > /dev/null 2>&1 || true
+    sleep 300
+  done
+) &
+
 exec node server.js
