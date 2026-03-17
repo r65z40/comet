@@ -134,12 +134,27 @@ model Installation {
   notes           String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+  history         InstallationHistory[]
 
   @@index([clientId])
   @@index([status])
   @@index([endDate])
   @@index([status, endDate])
   @@map("installations")
+}
+
+model InstallationHistory {
+  id              String       @id @default(cuid())
+  installationId  String
+  installation    Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  field           String
+  oldValue        String?
+  newValue        String?
+  changedBy       String?
+  createdAt       DateTime     @default(now())
+
+  @@index([installationId])
+  @@map("installation_history")
 }
 
 model SyncLog {

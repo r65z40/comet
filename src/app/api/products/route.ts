@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     prisma.product.findMany({
       where,
       include: {
-        _count: { select: { installations: true } },
+        _count: { select: { installations: true, invoiceLines: true } },
       },
       orderBy: { name: "asc" },
       skip: (page - 1) * limit,

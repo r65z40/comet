@@ -17,6 +17,10 @@ export async function GET(
       client: true,
       product: true,
       invoice: { include: { lines: true } },
+      history: {
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      },
     },
   });
 
@@ -36,6 +40,11 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
+  const changedBy = session.user?.name || session.user?.email || "Inconnu";
+
+  // Fetch current installation for history comparison
+  const current = await prisma.installation.findUnique({ where: { id } });
+  if (!current) return NextResponse.json({ error: "Installation non trouvée" }, { status: 404 });
 
   const updateData: Record<string, unknown> = {};
   if (body.notes !== undefined) updateData.notes = body.notes;
@@ -65,10 +74,63 @@ export async function PATCH(
     updateData.quantity = parseFloat(body.quantity);
   }
 
+  // Build history entries for changed fields
+  const fieldLabels: Record<string, string> = {
+    status: "Statut",
+    alwaysInFleet: "Toujours en parc",
+    endDate: "Fin garantie",
+    startDate: "Début garantie",
+    durationMonths: "Durée",
+    family: "Famille",
+    supplier: "Fournisseur",
+    quantity: "Quantité",
+    comParc: "Com Parc",
+    notes: "Notes",
+  };
+
+  const historyEntries: { field: string; oldValue: string | null; newValue: string | null; changedBy: string }[] = [];
+  const trackedFields = ["status", "alwaysInFleet", "endDate", "startDate", "durationMonths", "family", "supplier", "quantity", "comParc"];
+
+  for (const field of trackedFields) {
+    if (updateData[field] === undefined) continue;
+    const oldVal = current[field as keyof typeof current];
+    const newVal = updateData[field];
+
+    let oldStr = oldVal != null ? String(oldVal) : null;
+    let newStr = newVal != null ? String(newVal) : null;
+
+    // Format dates for readability
+    if ((field === "endDate" || field === "startDate") && oldVal instanceof Date) {
+      oldStr = oldVal.toISOString().split("T")[0];
+    }
+    if ((field === "endDate" || field === "startDate") && newVal instanceof Date) {
+      newStr = (newVal as Date).toISOString().split("T")[0];
+    }
+
+    if (oldStr !== newStr) {
+      historyEntries.push({
+        field: fieldLabels[field] || field,
+        oldValue: oldStr,
+        newValue: newStr,
+        changedBy,
+      });
+    }
+  }
+
   const installation = await prisma.installation.update({
     where: { id },
     data: updateData,
   });
+
+  // Save history entries
+  if (historyEntries.length > 0) {
+    await prisma.installationHistory.createMany({
+      data: historyEntries.map((e) => ({
+        installationId: id,
+        ...e,
+      })),
+    });
+  }
 
   return NextResponse.json(installation);
 }

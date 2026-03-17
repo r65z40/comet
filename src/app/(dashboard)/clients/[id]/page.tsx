@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -181,8 +181,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     setRefreshing(false);
   }
 
-  function printReport() {
-    if (!client) return;
+  function buildReportHtml(): string | null {
+    if (!client) return null;
 
     // Escape HTML to prevent XSS in report
     function esc(str: string): string {
@@ -448,6 +448,25 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 </body>
 </html>`;
 
+    return html;
+  }
+
+  function printReport() {
+    const html = buildReportHtml();
+    if (!html) return;
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  }
+
+  function downloadPdf() {
+    const html = buildReportHtml();
+    if (!html) return;
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(html);
@@ -566,10 +585,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           )}
           <button
             onClick={printReport}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-xs font-medium text-white hover:bg-primary-700 transition-colors"
+            className="flex items-center gap-2 rounded-lg border border-primary-600 px-4 py-2 text-xs font-medium text-primary-600 hover:bg-primary-50 transition-colors"
           >
             <Printer className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Imprimer le rapport</span>
+            <span className="hidden sm:inline">Imprimer</span>
+          </button>
+          <button
+            onClick={downloadPdf}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-xs font-medium text-white hover:bg-primary-700 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">PDF</span>
           </button>
         </div>
       </div>
@@ -604,6 +630,38 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <p className="text-xs text-slate-500 mt-1">Renouvelés</p>
         </button>
       </div>
+
+      {/* Mini donut chart */}
+      {client.installations.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center gap-6">
+            <MiniDonut enParc={enParc.length} horsParc={horsParc.length} renouvele={renouvele.length} />
+            <div className="flex-1 grid grid-cols-3 gap-4">
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                <div>
+                  <p className="text-xs text-slate-500">En parc</p>
+                  <p className="text-sm font-bold text-slate-900">{client.installations.length > 0 ? Math.round((enParc.length / client.installations.length) * 100) : 0}%</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-red-500" />
+                <div>
+                  <p className="text-xs text-slate-500">Hors parc</p>
+                  <p className="text-sm font-bold text-slate-900">{client.installations.length > 0 ? Math.round((horsParc.length / client.installations.length) * 100) : 0}%</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-blue-500" />
+                <div>
+                  <p className="text-xs text-slate-500">Renouvelés</p>
+                  <p className="text-sm font-bold text-slate-900">{client.installations.length > 0 ? Math.round((renouvele.length / client.installations.length) * 100) : 0}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tableau principal des installations avec toutes les infos */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
@@ -785,5 +843,42 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
     </div>
+  );
+}
+
+function MiniDonut({ enParc, horsParc, renouvele }: { enParc: number; horsParc: number; renouvele: number }) {
+  const total = enParc + horsParc + renouvele;
+  if (total === 0) return null;
+  const r = 30;
+  const c = 2 * Math.PI * r;
+  const slices = [
+    { value: enParc, color: "#10b981" },
+    { value: horsParc, color: "#ef4444" },
+    { value: renouvele, color: "#3b82f6" },
+  ].filter((s) => s.value > 0);
+
+  let offset = 0;
+  return (
+    <svg width="80" height="80" viewBox="0 0 80 80" className="shrink-0">
+      {slices.map((s, i) => {
+        const len = (s.value / total) * c;
+        const dashArray = `${len} ${c - len}`;
+        const dashOffset = -offset;
+        offset += len;
+        return (
+          <circle
+            key={i}
+            cx="40" cy="40" r={r}
+            fill="none"
+            stroke={s.color}
+            strokeWidth="10"
+            strokeDasharray={dashArray}
+            strokeDashoffset={dashOffset}
+            transform="rotate(-90 40 40)"
+          />
+        );
+      })}
+      <text x="40" y="40" textAnchor="middle" dominantBaseline="central" className="text-sm font-bold fill-slate-900">{total}</text>
+    </svg>
   );
 }

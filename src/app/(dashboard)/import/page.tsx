@@ -134,6 +134,10 @@ export default function ImportPage() {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  const [duplicates, setDuplicates] = useState<{ line: number; client: string; product: string; invoice: string }[] | null>(null);
+  const [duplicateStats, setDuplicateStats] = useState<{ existingClients: number; newClients: number; existingProducts: number; newProducts: number; existingInvoices: number } | null>(null);
+  const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const readFile = useCallback((f: File) => {
@@ -203,8 +207,53 @@ export default function ImportPage() {
 
   const hasRequiredMappings = mappings.some((m) => m.appField === "client");
 
-  const handleImport = async () => {
+  const checkDuplicates = async () => {
+    if (!preview || !fileText) return;
+    setCheckingDuplicates(true);
+    try {
+      const lines = fileText.split(/\r?\n/).filter((l) => l.trim());
+      const rows: { client: string; product: string; invoice: string }[] = [];
+      const clientIdx = mappings.findIndex((m) => m.appField === "client");
+      const productIdx = mappings.findIndex((m) => m.appField === "nom_produit");
+      const invoiceIdx = mappings.findIndex((m) => m.appField === "num_facture");
+
+      for (let i = 1; i < lines.length; i++) {
+        const fields = parseCSVPreview(lines.slice(i, i + 1).join("\n") + "\n" + "dummy", separator).rows[0] || [];
+        // Simple re-parse using the same logic
+        const rawFields = lines[i].split(separator).map((f) => f.trim().replace(/^"|"$/g, ""));
+        rows.push({
+          client: clientIdx >= 0 ? (rawFields[clientIdx] || "") : "",
+          product: productIdx >= 0 ? (rawFields[productIdx] || "") : "",
+          invoice: invoiceIdx >= 0 ? (rawFields[invoiceIdx] || "") : "",
+        });
+      }
+
+      const res = await fetch("/api/import/check-duplicates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDuplicates(data.duplicates || []);
+        setDuplicateStats(data.stats || null);
+      }
+    } catch {
+      // Silently fail duplicate check — don't block import
+    } finally {
+      setCheckingDuplicates(false);
+    }
+  };
+
+  const handleImport = async (forceImport = false) => {
     if (!file) return;
+
+    // Run duplicate check first if not already done
+    if (!forceImport && !skipDuplicateCheck && duplicates === null) {
+      await checkDuplicates();
+      return; // Show results first, user clicks again to confirm
+    }
+
     setImporting(true);
     setResult(null);
 
@@ -255,6 +304,9 @@ export default function ImportPage() {
     setPreview(null);
     setMappings([]);
     setResult(null);
+    setDuplicates(null);
+    setDuplicateStats(null);
+    setSkipDuplicateCheck(false);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -480,6 +532,79 @@ export default function ImportPage() {
             </div>
           </div>
 
+          {/* Duplicate check results */}
+          {duplicates !== null && (
+            <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Eye className="h-4 w-4 text-primary-600" />
+                <h3 className="text-sm font-semibold text-slate-900">Analyse pré-import</h3>
+              </div>
+
+              {duplicateStats && (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  <div className="rounded-lg bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingClients}</p>
+                    <p className="text-xs text-slate-400">Clients existants</p>
+                  </div>
+                  <div className="rounded-lg bg-emerald-50 p-3 text-center">
+                    <p className="text-lg font-bold text-emerald-600">{duplicateStats.newClients}</p>
+                    <p className="text-xs text-slate-400">Nouveaux clients</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingProducts}</p>
+                    <p className="text-xs text-slate-400">Produits existants</p>
+                  </div>
+                  <div className="rounded-lg bg-emerald-50 p-3 text-center">
+                    <p className="text-lg font-bold text-emerald-600">{duplicateStats.newProducts}</p>
+                    <p className="text-xs text-slate-400">Nouveaux produits</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingInvoices}</p>
+                    <p className="text-xs text-slate-400">Factures existantes</p>
+                  </div>
+                </div>
+              )}
+
+              {duplicates.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                    <p className="text-xs text-amber-700">
+                      <strong>{duplicates.length} doublon(s) potentiel(s)</strong> détecté(s) — ces lignes correspondent à des installations déjà existantes (même client + produit).
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 max-h-48 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-3 py-2 text-left font-medium text-slate-600">Ligne</th>
+                          <th className="px-3 py-2 text-left font-medium text-slate-600">Client</th>
+                          <th className="px-3 py-2 text-left font-medium text-slate-600">Produit</th>
+                          <th className="px-3 py-2 text-left font-medium text-slate-600">Facture</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {duplicates.map((d, i) => (
+                          <tr key={i} className="border-b border-slate-100">
+                            <td className="px-3 py-2 text-slate-500">{d.line}</td>
+                            <td className="px-3 py-2 text-slate-700">{d.client}</td>
+                            <td className="px-3 py-2 text-slate-700">{d.product}</td>
+                            <td className="px-3 py-2 text-slate-500">{d.invoice}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                  <p className="text-xs text-emerald-700">Aucun doublon détecté. Vous pouvez importer en toute sécurité.</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Error from import attempt */}
           {result && !result.success && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-4">
@@ -496,23 +621,44 @@ export default function ImportPage() {
               <ArrowLeft className="h-4 w-4" />
               Retour
             </button>
-            <button
-              onClick={handleImport}
-              disabled={!hasRequiredMappings || importing}
-              className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
-            >
-              {importing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Import en cours...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4" />
-                  Importer {preview.totalRows} ligne{preview.totalRows > 1 ? "s" : ""}
-                </>
+            <div className="flex items-center gap-3">
+              {duplicates === null && (
+                <button
+                  onClick={() => handleImport()}
+                  disabled={!hasRequiredMappings || checkingDuplicates}
+                  className="flex items-center gap-2 rounded-lg bg-slate-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                >
+                  {checkingDuplicates ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Vérification...
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4" />
+                      Vérifier les doublons
+                    </>
+                  )}
+                </button>
               )}
-            </button>
+              <button
+                onClick={() => handleImport(true)}
+                disabled={!hasRequiredMappings || importing || duplicates === null}
+                className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Import en cours...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Importer {preview.totalRows} ligne{preview.totalRows > 1 ? "s" : ""}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

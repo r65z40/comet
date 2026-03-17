@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Trash2, Pencil, Info, MessageSquare, Check, X } from "lucide-react";
+import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Trash2, Pencil, Info, MessageSquare, Check, X, History } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired, getWarrantyLabel } from "@/lib/utils";
@@ -23,6 +23,7 @@ interface InstallationDetail {
   client: { id: string; name: string; email: string | null; phone: string | null; address: string | null; city: string | null };
   product: { id: string; name: string; code: string | null; description: string | null };
   invoice: { id: string; invoiceNumber: string | null; invoiceDate: string } | null;
+  history?: { id: string; field: string; oldValue: string | null; newValue: string | null; changedBy: string | null; createdAt: string }[];
 }
 
 export default function InstallationDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -87,10 +88,35 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
   async function saveField(field: string) {
     if (!editValue && field !== "family" && field !== "supplier" && field !== "comParc") return;
     setSaving(true);
+
+    // Auto-recalculate related date fields
+    const payload: Record<string, string> = { [field]: editValue };
+    if (installation) {
+      if (field === "startDate" && editValue) {
+        // Recalculate endDate from new startDate + existing duration
+        const start = new Date(editValue);
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + installation.durationMonths);
+        payload.endDate = end.toISOString().split("T")[0];
+      } else if (field === "durationMonths" && editValue) {
+        // Recalculate endDate from existing startDate + new duration
+        const start = new Date(installation.startDate);
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + parseInt(editValue, 10));
+        payload.endDate = end.toISOString().split("T")[0];
+      } else if (field === "endDate" && editValue) {
+        // Recalculate duration from existing startDate + new endDate
+        const start = new Date(installation.startDate);
+        const end = new Date(editValue);
+        const months = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44)));
+        payload.durationMonths = String(months);
+      }
+    }
+
     const res = await fetch(`/api/installations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: editValue }),
+      body: JSON.stringify(payload),
     });
     const updated = await res.json();
     setInstallation((prev) => prev ? { ...prev, ...updated } : prev);
@@ -440,6 +466,36 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
               />
             </div>
           </div>
+
+          {/* Historique des modifications */}
+          {installation.history && installation.history.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <History className="h-4 w-4 text-slate-400" />
+                <h3 className="text-sm font-medium text-slate-500">Historique des modifications</h3>
+              </div>
+              <div className="space-y-0 relative">
+                <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
+                {installation.history.map((h) => (
+                  <div key={h.id} className="flex items-start gap-3 py-2 relative">
+                    <div className="relative z-10 mt-1 h-[9px] w-[9px] rounded-full bg-slate-300 ring-2 ring-white shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-700">
+                        <span className="font-medium">{h.field}</span>
+                        {" : "}
+                        <span className="text-slate-400">{h.oldValue || "—"}</span>
+                        {" → "}
+                        <span className="font-medium text-slate-900">{h.newValue || "—"}</span>
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {h.changedBy} · {new Date(h.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">

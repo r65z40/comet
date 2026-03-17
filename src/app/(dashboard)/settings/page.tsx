@@ -99,6 +99,49 @@ export default function SettingsPage() {
   const [merging, setMerging] = useState(false);
   const [mergeResult, setMergeResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Product merge
+  const [mergeProductSearch, setMergeProductSearch] = useState("");
+  const [mergeProducts, setMergeProducts] = useState<{ id: string; name: string; _count: { installations: number; invoiceLines: number } }[]>([]);
+  const [mergeProductTarget, setMergeProductTarget] = useState<string | null>(null);
+  const [mergeProductSource, setMergeProductSource] = useState<string | null>(null);
+  const [mergingProduct, setMergingProduct] = useState(false);
+  const [mergeProductResult, setMergeProductResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  async function searchMergeProducts(q: string) {
+    setMergeProductSearch(q);
+    if (q.length < 2) { setMergeProducts([]); return; }
+    const res = await fetch(`/api/products?search=${encodeURIComponent(q)}&limit=20`);
+    const data = await res.json();
+    setMergeProducts(data.products || []);
+  }
+
+  async function handleProductMerge() {
+    if (!mergeProductTarget || !mergeProductSource) return;
+    setMergingProduct(true);
+    setMergeProductResult(null);
+    try {
+      const res = await fetch("/api/products/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId: mergeProductTarget, sourceId: mergeProductSource }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMergeProductResult({ success: true, message: data.message });
+        setMergeProductTarget(null);
+        setMergeProductSource(null);
+        setMergeProducts([]);
+        setMergeProductSearch("");
+      } else {
+        setMergeProductResult({ success: false, message: data.error || "Erreur" });
+      }
+    } catch {
+      setMergeProductResult({ success: false, message: "Erreur de connexion" });
+    } finally {
+      setMergingProduct(false);
+    }
+  }
+
   async function searchMergeClients(q: string) {
     setMergeSearch(q);
     if (q.length < 2) { setMergeClients([]); return; }
@@ -1764,6 +1807,94 @@ export default function SettingsPage() {
               mergeResult.success ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
             }`}>
               {mergeResult.message}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Fusion de produits */}
+      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="rounded-lg bg-violet-50 p-2">
+            <Merge className="h-4 w-4 text-violet-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-slate-900">Fusionner des produits</h3>
+            <p className="text-xs text-slate-400">Fusionnez deux produits en un seul. Les installations et lignes de facture du produit source seront transférées vers le produit cible.</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Rechercher un produit..."
+              value={mergeProductSearch}
+              onChange={(e) => searchMergeProducts(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
+
+          {mergeProducts.length > 0 && (
+            <div className="rounded-lg border border-slate-200 max-h-60 overflow-y-auto divide-y divide-slate-100">
+              {mergeProducts.map((p) => {
+                const isTarget = mergeProductTarget === p.id;
+                const isSource = mergeProductSource === p.id;
+                return (
+                  <div key={p.id} className={`flex items-center justify-between px-4 py-2.5 text-sm ${isTarget ? "bg-emerald-50" : isSource ? "bg-red-50" : "hover:bg-slate-50"}`}>
+                    <div>
+                      <span className="font-medium text-slate-900">{p.name}</span>
+                      <span className="ml-2 text-xs text-slate-400">{p._count.installations} install. · {p._count.invoiceLines} ligne(s)</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setMergeProductTarget(isTarget ? null : p.id)}
+                        className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                          isTarget ? "bg-emerald-600 text-white" : "border border-emerald-300 text-emerald-600 hover:bg-emerald-50"
+                        }`}
+                      >
+                        {isTarget ? "✓ Cible" : "Cible"}
+                      </button>
+                      <button
+                        onClick={() => setMergeProductSource(isSource ? null : p.id)}
+                        className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                          isSource ? "bg-red-600 text-white" : "border border-red-300 text-red-600 hover:bg-red-50"
+                        }`}
+                      >
+                        {isSource ? "✓ À supprimer" : "À supprimer"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {mergeProductTarget && mergeProductSource && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <p className="text-sm text-amber-700 font-medium">
+                  Le produit &quot;{mergeProducts.find((p) => p.id === mergeProductSource)?.name}&quot; sera supprimé et ses données transférées vers &quot;{mergeProducts.find((p) => p.id === mergeProductTarget)?.name}&quot;.
+                </p>
+              </div>
+              <button
+                onClick={handleProductMerge}
+                disabled={mergingProduct}
+                className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              >
+                {mergingProduct ? <Loader2 className="h-4 w-4 animate-spin" /> : <Merge className="h-4 w-4" />}
+                Fusionner
+              </button>
+            </div>
+          )}
+
+          {mergeProductResult && (
+            <div className={`rounded-lg border p-3 text-sm ${
+              mergeProductResult.success ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
+            }`}>
+              {mergeProductResult.message}
             </div>
           )}
         </div>
