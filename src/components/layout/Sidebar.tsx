@@ -39,9 +39,9 @@ export default function Sidebar() {
     setOpen(false);
   }, [pathname]);
 
-  // Fetch custom site logo
+  // Fetch custom site logo (lightweight branding endpoint)
   useEffect(() => {
-    fetch("/api/settings")
+    fetch("/api/branding")
       .then((r) => r.json())
       .then((data) => {
         if (data.site_logo) setSiteLogo(data.site_logo);

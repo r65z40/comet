@@ -122,6 +122,7 @@ model Installation {
   @@index([clientId])
   @@index([status])
   @@index([endDate])
+  @@index([status, endDate])
   @@map("installations")
 }
 

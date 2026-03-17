@@ -4,12 +4,11 @@ import { useEffect } from "react";
 
 export default function DynamicFavicon() {
   useEffect(() => {
-    fetch("/api/settings")
+    fetch("/api/branding")
       .then((r) => r.json())
       .then((data) => {
         const faviconUrl = data.site_favicon || data.site_logo;
         if (faviconUrl) {
-          // Update existing favicon link or create one
           let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
           if (!link) {
             link = document.createElement("link");
@@ -18,7 +17,6 @@ export default function DynamicFavicon() {
           }
           link.href = faviconUrl;
 
-          // Also update apple touch icon
           let appleLink = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement | null;
           if (!appleLink) {
             appleLink = document.createElement("link");
@@ -28,9 +26,7 @@ export default function DynamicFavicon() {
           appleLink.href = faviconUrl;
         }
       })
-      .catch(() => {
-        // Silently fail - keep default favicon
-      });
+      .catch(() => {});
   }, []);
 
   return null;
