@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-comet}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-comet_secure_2024}
       POSTGRES_DB: ${POSTGRES_DB:-comet_cedelia}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -22,8 +22,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-comet}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-comet_cedelia}?schema=public
-      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env - generate with openssl rand -base64 32}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-comet}:${POSTGRES_PASSWORD:-comet_secure_2024}@db:5432/${POSTGRES_DB:-comet_cedelia}?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:-defaultsecret_changeme_in_production}
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
       AXONAUT_API_KEY: ${AXONAUT_API_KEY:-}
       AXONAUT_API_URL: ${AXONAUT_API_URL:-https://axonaut.com/api/v2}
