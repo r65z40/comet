@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Trash2, Pencil, Info } from "lucide-react";
+import { ArrowLeft, Calendar, Package, Building2, Truck, Tag, FileText, Save, Clock, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Trash2, Pencil, Info, MessageSquare } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, isWarrantyExpired, getWarrantyLabel } from "@/lib/utils";
@@ -18,6 +18,7 @@ interface InstallationDetail {
   endDate: string;
   status: string;
   alwaysInFleet: boolean;
+  comParc: string | null;
   notes: string | null;
   client: { id: string; name: string; email: string | null; phone: string | null; address: string | null; city: string | null };
   product: { id: string; name: string; code: string | null; description: string | null };
@@ -29,6 +30,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
   const router = useRouter();
   const [installation, setInstallation] = useState<InstallationDetail | null>(null);
   const [notes, setNotes] = useState("");
+  const [comParc, setComParc] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,6 +44,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
       .then((data) => {
         setInstallation(data);
         setNotes(data.notes || "");
+        setComParc(data.comParc || "");
         setAlwaysInFleet(data.alwaysInFleet || false);
         // Migrate old statuses on the fly for display
         let s = data.status;
@@ -57,10 +60,10 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
     const res = await fetch(`/api/installations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes }),
+      body: JSON.stringify({ notes, comParc }),
     });
     const updated = await res.json();
-    setInstallation((prev) => prev ? { ...prev, notes: updated.notes } : prev);
+    setInstallation((prev) => prev ? { ...prev, notes: updated.notes, comParc: updated.comParc } : prev);
     setSaving(false);
   }
 
@@ -270,6 +273,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                 />
               )}
               <InfoItem icon={Package} label="Quantité" value={String(installation.quantity)} />
+              <InfoItem icon={MessageSquare} label="Com Parc" value={installation.comParc || "—"} />
             </div>
           </div>
 
@@ -352,7 +356,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs text-slate-400">Notes</label>
+                <label className="block text-xs text-slate-400">Com Parc &amp; Notes</label>
                 <button
                   onClick={saveNotes}
                   disabled={saving}
@@ -362,6 +366,15 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                   {saving ? "Enregistrement..." : "Enregistrer"}
                 </button>
               </div>
+              <label className="block text-xs text-slate-400 mb-1">Com Parc</label>
+              <textarea
+                value={comParc}
+                onChange={(e) => setComParc(e.target.value)}
+                placeholder="Informations propriétaire / commentaire parc..."
+                rows={2}
+                className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none resize-none mb-3"
+              />
+              <label className="block text-xs text-slate-400 mb-1">Notes</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

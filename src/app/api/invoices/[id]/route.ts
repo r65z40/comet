@@ -21,7 +21,13 @@ export async function GET(
         },
       },
       installations: {
-        include: {
+        select: {
+          id: true,
+          invoiceLineId: true,
+          startDate: true,
+          endDate: true,
+          durationMonths: true,
+          status: true,
           product: { select: { id: true, name: true } },
         },
       },

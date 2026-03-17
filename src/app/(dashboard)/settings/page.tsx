@@ -81,6 +81,7 @@ export default function SettingsPage() {
   const [reportIncludeHorsParc, setReportIncludeHorsParc] = useState(true);
   const [reportShowRenewedCount, setReportShowRenewedCount] = useState(false);
   const [reportShowQuantity, setReportShowQuantity] = useState(false);
+  const [reportShowComParc, setReportShowComParc] = useState(false);
   const [reportFooterText, setReportFooterText] = useState("");
   const [reportOrientation, setReportOrientation] = useState("portrait");
   const [reportCoverBg, setReportCoverBg] = useState("");
@@ -148,6 +149,7 @@ export default function SettingsPage() {
         setReportIncludeHorsParc(data.report_include_hors_parc !== "false");
         setReportShowRenewedCount(data.report_show_renewed_count === "true");
         setReportShowQuantity(data.report_show_quantity === "true");
+        setReportShowComParc(data.report_show_com_parc === "true");
         setReportFooterText(data.report_footer_text || "");
         setReportOrientation(data.report_orientation || "portrait");
         setReportCoverBg(data.report_cover_bg || "");
@@ -346,6 +348,7 @@ export default function SettingsPage() {
         report_include_hors_parc: reportIncludeHorsParc ? "true" : "false",
         report_show_renewed_count: reportShowRenewedCount ? "true" : "false",
         report_show_quantity: reportShowQuantity ? "true" : "false",
+        report_show_com_parc: reportShowComParc ? "true" : "false",
         report_footer_text: reportFooterText,
         report_orientation: reportOrientation,
         report_cover_bg: reportCoverBg,
@@ -1377,6 +1380,15 @@ export default function SettingsPage() {
                 className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-slate-600">Colonne &quot;Quantité&quot;</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowComParc}
+                onChange={(e) => setReportShowComParc(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Colonne &quot;Com Parc&quot;</span>
             </label>
           </div>
         </div>

@@ -92,3 +92,85 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+
+export async function POST(req: NextRequest) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const body = await req.json();
+  const { invoiceLineId, durationMonths, endDate } = body;
+
+  if (!invoiceLineId) {
+    return NextResponse.json({ error: "invoiceLineId requis" }, { status: 400 });
+  }
+
+  // Load invoice line with product and invoice
+  const invoiceLine = await prisma.invoiceLine.findUnique({
+    where: { id: invoiceLineId },
+    include: {
+      invoice: { include: { client: true } },
+      product: true,
+    },
+  });
+
+  if (!invoiceLine) {
+    return NextResponse.json({ error: "Ligne de facture non trouvée" }, { status: 404 });
+  }
+  if (!invoiceLine.product) {
+    return NextResponse.json({ error: "Aucun produit lié à cette ligne" }, { status: 400 });
+  }
+
+  // Check if installation already exists for this line
+  const existing = await prisma.installation.findUnique({
+    where: { invoiceLineId },
+  });
+  if (existing) {
+    return NextResponse.json({ error: "Une installation existe déjà pour cette ligne" }, { status: 409 });
+  }
+
+  const startDate = invoiceLine.invoice.invoiceDate;
+  let computedEndDate: Date;
+  let computedDuration: number;
+
+  if (endDate) {
+    computedEndDate = new Date(endDate);
+    computedDuration = durationMonths || Math.max(
+      1,
+      Math.round((computedEndDate.getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44))
+    );
+  } else if (durationMonths) {
+    computedDuration = durationMonths;
+    computedEndDate = new Date(startDate);
+    computedEndDate.setMonth(computedEndDate.getMonth() + durationMonths);
+  } else if (invoiceLine.product.durationMonths) {
+    computedDuration = invoiceLine.product.durationMonths;
+    computedEndDate = new Date(startDate);
+    computedEndDate.setMonth(computedEndDate.getMonth() + computedDuration);
+  } else {
+    // Default 12 months
+    computedDuration = 12;
+    computedEndDate = new Date(startDate);
+    computedEndDate.setMonth(computedEndDate.getMonth() + 12);
+  }
+
+  const installation = await prisma.installation.create({
+    data: {
+      clientId: invoiceLine.invoice.clientId,
+      productId: invoiceLine.product.id,
+      invoiceId: invoiceLine.invoice.id,
+      invoiceLineId: invoiceLine.id,
+      supplier: invoiceLine.product.supplier || null,
+      family: invoiceLine.product.family || null,
+      quantity: invoiceLine.quantity,
+      startDate: new Date(startDate),
+      durationMonths: computedDuration,
+      endDate: computedEndDate,
+      status: computedEndDate < new Date() ? "EN_PARC_HORS_GARANTIE" : "EN_PARC_GARANTIE",
+    },
+    include: {
+      product: { select: { id: true, name: true } },
+    },
+  });
+
+  return NextResponse.json(installation, { status: 201 });
+}

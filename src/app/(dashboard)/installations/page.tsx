@@ -17,6 +17,7 @@ interface Installation {
   endDate: string;
   status: string;
   alwaysInFleet: boolean;
+  comParc: string | null;
   client: { id: string; name: string };
   product: { id: string; name: string; code: string | null };
 }
@@ -87,6 +88,13 @@ export default function InstallationsPage() {
     },
     { key: "family", label: "Famille" },
     { key: "supplier", label: "Fournisseur" },
+    {
+      key: "comParc",
+      label: "Com Parc",
+      render: (i: Installation) => (
+        <span className="block truncate text-xs" title={i.comParc || ""}>{i.comParc || "—"}</span>
+      ),
+    },
     {
       key: "quantity",
       label: "Qté",

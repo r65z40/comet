@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Building2, FileText, Package, RefreshCw } from "lucide-react";
+import { ArrowLeft, Calendar, Building2, FileText, Package, RefreshCw, Plus } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCurrency } from "@/lib/utils";
@@ -26,6 +26,7 @@ interface InvoiceLine {
 
 interface Installation {
   id: string;
+  invoiceLineId: string | null;
   startDate: string;
   endDate: string;
   durationMonths: number;
@@ -51,6 +52,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [creatingInstall, setCreatingInstall] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/invoices/${id}`)
@@ -83,6 +85,30 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     setRefreshing(false);
   }
 
+  async function createInstallation(lineId: string) {
+    setCreatingInstall(lineId);
+    try {
+      const res = await fetch("/api/installations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceLineId: lineId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Erreur: ${err.error || res.statusText}`);
+        setCreatingInstall(null);
+        return;
+      }
+      // Reload invoice data
+      const refreshRes = await fetch(`/api/invoices/${id}`);
+      const data = await refreshRes.json();
+      setInvoice(data);
+    } catch {
+      alert("Erreur lors de la création de l'installation");
+    }
+    setCreatingInstall(null);
+  }
+
   if (loading) return <LoadingSpinner />;
   if (!invoice) {
     return (
@@ -94,6 +120,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       </div>
     );
   }
+
+  const installedLineIds = new Set(
+    invoice.installations.map((inst) => inst.invoiceLineId).filter(Boolean)
+  );
 
   return (
     <div className="space-y-6">
@@ -155,6 +185,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                     <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Prix unit.</th>
                     <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Total</th>
                     <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Durée</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-slate-400">Installation</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -194,6 +225,24 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                           <span className="text-slate-400">—</span>
                         )}
                       </td>
+                      <td className="px-4 py-3 text-sm text-center">
+                        {installedLineIds.has(line.id) ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                            Créée
+                          </span>
+                        ) : line.product ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); createInstallation(line.id); }}
+                            disabled={creatingInstall === line.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-100 transition-colors disabled:opacity-50"
+                          >
+                            <Plus className="h-3 w-3" />
+                            {creatingInstall === line.id ? "Création..." : "Créer installation"}
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -206,6 +255,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                       <td className="px-4 py-3 text-sm font-bold text-slate-900 text-right">
                         {formatCurrency(invoice.totalAmount)}
                       </td>
+                      <td />
                       <td />
                     </tr>
                   </tfoot>

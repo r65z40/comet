@@ -44,6 +44,7 @@ const APP_FIELDS = [
   { key: "echeance_garantie", label: "Échéance garantie", description: "Date de fin de garantie" },
   { key: "renouveler", label: "Renouveler", description: "Oui/Non, Vrai/Faux, 1/0" },
   { key: "toujours_en_parc", label: "Toujours en parc", description: "Oui/Non, Vrai/Faux, 1/0" },
+  { key: "com_parc", label: "Com Parc", description: "Commentaire parc (info propriétaire)" },
 ];
 
 // Auto-detection aliases for smart column mapping
@@ -61,6 +62,7 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   echeance_garantie: ["echeance_garantie", "échéance_garantie", "echeance", "garantie", "warranty", "fin_garantie", "date_garantie"],
   renouveler: ["renouveler", "renew", "renouvellement", "renewal"],
   toujours_en_parc: ["toujours_en_parc", "en_parc", "in_park", "actif", "active"],
+  com_parc: ["com_parc", "com parc", "commentaire_parc", "commentaire parc", "com_park"],
 };
 
 function parseCSVPreview(text: string, separator: string): PreviewData {

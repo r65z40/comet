@@ -127,6 +127,7 @@ export async function POST(req: NextRequest) {
       renouveler: ["renouveler", "renew", "renouvellement"],
       toujours_en_parc: ["toujours_en_parc", "en_parc", "in_park"],
       fournisseur: ["fournisseur", "supplier"],
+      com_parc: ["com_parc", "com parc", "commentaire_parc", "commentaire parc", "com_park"],
     };
 
     for (const [key, aliases] of Object.entries(expectedColumns)) {
@@ -170,6 +171,7 @@ export async function POST(req: NextRequest) {
         const renew = parseBool(getValue("renouveler"));
         const inPark = parseBool(getValue("toujours_en_parc"));
         const supplier = getValue("fournisseur");
+        const comParc = getValue("com_parc");
 
         if (!clientName) {
           results.errors.push(`Ligne ${i + 1}: Client manquant`);
@@ -276,6 +278,7 @@ export async function POST(req: NextRequest) {
               durationMonths,
               endDate: warrantyEnd,
               status,
+              comParc: comParc || null,
             },
           });
         }

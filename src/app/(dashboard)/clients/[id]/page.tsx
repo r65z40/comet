@@ -12,6 +12,7 @@ interface Installation {
   id: string;
   status: string;
   alwaysInFleet: boolean;
+  comParc: string | null;
   startDate: string;
   endDate: string;
   durationMonths: number;
@@ -211,6 +212,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const coverBg = reportSettings.report_cover_bg || "";
     const coverBgOpacity = parseInt(reportSettings.report_cover_bg_opacity || "15") / 100;
     const showQuantity = reportSettings.report_show_quantity === "true";
+    const showComParc = reportSettings.report_show_com_parc === "true";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
     function getReportStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
@@ -243,6 +245,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           ${showFamily ? `<td>${esc(inst.family || "—")}</td>` : ""}
           ${showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
           ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
+          ${showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
           <td>${formatDate(inst.startDate)}</td>
           ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
           <td>${formatDate(inst.endDate)}</td>
@@ -277,6 +280,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <td>${esc(inst.product.name)}</td>
                   ${showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
                   ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
+                  ${showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
                   <td>${formatDate(inst.startDate)}</td>
                   ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
                   <td>${formatDate(inst.endDate)}</td>

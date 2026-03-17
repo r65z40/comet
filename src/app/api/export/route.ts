@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     const headers = [
       "Client", "Produit", "Famille", "Fournisseur", "Quantité",
       "N° Facture", "Date Facturation", "Date Début", "Durée (mois)",
-      "Date Fin Garantie", "Statut", "Toujours en parc", "Notes",
+      "Date Fin Garantie", "Statut", "Toujours en parc", "Com Parc", "Notes",
     ];
     csv = headers.join(";") + "\n";
 
@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
         escapeCSV(formatDate(inst.endDate)),
         escapeCSV(inst.status),
         escapeCSV(inst.alwaysInFleet ? "Oui" : "Non"),
+        escapeCSV(inst.comParc),
         escapeCSV(inst.notes),
       ].join(";") + "\n";
     }
