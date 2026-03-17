@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     prisma.client.findMany({
       where,
       include: {
-        _count: { select: { installations: true } },
+        _count: { select: { installations: true, invoices: true } },
       },
       orderBy: { name: "asc" },
       skip: (page - 1) * limit,

@@ -27,12 +27,13 @@ export default function RenewedPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [perPage, setPerPage] = useState(40);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("page", String(page));
-    params.set("limit", "40");
+    params.set("limit", String(perPage));
     params.set("status", "RENOUVELE");
     if (search) params.set("search", search);
 
@@ -41,7 +42,7 @@ export default function RenewedPage() {
     setInstallations(data.installations || []);
     setTotalPages(data.pagination?.totalPages || 1);
     setLoading(false);
-  }, [page, search]);
+  }, [page, search, perPage]);
 
   useEffect(() => {
     fetchData();
@@ -105,6 +106,8 @@ export default function RenewedPage() {
         onPageChange={setPage}
         onRowClick={(i) => router.push(`/installations/${i.id}`)}
         isLoading={loading}
+        perPage={perPage}
+        onPerPageChange={setPerPage}
       />
     </div>
   );

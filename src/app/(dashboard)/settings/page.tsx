@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search } from "lucide-react";
 
 interface User {
   id: string;
@@ -90,6 +90,49 @@ export default function SettingsPage() {
   const [savingReport, setSavingReport] = useState(false);
   const [savedReport, setSavedReport] = useState(false);
   const companyLogoRef = useRef<HTMLInputElement>(null);
+
+  // Client merge
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergeClients, setMergeClients] = useState<{ id: string; name: string; _count: { installations: number; invoices: number } }[]>([]);
+  const [mergeTarget, setMergeTarget] = useState<string | null>(null);
+  const [mergeSource, setMergeSource] = useState<string | null>(null);
+  const [merging, setMerging] = useState(false);
+  const [mergeResult, setMergeResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  async function searchMergeClients(q: string) {
+    setMergeSearch(q);
+    if (q.length < 2) { setMergeClients([]); return; }
+    const res = await fetch(`/api/clients?search=${encodeURIComponent(q)}&limit=20&showAll=true`);
+    const data = await res.json();
+    setMergeClients(data.clients || []);
+  }
+
+  async function handleMerge() {
+    if (!mergeTarget || !mergeSource) return;
+    setMerging(true);
+    setMergeResult(null);
+    try {
+      const res = await fetch("/api/clients/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId: mergeTarget, sourceId: mergeSource }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMergeResult({ success: true, message: data.message });
+        setMergeTarget(null);
+        setMergeSource(null);
+        setMergeClients([]);
+        setMergeSearch("");
+      } else {
+        setMergeResult({ success: false, message: data.error || "Erreur" });
+      }
+    } catch {
+      setMergeResult({ success: false, message: "Erreur de connexion" });
+    } finally {
+      setMerging(false);
+    }
+  }
 
   // Bulk delete
   const [deleteTypes, setDeleteTypes] = useState<string[]>([]);
@@ -1636,6 +1679,94 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Fusion de clients */}
+      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="rounded-lg bg-primary-50 p-2">
+            <Merge className="h-4 w-4 text-primary-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-slate-900">Fusionner des clients</h3>
+            <p className="text-xs text-slate-400">Fusionnez deux clients en un seul. Les factures et installations du client source seront transférées vers le client cible.</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Rechercher un client..."
+              value={mergeSearch}
+              onChange={(e) => searchMergeClients(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
+
+          {mergeClients.length > 0 && (
+            <div className="rounded-lg border border-slate-200 max-h-60 overflow-y-auto divide-y divide-slate-100">
+              {mergeClients.map((c) => {
+                const isTarget = mergeTarget === c.id;
+                const isSource = mergeSource === c.id;
+                return (
+                  <div key={c.id} className={`flex items-center justify-between px-4 py-2.5 text-sm ${isTarget ? "bg-emerald-50" : isSource ? "bg-red-50" : "hover:bg-slate-50"}`}>
+                    <div>
+                      <span className="font-medium text-slate-900">{c.name}</span>
+                      <span className="ml-2 text-xs text-slate-400">{c._count.installations} install. · {c._count.invoices} fact.</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setMergeTarget(isTarget ? null : c.id)}
+                        className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                          isTarget ? "bg-emerald-600 text-white" : "border border-emerald-300 text-emerald-600 hover:bg-emerald-50"
+                        }`}
+                      >
+                        {isTarget ? "✓ Cible" : "Cible"}
+                      </button>
+                      <button
+                        onClick={() => setMergeSource(isSource ? null : c.id)}
+                        className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                          isSource ? "bg-red-600 text-white" : "border border-red-300 text-red-600 hover:bg-red-50"
+                        }`}
+                      >
+                        {isSource ? "✓ À supprimer" : "À supprimer"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {mergeTarget && mergeSource && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <p className="text-sm text-amber-700 font-medium">
+                  Le client &quot;{mergeClients.find((c) => c.id === mergeSource)?.name}&quot; sera supprimé et ses données transférées vers &quot;{mergeClients.find((c) => c.id === mergeTarget)?.name}&quot;.
+                </p>
+              </div>
+              <button
+                onClick={handleMerge}
+                disabled={merging}
+                className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+              >
+                {merging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Merge className="h-4 w-4" />}
+                Fusionner
+              </button>
+            </div>
+          )}
+
+          {mergeResult && (
+            <div className={`rounded-lg border p-3 text-sm ${
+              mergeResult.success ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
+            }`}>
+              {mergeResult.message}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Suppression de données */}

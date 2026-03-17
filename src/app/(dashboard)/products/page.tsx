@@ -24,12 +24,13 @@ export default function ProductsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [perPage, setPerPage] = useState(40);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("page", String(page));
-    params.set("limit", "40");
+    params.set("limit", String(perPage));
     if (search) params.set("search", search);
 
     const res = await fetch(`/api/products?${params}`);
@@ -37,7 +38,7 @@ export default function ProductsPage() {
     setProducts(data.products || []);
     setTotalPages(data.pagination?.totalPages || 1);
     setLoading(false);
-  }, [page, search]);
+  }, [page, search, perPage]);
 
   useEffect(() => {
     fetchData();
@@ -104,6 +105,8 @@ export default function ProductsPage() {
         onPageChange={setPage}
         onRowClick={(p) => router.push(`/products/${p.id}`)}
         isLoading={loading}
+        perPage={perPage}
+        onPerPageChange={setPerPage}
       />
     </div>
   );

@@ -35,12 +35,13 @@ export default function InstallationsPage() {
   const [supplierFilter, setSupplierFilter] = useState("");
   const [expiringFilter, setExpiringFilter] = useState(searchParams.get("expiring") || "");
   const [monthFilter, setMonthFilter] = useState(searchParams.get("month") || "");
+  const [perPage, setPerPage] = useState(40);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("page", String(page));
-    params.set("limit", "40");
+    params.set("limit", String(perPage));
     if (search) params.set("search", search);
     if (statusFilter) params.set("status", statusFilter);
     if (familyFilter) params.set("family", familyFilter);
@@ -54,7 +55,7 @@ export default function InstallationsPage() {
     setInstallations(data.installations || []);
     setTotalPages(data.pagination?.totalPages || 1);
     setLoading(false);
-  }, [page, search, statusFilter, familyFilter, supplierFilter, expiringFilter, monthFilter]);
+  }, [page, search, statusFilter, familyFilter, supplierFilter, expiringFilter, monthFilter, perPage]);
 
   useEffect(() => {
     fetchData();
@@ -242,6 +243,8 @@ export default function InstallationsPage() {
         onRowClick={(i) => router.push(`/installations/${i.id}`)}
         isLoading={loading}
         rowClassName={() => ""}
+        perPage={perPage}
+        onPerPageChange={setPerPage}
       />
     </div>
   );

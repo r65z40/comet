@@ -248,8 +248,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
           ${showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
           <td>${formatDate(inst.startDate)}</td>
-          ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
           <td>${formatDate(inst.endDate)}</td>
+          ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
           <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.endDate, inst.alwaysInFleet)}</td>
         </tr>
       `).join("");
@@ -283,8 +283,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
                   ${showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
                   <td>${formatDate(inst.startDate)}</td>
-                  ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
                   <td>${formatDate(inst.endDate)}</td>
+                  ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
                   <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.endDate, inst.alwaysInFleet)}</td>
                 </tr>
               `).join("")}
@@ -376,11 +376,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .stat-blue { border-color: ${primaryColor}; } .stat-blue .value { color: ${primaryColor}; }
     .footer { text-align: center; font-size: 11px; color: #94a3b8; padding-top: 20px; margin-top: 40px; border-top: 1px solid #e2e8f0; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: fixed; }
-    th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; word-wrap: break-word; }
-    td { padding: 8px; border-bottom: 1px solid #f1f5f9; word-wrap: break-word; }
-    th:first-child, td:first-child { width: 40%; white-space: normal; word-wrap: break-word; }
-    th:not(:first-child), td:not(:first-child) { text-align: center; white-space: normal; word-wrap: break-word; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: auto; }
+    th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+    td { padding: 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+    th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
+    th:not(:first-child), td:not(:first-child) { text-align: center; }
     tr:nth-child(even) { background: #fafafa; }
 
     .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }

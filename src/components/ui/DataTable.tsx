@@ -20,6 +20,8 @@ interface DataTableProps<T> {
   onRowClick?: (item: T) => void;
   isLoading?: boolean;
   rowClassName?: (item: T) => string;
+  perPage?: number;
+  onPerPageChange?: (perPage: number) => void;
 }
 
 function getNestedValue(obj: unknown, key: string): unknown {
@@ -32,6 +34,8 @@ function getNestedValue(obj: unknown, key: string): unknown {
   return current;
 }
 
+const PER_PAGE_OPTIONS = [20, 40, 60, 100];
+
 export default function DataTable<T extends { id: string }>({
   columns,
   data,
@@ -41,6 +45,8 @@ export default function DataTable<T extends { id: string }>({
   onRowClick,
   isLoading,
   rowClassName,
+  perPage,
+  onPerPageChange,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -137,11 +143,27 @@ export default function DataTable<T extends { id: string }>({
         </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
-          <p className="text-sm text-slate-500">
-            Page {page} sur {totalPages}
-          </p>
+      <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-slate-500">
+              Page {page} sur {totalPages}
+            </p>
+            {onPerPageChange && (
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-slate-400">Afficher</label>
+                <select
+                  value={perPage || 40}
+                  onChange={(e) => { onPerPageChange(Number(e.target.value)); onPageChange(1); }}
+                  className="rounded border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600 focus:border-primary-500 focus:outline-none"
+                >
+                  {PER_PAGE_OPTIONS.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          {totalPages > 1 && (
           <div className="flex gap-2">
             <button
               onClick={() => onPageChange(page - 1)}
@@ -158,8 +180,8 @@ export default function DataTable<T extends { id: string }>({
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
+          )}
         </div>
-      )}
     </div>
   );
 }

@@ -21,12 +21,13 @@ export default function ClientsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [perPage, setPerPage] = useState(40);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("page", String(page));
-    params.set("limit", "40");
+    params.set("limit", String(perPage));
     if (search) params.set("search", search);
 
     const res = await fetch(`/api/clients?${params}`);
@@ -34,7 +35,7 @@ export default function ClientsPage() {
     setClients(data.clients || []);
     setTotalPages(data.pagination?.totalPages || 1);
     setLoading(false);
-  }, [page, search]);
+  }, [page, search, perPage]);
 
   useEffect(() => {
     fetchData();
@@ -87,6 +88,8 @@ export default function ClientsPage() {
         onPageChange={setPage}
         onRowClick={(c) => router.push(`/clients/${c.id}`)}
         isLoading={loading}
+        perPage={perPage}
+        onPerPageChange={setPerPage}
       />
     </div>
   );
