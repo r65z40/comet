@@ -63,9 +63,12 @@ export async function getNotificationConfig() {
 }
 
 function createTransporter(config: SmtpConfig) {
-  // Port 465 = implicit TLS (secure: true)
-  // Port 587/other = STARTTLS (secure: false, upgrade via STARTTLS)
-  const useSecure = config.secure || config.port === 465;
+  // IMPORTANT: "secure" in Nodemailer means IMPLICIT TLS (direct TLS connection)
+  // - Port 465 → secure: true  (implicit TLS)
+  // - Port 587 → secure: false (STARTTLS - negotiates TLS after plain connection)
+  // - Port 25  → secure: false (plain or STARTTLS)
+  // Setting secure: true on port 587 causes "wrong version number" SSL error
+  const useSecure = config.port === 465;
 
   return nodemailer.createTransport({
     host: config.host,
@@ -76,7 +79,6 @@ function createTransporter(config: SmtpConfig) {
       pass: config.pass,
     },
     tls: {
-      // Accept self-signed certificates (common in corporate environments)
       rejectUnauthorized: false,
     },
     connectionTimeout: 10000,

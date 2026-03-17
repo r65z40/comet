@@ -78,8 +78,11 @@ export default function SettingsPage() {
   const [reportShowVerticalName, setReportShowVerticalName] = useState(true);
   const [reportIncludeHorsParc, setReportIncludeHorsParc] = useState(true);
   const [reportShowRenewedCount, setReportShowRenewedCount] = useState(false);
+  const [reportShowQuantity, setReportShowQuantity] = useState(false);
   const [reportFooterText, setReportFooterText] = useState("");
   const [reportOrientation, setReportOrientation] = useState("portrait");
+  const [reportCoverBg, setReportCoverBg] = useState("");
+  const reportCoverBgRef = useRef<HTMLInputElement>(null);
   const [savingReport, setSavingReport] = useState(false);
   const [savedReport, setSavedReport] = useState(false);
   const companyLogoRef = useRef<HTMLInputElement>(null);
@@ -141,8 +144,10 @@ export default function SettingsPage() {
         setReportShowVerticalName(data.report_show_vertical_name !== "false");
         setReportIncludeHorsParc(data.report_include_hors_parc !== "false");
         setReportShowRenewedCount(data.report_show_renewed_count === "true");
+        setReportShowQuantity(data.report_show_quantity === "true");
         setReportFooterText(data.report_footer_text || "");
         setReportOrientation(data.report_orientation || "portrait");
+        setReportCoverBg(data.report_cover_bg || "");
         setSiteLogo(data.site_logo || "");
         setSiteFavicon(data.site_favicon || "");
       })
@@ -320,8 +325,10 @@ export default function SettingsPage() {
         report_show_vertical_name: reportShowVerticalName ? "true" : "false",
         report_include_hors_parc: reportIncludeHorsParc ? "true" : "false",
         report_show_renewed_count: reportShowRenewedCount ? "true" : "false",
+        report_show_quantity: reportShowQuantity ? "true" : "false",
         report_footer_text: reportFooterText,
         report_orientation: reportOrientation,
+        report_cover_bg: reportCoverBg,
       }),
     });
     setSavingReport(false);
@@ -1032,6 +1039,61 @@ export default function SettingsPage() {
 
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1.5">
+            Image de fond de la page de garde
+          </label>
+          <div className="flex items-center gap-4">
+            {reportCoverBg ? (
+              <div className="relative group">
+                <img
+                  src={reportCoverBg}
+                  alt="Fond page de garde"
+                  className="h-24 w-auto max-w-[300px] rounded-lg bg-white border border-slate-200 object-cover"
+                />
+                <button
+                  onClick={() => setReportCoverBg("")}
+                  className="absolute -top-1.5 -right-1.5 rounded-full bg-red-500 p-0.5 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => reportCoverBgRef.current?.click()}
+                className="flex h-24 w-48 items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 text-slate-400 hover:border-primary-500 hover:text-primary-600 transition-colors"
+              >
+                <ImageIcon className="h-5 w-5" />
+                <span className="text-xs">Ajouter une image</span>
+              </button>
+            )}
+            {reportCoverBg && (
+              <button
+                onClick={() => reportCoverBgRef.current?.click()}
+                className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Changer
+              </button>
+            )}
+          </div>
+          <input
+            ref={reportCoverBgRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              if (file.size > 5 * 1024 * 1024) { alert("Max 5 Mo"); return; }
+              const reader = new FileReader();
+              reader.onload = () => setReportCoverBg(reader.result as string);
+              reader.readAsDataURL(file);
+            }}
+          />
+          <p className="text-xs text-slate-400 mt-1">Image affichée en fond de la première page du rapport (max 5 Mo, recommandé : 1920x1080)</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Nom de votre société
           </label>
           <input
@@ -1234,6 +1296,15 @@ export default function SettingsPage() {
                 className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-slate-600">Afficher le nombre de produits renouvelés dans le rapport</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowQuantity}
+                onChange={(e) => setReportShowQuantity(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Colonne &quot;Quantité&quot;</span>
             </label>
           </div>
         </div>

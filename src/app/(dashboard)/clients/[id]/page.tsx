@@ -208,6 +208,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const orientation = reportSettings.report_orientation || "portrait";
     const includeHorsParc = reportSettings.report_include_hors_parc !== "false";
     const showRenewedCount = reportSettings.report_show_renewed_count === "true";
+    const coverBg = reportSettings.report_cover_bg || "";
+    const showQuantity = reportSettings.report_show_quantity === "true";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
     function getReportStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
@@ -239,6 +241,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <td>${esc(inst.product.name)}</td>
           ${showFamily ? `<td>${esc(inst.family || "—")}</td>` : ""}
           ${showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
+          ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
           <td>${formatDate(inst.startDate)}</td>
           ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
           <td>${formatDate(inst.endDate)}</td>
@@ -272,6 +275,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <tr>
                   <td>${esc(inst.product.name)}</td>
                   ${showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
+                  ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
                   <td>${formatDate(inst.startDate)}</td>
                   ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
                   <td>${formatDate(inst.endDate)}</td>
@@ -331,6 +335,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       padding: 40px;
       overflow: hidden;
     }
+    .cover-bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      opacity: 0.15;
+      z-index: 0;
+    }
+    .cover-page > *:not(.cover-bg) { position: relative; z-index: 1; }
     .cover-logos { display: flex; align-items: center; justify-content: center; gap: 40px; margin-bottom: 40px; }
     .cover-logos img { border-radius: 12px; background: white; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .cover-page h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; color: #1e293b; }
@@ -356,7 +370,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: fixed; }
     th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; word-wrap: break-word; }
     td { padding: 8px; border-bottom: 1px solid #f1f5f9; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; }
-    td:first-child { max-width: 200px; }
+    th:first-child, td:first-child { width: 50%; }
     tr:nth-child(even) { background: #fafafa; }
 
     .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
@@ -367,6 +381,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 </head>
 <body>
   <div class="cover-page">
+    ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
     ${showVerticalName ? `<div class="vertical-text">${esc(client.name)}</div>` : ""}
     <div class="cover-logos">
       ${companyLogoHtml}
