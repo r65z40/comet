@@ -140,8 +140,25 @@ export default function ImportPage() {
     setFile(f);
     setResult(null);
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
+    reader.onload = async (e) => {
+      const buffer = e.target?.result as ArrayBuffer;
+      const bytes = new Uint8Array(buffer);
+
+      let text: string;
+      // Check for UTF-8 BOM (EF BB BF)
+      const hasUtf8Bom = bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+      if (hasUtf8Bom) {
+        text = new TextDecoder("utf-8").decode(bytes);
+      } else {
+        // Try strict UTF-8 first
+        try {
+          text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        } catch {
+          // Fallback to Latin-1 (Windows-1252) for French Excel exports
+          text = new TextDecoder("iso-8859-1").decode(bytes);
+        }
+      }
+
       setFileText(text);
       const detected = detectSeparator(text);
       setSeparator(detected);
@@ -151,7 +168,7 @@ export default function ImportPage() {
       setMappings(autoMappings);
       setStep(2);
     };
-    reader.readAsText(f);
+    reader.readAsArrayBuffer(f);
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -207,8 +224,9 @@ export default function ImportPage() {
       }
       const newCsvContent = lines.join("\n");
 
-      const blob = new Blob([newCsvContent], { type: "text/csv" });
-      const mappedFile = new File([blob], file.name, { type: "text/csv" });
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + newCsvContent], { type: "text/csv;charset=utf-8" });
+      const mappedFile = new File([blob], file.name, { type: "text/csv;charset=utf-8" });
 
       const formData = new FormData();
       formData.append("file", mappedFile);
@@ -243,8 +261,9 @@ export default function ImportPage() {
   const downloadTemplate = () => {
     const headers = ["Client", "Nom Produit", "Num_Facture", "Date_Facturation", "Description", "Quantité", "Prix_Achat", "Prix_Vente", "Famille_Parc", "Fournisseur", "Echeance_Garantie", "Renouveler", "Toujours_en_parc"];
     const example = ["Entreprise Exemple", "Firewall FortiGate 60F", "FA-2024-001", "15/03/2024", "Installation firewall", "1", "450.00", "890.00", "Sécurité", "Fortinet", "15/03/2027", "Non", "Oui"];
+    const BOM = "\uFEFF";
     const csv = headers.join(";") + "\n" + example.join(";") + "\n";
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
