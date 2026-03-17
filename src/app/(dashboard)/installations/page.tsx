@@ -81,13 +81,12 @@ export default function InstallationsPage() {
     {
       key: "product",
       label: "Produit",
-      width: "20%",
+      width: "15%",
       render: (i: Installation) => (
-        <span className="block truncate" title={i.product.name}>{i.product.name}</span>
+        <span className="block truncate max-w-[180px]" title={i.product.name}>{i.product.name}</span>
       ),
     },
     { key: "family", label: "Famille" },
-    { key: "supplier", label: "Fournisseur" },
     {
       key: "comParc",
       label: "Com Parc",

@@ -230,7 +230,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                           <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
                             Créée
                           </span>
-                        ) : line.product ? (
+                        ) : line.product && !line.product.durationMonths ? (
                           <button
                             onClick={(e) => { e.stopPropagation(); createInstallation(line.id); }}
                             disabled={creatingInstall === line.id}
@@ -239,6 +239,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                             <Plus className="h-3 w-3" />
                             {creatingInstall === line.id ? "Création..." : "Créer installation"}
                           </button>
+                        ) : line.product?.durationMonths ? (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                            Auto
+                          </span>
                         ) : (
                           <span className="text-slate-400 text-xs">—</span>
                         )}

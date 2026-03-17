@@ -47,9 +47,9 @@ export default function ProductsPage() {
     {
       key: "name",
       label: "Produit",
-      width: "40%",
+      width: "30%",
       render: (p: Product) => (
-        <span className="font-medium text-slate-900 block truncate" title={p.name}>
+        <span className="font-medium text-slate-900 block truncate max-w-[300px]" title={p.name}>
           {p.name}
         </span>
       ),
