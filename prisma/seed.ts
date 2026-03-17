@@ -1,12 +1,15 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const hashedPassword = await bcrypt.hash("admin123", 12);
+  // Generate a random password for the admin account
+  const defaultPassword = crypto.randomBytes(12).toString("base64url");
+  const hashedPassword = await bcrypt.hash(defaultPassword, 12);
 
-  await prisma.user.upsert({
+  const user = await prisma.user.upsert({
     where: { email: "admin@comet-cedelia.fr" },
     update: {},
     create: {
@@ -24,7 +27,14 @@ async function main() {
   });
 
   console.log("Seed completed successfully");
-  console.log("Admin account: admin@comet-cedelia.fr / admin123");
+  console.log(`Admin account: admin@comet-cedelia.fr`);
+  // Only show password if the user was just created (not already existing)
+  if (user.createdAt.getTime() > Date.now() - 5000) {
+    console.log(`Generated password: ${defaultPassword}`);
+    console.log("IMPORTANT: Change this password immediately after first login!");
+  } else {
+    console.log("Admin user already exists, password unchanged.");
+  }
 }
 
 main()

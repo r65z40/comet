@@ -182,11 +182,21 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   function printReport() {
     if (!client) return;
 
-    const title = reportSettings.report_title || "Rapport de suivi des garanties";
-    const subtitle = reportSettings.report_subtitle || "";
-    const message = reportSettings.report_message || "";
+    // Escape HTML to prevent XSS in report
+    function esc(str: string): string {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    const title = esc(reportSettings.report_title || "Rapport de suivi des garanties");
+    const subtitle = esc(reportSettings.report_subtitle || "");
+    const message = esc(reportSettings.report_message || "");
     const companyLogo = reportSettings.company_logo || "";
-    const companyName = reportSettings.company_name || "";
+    const companyName = esc(reportSettings.company_name || "");
     const showVerticalName = reportSettings.report_show_vertical_name !== "false";
     const groupByFamily = reportSettings.report_group_mode === "family";
     const primaryColor = reportSettings.report_primary_color || "#3b82f6";
@@ -194,7 +204,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const showFamily = reportSettings.report_show_family !== "false";
     const showSupplier = reportSettings.report_show_supplier !== "false";
     const showDuration = reportSettings.report_show_duration !== "false";
-    const footerText = reportSettings.report_footer_text || "";
+    const footerText = esc(reportSettings.report_footer_text || "");
     const orientation = reportSettings.report_orientation || "portrait";
     const includeHorsParc = reportSettings.report_include_hors_parc !== "false";
     const showRenewedCount = reportSettings.report_show_renewed_count === "true";
@@ -226,9 +236,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     function buildInstRows(installations: Installation[]): string {
       return installations.map((inst) => `
         <tr>
-          <td>${inst.product.name}</td>
-          ${showFamily ? `<td>${inst.family || "—"}</td>` : ""}
-          ${showSupplier ? `<td>${inst.supplier || "—"}</td>` : ""}
+          <td>${esc(inst.product.name)}</td>
+          ${showFamily ? `<td>${esc(inst.family || "—")}</td>` : ""}
+          ${showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
           <td>${formatDate(inst.startDate)}</td>
           ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
           <td>${formatDate(inst.endDate)}</td>
@@ -255,13 +265,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       const sortedFamilies = Array.from(families.entries()).sort((a, b) => a[0].localeCompare(b[0]));
       tableContent = sortedFamilies.map(([family, installs]) => `
         <div style="margin-top: 20px;">
-          <h3 style="font-size: 14px; font-weight: 700; color: ${primaryColor}; margin-bottom: 8px; padding: 6px 10px; background: ${primaryColor}11; border-radius: 4px;">${family} (${installs.length})</h3>
+          <h3 style="font-size: 14px; font-weight: 700; color: ${primaryColor}; margin-bottom: 8px; padding: 6px 10px; background: ${primaryColor}11; border-radius: 4px;">${esc(family)} (${installs.length})</h3>
           <table>
             <tbody>
               ${installs.map((inst) => `
                 <tr>
-                  <td>${inst.product.name}</td>
-                  ${showSupplier ? `<td>${inst.supplier || "—"}</td>` : ""}
+                  <td>${esc(inst.product.name)}</td>
+                  ${showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
                   <td>${formatDate(inst.startDate)}</td>
                   ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
                   <td>${formatDate(inst.endDate)}</td>
@@ -298,7 +308,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Rapport de suivi des garanties informatique - ${client.name}</title>
+  <title>Rapport de suivi des garanties informatique - ${esc(client.name)}</title>
   <style>
     @media print {
       @page { margin: 15mm; size: ${orientation === "landscape" ? "landscape" : "portrait"}; }
@@ -357,13 +367,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 </head>
 <body>
   <div class="cover-page">
-    ${showVerticalName ? `<div class="vertical-text">${client.name}</div>` : ""}
+    ${showVerticalName ? `<div class="vertical-text">${esc(client.name)}</div>` : ""}
     <div class="cover-logos">
       ${companyLogoHtml}
       ${clientLogoHtml}
     </div>
     <h1>${title}</h1>
-    <div class="client-name">${client.name}</div>
+    <div class="client-name">${esc(client.name)}</div>
     ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ""}
     <div class="date">${today}</div>
     ${message ? `<div class="message">${message}</div>` : ""}
@@ -372,8 +382,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   <div class="report-content">
     <div class="header-bar">
       <div class="client-info">
-        <h2>${client.name}</h2>
-        <p>${[client.email, client.phone, client.city].filter(Boolean).join(" • ")}</p>
+        <h2>${esc(client.name)}</h2>
+        <p>${[client.email, client.phone, client.city].filter(Boolean).map(s => esc(s!)).join(" • ")}</p>
       </div>
       <div class="report-date">
         <p>Généré le ${today}</p>
@@ -407,7 +417,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   <script>
     (function() {
-      document.title = 'Rapport de suivi des garanties informatique - ${client.name}';
+      document.title = 'Rapport de suivi des garanties informatique - ${esc(client.name).replace(/'/g, "\\&#039;")}';
     })();
   </script>
 </body>
