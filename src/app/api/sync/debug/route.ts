@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
   try {
     // Compter les éléments en base

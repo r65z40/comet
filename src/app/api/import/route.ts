@@ -64,7 +64,9 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const separatorParam = (formData.get("separator") as string) || ";";
+    const ALLOWED_SEPARATORS = [";", ",", "\t", "|"];
+    const rawSeparator = (formData.get("separator") as string) || ";";
+    const separatorParam = ALLOWED_SEPARATORS.includes(rawSeparator) ? rawSeparator : ";";
 
     if (!file) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });

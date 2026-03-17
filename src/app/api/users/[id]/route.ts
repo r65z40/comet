@@ -26,6 +26,9 @@ export async function PATCH(
     updateData.email = body.email;
   }
   if (body.password) {
+    if (body.password.length < 8) {
+      return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères" }, { status: 400 });
+    }
     updateData.password = await bcrypt.hash(body.password, 10);
   }
   if (body.role && ["ADMIN", "USER"].includes(body.role)) {

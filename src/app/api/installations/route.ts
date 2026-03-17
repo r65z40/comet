@@ -20,8 +20,11 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search");
   const expiring = searchParams.get("expiring");
   const month = searchParams.get("month");
-  const sortBy = searchParams.get("sortBy") || "endDate";
-  const sortOrder = searchParams.get("sortOrder") || "asc";
+  const ALLOWED_SORT_FIELDS = ["endDate", "startDate", "status", "durationMonths", "family", "supplier", "createdAt"];
+  const rawSortBy = searchParams.get("sortBy") || "endDate";
+  const sortBy = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : "endDate";
+  const rawSortOrder = searchParams.get("sortOrder") || "asc";
+  const sortOrder = rawSortOrder === "desc" ? "desc" : "asc";
 
   const excludeRenewed = searchParams.get("excludeRenewed");
   const where: Record<string, unknown> = {};
