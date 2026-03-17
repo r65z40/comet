@@ -121,6 +121,20 @@ BEGIN
 END $$;
 SQL2
 
+  # Create password_resets table for forgot password feature
+  psql "$DB_URL" <<'SQL3' || echo "Password resets migration returned non-zero (may be OK)"
+CREATE TABLE IF NOT EXISTS password_resets (
+  id TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  "expiresAt" TIMESTAMP(3) NOT NULL,
+  used BOOLEAN NOT NULL DEFAULT false,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS "password_resets_token_idx" ON password_resets(token);
+CREATE INDEX IF NOT EXISTS "password_resets_userId_idx" ON password_resets("userId");
+SQL3
+
   echo "=== Migrations done ==="
 else
   echo "WARNING: Could not connect to database, skipping migrations."

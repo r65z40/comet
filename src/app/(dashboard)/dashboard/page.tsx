@@ -551,13 +551,17 @@ export default function DashboardPage() {
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [cometExploding, setCometExploding] = useState(false);
+  const [showCedelia, setShowCedelia] = useState(false);
   const [siteLogo, setSiteLogo] = useState<string>("");
   const layoutLoaded = useRef(false);
 
   const triggerCometExplosion = useCallback(() => {
     if (cometExploding) return;
     setCometExploding(true);
-    setTimeout(() => setCometExploding(false), 2000);
+    setTimeout(() => {
+      setCometExploding(false);
+      setShowCedelia(true);
+    }, 2000);
   }, [cometExploding]);
 
   // Load branding logo
@@ -803,6 +807,38 @@ export default function DashboardPage() {
           }
         }
       `}</style>
+
+      {/* Cedelia.fr overlay */}
+      {showCedelia && (
+        <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowCedelia(false)}>
+          <div className="relative w-full max-w-5xl h-[80vh] bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between bg-slate-50 border-b border-slate-200 px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <button onClick={() => setShowCedelia(false)} className="w-3 h-3 rounded-full bg-red-400 hover:bg-red-500 transition-colors" />
+                  <div className="w-3 h-3 rounded-full bg-amber-400" />
+                  <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                </div>
+                <span className="text-xs text-slate-400 ml-2 font-mono">cedelia.fr</span>
+              </div>
+              <a
+                href="https://cedelia.fr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Ouvrir dans un nouvel onglet ↗
+              </a>
+            </div>
+            <iframe
+              src="https://cedelia.fr"
+              className="w-full h-full border-0"
+              title="Cedelia.fr"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            />
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div>

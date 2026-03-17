@@ -1247,6 +1247,15 @@ export default function SettingsPage() {
           </button>
         </div>
 
+        {!smtpHost && (
+          <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+            <Mail className="h-4 w-4 flex-shrink-0 text-red-500" />
+            <span>
+              <strong>SMTP non configuré :</strong> la fonctionnalité &quot;Mot de passe oublié&quot; ne fonctionnera pas tant que le serveur mail n&apos;est pas configuré dans la section Email ci-dessus.
+            </span>
+          </div>
+        )}
+
         {userError && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
             {userError}
