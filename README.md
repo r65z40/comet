@@ -5,14 +5,16 @@ Plateforme de suivi des garanties et installations informatiques pour CEDELIA. P
 ## Fonctionnalités
 
 - **Dashboard** — Vue d'ensemble avec statistiques, graphiques de répartition (famille/fournisseur), échéances à venir
-- **Gestion des installations** — Suivi du statut (En parc, Hors parc, Renouvelé, Toujours en parc) avec compte à rebours
-- **Gestion des clients** — Fiches client avec logo, coordonnées, historique des installations et factures
-- **Gestion des produits** — Catalogue produits avec famille, fournisseur, durée de garantie
-- **Factures** — Import et consultation des factures liées aux installations
-- **Rapports PDF** — Génération de rapports personnalisables par client (page de garde, statistiques, groupement par famille/date)
+- **Gestion des installations** — Suivi du statut (En parc, Hors parc, Renouvelé, Toujours en parc) avec compte à rebours, édition inline de tous les champs, historique des modifications
+- **Gestion des clients** — Fiches client avec logo, coordonnées, historique des installations et factures, fusion de doublons
+- **Gestion des produits** — Catalogue produits avec famille, fournisseur, durée de garantie, fusion de doublons
+- **Factures** — Import et consultation des factures liées aux installations, création d'installations depuis les factures
+- **Rapports PDF** — Génération de rapports personnalisables par client (page de garde, statistiques, groupement par famille/date, export PDF réel via html2pdf.js)
 - **Synchronisation Axonaut** — Import automatique des données depuis l'API Axonaut (clients, produits, factures)
-- **Notifications email** — Alertes SMTP configurables pour les garanties arrivant à échéance
-- **Import CSV** — Import en masse des installations
+- **Notifications email** — Alertes SMTP configurables pour les garanties arrivant à échéance (liens cliquables, configuration réservée aux admins)
+- **Import/Export CSV** — Import en masse des installations avec support UTF-8 et détection des doublons
+- **Messages broadcast** — Diffusion de messages avec éditeur rich text (réservé aux admins)
+- **Gestion des rôles** — Restrictions admin sur les sections sensibles (SMTP, utilisateurs, paramètres avancés)
 - **Personnalisation** — Logo du site, favicon, couleurs des rapports, orientation, éléments visibles
 
 ## Stack technique
@@ -137,8 +139,10 @@ Client ──< Installation >── Product
 
 - **Client** — Entreprise avec coordonnées et logo
 - **Product** — Produit avec famille, fournisseur, durée de garantie
-- **Installation** — Lien client-produit avec dates de garantie et statut
+- **Installation** — Lien client-produit avec dates de garantie et statut, champ Com Parc
+- **InstallationHistory** — Journal des modifications sur une installation (champ, ancienne/nouvelle valeur, auteur, date)
 - **Invoice** — Facture avec lignes détaillées
+- **BroadcastMessage** — Messages diffusés aux utilisateurs
 - **Setting** — Configuration clé-valeur (paramètres app, rapports, SMTP)
 
 ## Statuts des installations
