@@ -768,8 +768,8 @@ export default function SettingsPage() {
         </div>
       </div>}
 
-      {/* Configuration SMTP */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
+      {/* Configuration SMTP (admin only) */}
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
         <div className="flex items-center gap-3 mb-2">
           <div className="rounded-lg bg-primary-50 p-2">
             <Mail className="h-4 w-4 text-primary-600" />
@@ -908,7 +908,7 @@ export default function SettingsPage() {
               : `Erreur : ${smtpTestResult.error}`}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Notifications par email */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
@@ -1639,11 +1639,11 @@ export default function SettingsPage() {
               <p className="font-medium text-slate-700">Différences entre les rôles :</p>
               <div className="flex items-start gap-2">
                 <span className="inline-block rounded bg-slate-200 px-1.5 py-0.5 font-medium text-slate-600 shrink-0">Utilisateur</span>
-                <span>Consultation des données, personnalisation du rapport, fusion de clients/produits, configuration SMTP et notifications.</span>
+                <span>Consultation des données, personnalisation du rapport, fusion de clients/produits et notifications par email.</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="inline-block rounded bg-primary-100 px-1.5 py-0.5 font-medium text-primary-700 shrink-0">Administrateur</span>
-                <span>Tous les droits utilisateur + gestion des utilisateurs, message broadcast, apparence du site, API Axonaut, import de données et suppression en masse.</span>
+                <span>Tous les droits utilisateur + gestion des utilisateurs, message broadcast, apparence du site, configuration SMTP, API Axonaut, import de données et suppression en masse.</span>
               </div>
             </div>
             <div className="flex gap-2 pt-1">
