@@ -2,6 +2,44 @@
 
 ## 2026-03-18
 
+### Fonctionnalité — Debounce sur les recherches
+- Toutes les barres de recherche (installations, clients, produits, factures) attendent 300ms avant de lancer la requête
+- Réduit considérablement le nombre de requêtes API pendant la saisie
+
+### Fonctionnalité — Pages d'erreur
+- Page 404 personnalisée avec bouton retour au tableau de bord
+- Error boundary sur le dashboard avec bouton "Réessayer" et référence d'erreur
+
+### Fonctionnalité — Validation Zod sur les API
+- Validation stricte des données entrantes sur les endpoints installations (PATCH/POST) et notifications
+- Messages d'erreur détaillés par champ en cas de données invalides
+- Schémas réutilisables dans `src/lib/validations.ts`
+
+### Fonctionnalité — Soft delete (corbeille)
+- Les suppressions de clients, produits et installations sont désormais réversibles (champ `deletedAt`)
+- Les éléments supprimés sont masqués des listes mais conservés en base
+- Endpoint `/api/installations/restore` pour restaurer des éléments supprimés
+- Index DB sur `deletedAt` pour les performances
+
+### Fonctionnalité — Journal d'activité global
+- Nouveau modèle `ActivityLog` : suivi de toutes les actions (CREATE, UPDATE, DELETE, RESTORE, EXPORT, BULK_*)
+- Page `/activity` accessible depuis la sidebar (réservée aux admins)
+- Filtrage par entité et par type d'action
+- Logging automatique sur les modifications d'installations, suppressions, exports CSV
+
+### Fonctionnalité — Opérations en lot (bulk)
+- Sélection multiple via checkboxes dans le tableau des installations
+- Barre d'actions groupées : changer le statut, supprimer en lot
+- Endpoint `/api/installations/bulk` avec validation Zod
+- Confirmation avant suppression en lot
+
+### Fonctionnalité — Dark mode
+- Thème sombre complet : sidebar, header, tableaux, pages
+- Sélecteur dans le header : Clair / Sombre / Système
+- Préférence sauvegardée en localStorage
+- Pas de flash au chargement (script inline pré-rendu)
+- Support du `prefers-color-scheme` du système
+
 ### Sécurité — Audit et corrections de sécurité
 - **Stack traces** : suppression de l'exposition des traces d'erreur dans les réponses API (notifications, sync)
 - **Endpoint cron** : `CRON_SECRET` désormais obligatoire, secret passé via header `x-cron-secret` (plus en query param)
