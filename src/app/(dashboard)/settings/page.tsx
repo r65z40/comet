@@ -1635,6 +1635,17 @@ export default function SettingsPage() {
                 <option value="ADMIN">Administrateur</option>
               </select>
             </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500 space-y-1.5">
+              <p className="font-medium text-slate-700">Différences entre les rôles :</p>
+              <div className="flex items-start gap-2">
+                <span className="inline-block rounded bg-slate-200 px-1.5 py-0.5 font-medium text-slate-600 shrink-0">Utilisateur</span>
+                <span>Consultation des données, personnalisation du rapport, fusion de clients/produits, configuration SMTP et notifications.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="inline-block rounded bg-primary-100 px-1.5 py-0.5 font-medium text-primary-700 shrink-0">Administrateur</span>
+                <span>Tous les droits utilisateur + gestion des utilisateurs, message broadcast, apparence du site, API Axonaut, import de données et suppression en masse.</span>
+              </div>
+            </div>
             <div className="flex gap-2 pt-1">
               <button
                 onClick={createUser}
