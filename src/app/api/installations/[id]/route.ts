@@ -11,16 +11,27 @@ export async function GET(
 
   const { id } = await params;
 
+  let includeHistory = {};
+  try {
+    // Check if InstallationHistory table exists (migration may not have run yet)
+    await prisma.$queryRaw`SELECT 1 FROM installation_history LIMIT 1`;
+    includeHistory = {
+      history: {
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      },
+    };
+  } catch {
+    // Table doesn't exist yet — skip history
+  }
+
   const installation = await prisma.installation.findUnique({
     where: { id },
     include: {
       client: true,
       product: true,
       invoice: { include: { lines: true } },
-      history: {
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      },
+      ...includeHistory,
     },
   });
 
@@ -122,14 +133,18 @@ export async function PATCH(
     data: updateData,
   });
 
-  // Save history entries
+  // Save history entries (skip if table doesn't exist)
   if (historyEntries.length > 0) {
-    await prisma.installationHistory.createMany({
-      data: historyEntries.map((e) => ({
-        installationId: id,
-        ...e,
-      })),
-    });
+    try {
+      await prisma.installationHistory.createMany({
+        data: historyEntries.map((e) => ({
+          installationId: id,
+          ...e,
+        })),
+      });
+    } catch {
+      // installation_history table may not exist yet
+    }
   }
 
   return NextResponse.json(installation);

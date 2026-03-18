@@ -467,14 +467,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   function downloadPdf() {
     const html = buildReportHtml();
     if (!html) return;
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.onload = () => {
-        printWindow.print();
-      };
-    }
+    // Download as a self-contained HTML file styled for PDF print
+    const fileName = `rapport-${client!.name.replace(/[^a-zA-Z0-9]/g, "_")}-${new Date().toISOString().split("T")[0]}.html`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (loading) return <LoadingSpinner />;
@@ -542,7 +543,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">{client.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">{client.name}</h1>
+              {client.installations.length > 0 && (
+                <MiniDonut enParc={enParc.length} horsParc={horsParc.length} renouvele={renouvele.length} />
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
               {client.email && (
                 <span className="flex items-center gap-1 text-xs text-slate-500">
@@ -630,38 +636,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <p className="text-xs text-slate-500 mt-1">Renouvelés</p>
         </button>
       </div>
-
-      {/* Mini donut chart */}
-      {client.installations.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-6">
-            <MiniDonut enParc={enParc.length} horsParc={horsParc.length} renouvele={renouvele.length} />
-            <div className="flex-1 grid grid-cols-3 gap-4">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                <div>
-                  <p className="text-xs text-slate-500">En parc</p>
-                  <p className="text-sm font-bold text-slate-900">{client.installations.length > 0 ? Math.round((enParc.length / client.installations.length) * 100) : 0}%</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-red-500" />
-                <div>
-                  <p className="text-xs text-slate-500">Hors parc</p>
-                  <p className="text-sm font-bold text-slate-900">{client.installations.length > 0 ? Math.round((horsParc.length / client.installations.length) * 100) : 0}%</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-blue-500" />
-                <div>
-                  <p className="text-xs text-slate-500">Renouvelés</p>
-                  <p className="text-sm font-bold text-slate-900">{client.installations.length > 0 ? Math.round((renouvele.length / client.installations.length) * 100) : 0}%</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Tableau principal des installations avec toutes les infos */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
@@ -849,7 +823,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 function MiniDonut({ enParc, horsParc, renouvele }: { enParc: number; horsParc: number; renouvele: number }) {
   const total = enParc + horsParc + renouvele;
   if (total === 0) return null;
-  const r = 30;
+  const r = 12;
   const c = 2 * Math.PI * r;
   const slices = [
     { value: enParc, color: "#10b981" },
@@ -859,7 +833,8 @@ function MiniDonut({ enParc, horsParc, renouvele }: { enParc: number; horsParc: 
 
   let offset = 0;
   return (
-    <svg width="80" height="80" viewBox="0 0 80 80" className="shrink-0">
+    <svg width="32" height="32" viewBox="0 0 32 32" className="shrink-0">
+      <title>{`${enParc} en parc · ${horsParc} hors parc · ${renouvele} renouvelés`}</title>
       {slices.map((s, i) => {
         const len = (s.value / total) * c;
         const dashArray = `${len} ${c - len}`;
@@ -868,17 +843,17 @@ function MiniDonut({ enParc, horsParc, renouvele }: { enParc: number; horsParc: 
         return (
           <circle
             key={i}
-            cx="40" cy="40" r={r}
+            cx="16" cy="16" r={r}
             fill="none"
             stroke={s.color}
-            strokeWidth="10"
+            strokeWidth="5"
             strokeDasharray={dashArray}
             strokeDashoffset={dashOffset}
-            transform="rotate(-90 40 40)"
+            transform="rotate(-90 16 16)"
           />
         );
       })}
-      <text x="40" y="40" textAnchor="middle" dominantBaseline="central" className="text-sm font-bold fill-slate-900">{total}</text>
+      <text x="16" y="16" textAnchor="middle" dominantBaseline="central" className="fill-slate-700" style={{ fontSize: "8px", fontWeight: 700 }}>{total}</text>
     </svg>
   );
 }

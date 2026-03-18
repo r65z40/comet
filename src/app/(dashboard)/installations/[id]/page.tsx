@@ -42,8 +42,12 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
 
   useEffect(() => {
     fetch(`/api/installations/${id}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("not found");
+        return r.json();
+      })
       .then((data) => {
+        if (data.error) return;
         setInstallation(data);
         setNotes(data.notes || "");
         setAlwaysInFleet(data.alwaysInFleet || false);
@@ -53,6 +57,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
         if (s === "EN_PARC_HORS_GARANTIE") s = "HORS_PARC";
         setStatus(s);
       })
+      .catch(() => {})
       .finally(() => setLoading(false));
     fetch("/api/installations/options")
       .then((r) => r.json())
