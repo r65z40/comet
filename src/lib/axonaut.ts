@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/db";
 
 async function getAxonautConfig() {
-  const apiKey = await prisma.setting.findUnique({ where: { key: "axonaut_api_key" } });
-  const apiUrl = await prisma.setting.findUnique({ where: { key: "axonaut_api_url" } });
+  const settings = await prisma.setting.findMany({
+    where: { key: { in: ["axonaut_api_key", "axonaut_api_url"] } },
+  });
+  const map = Object.fromEntries(settings.map((s) => [s.key, s.value]));
   return {
-    apiKey: apiKey?.value || process.env.AXONAUT_API_KEY || "",
-    apiUrl: apiUrl?.value || process.env.AXONAUT_API_URL || "https://axonaut.com/api/v2",
+    apiKey: map.axonaut_api_key || process.env.AXONAUT_API_KEY || "",
+    apiUrl: map.axonaut_api_url || process.env.AXONAUT_API_URL || "https://axonaut.com/api/v2",
   };
 }
 

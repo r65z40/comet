@@ -4,8 +4,12 @@ import { auth } from "@/lib/auth";
 
 function escapeCSV(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";
-  const str = String(value);
-  if (str.includes(";") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+  let str = String(value);
+  // Prevent CSV formula injection (Excel/LibreOffice)
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
+  if (str.includes(";") || str.includes('"') || str.includes("\n") || str.includes("\r") || str.includes("'")) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
@@ -29,6 +33,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Type d'export invalide. Valeurs: installations, clients, products, invoices" }, { status: 400 });
   }
 
+  const MAX_EXPORT_ROWS = 10000;
+
   let csv = "";
   const BOM = "\uFEFF"; // UTF-8 BOM for Excel compatibility
 
@@ -40,6 +46,7 @@ export async function GET(req: NextRequest) {
         invoice: { select: { invoiceNumber: true, invoiceDate: true } },
       },
       orderBy: { endDate: "asc" },
+      take: MAX_EXPORT_ROWS,
     });
 
     const headers = [
@@ -75,6 +82,7 @@ export async function GET(req: NextRequest) {
         _count: { select: { installations: true, invoices: true } },
       },
       orderBy: { name: "asc" },
+      take: MAX_EXPORT_ROWS,
     });
 
     const headers = ["Nom", "Email", "Téléphone", "Adresse", "Ville", "Code Postal", "Pays", "Type", "Nb Installations", "Nb Factures"];
@@ -102,6 +110,7 @@ export async function GET(req: NextRequest) {
         _count: { select: { installations: true } },
       },
       orderBy: { name: "asc" },
+      take: MAX_EXPORT_ROWS,
     });
 
     const headers = ["Nom", "Code", "Description", "Famille", "Fournisseur", "Durée", "Durée (mois)", "Prix Unitaire", "Nb Installations"];
@@ -133,6 +142,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { invoiceDate: "desc" },
+      take: MAX_EXPORT_ROWS,
     });
 
     const headers = ["N° Facture", "Client", "Date Facturation", "Produit", "Description", "Quantité", "Prix Unitaire", "Prix Achat", "Total Ligne", "Statut"];

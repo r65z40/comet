@@ -62,14 +62,15 @@ function getParisDateString(): string {
  * Set CRON_SECRET env var to enable secret-based auth.
  */
 export async function GET(req: NextRequest) {
-  // Optional secret-based authentication
+  // Secret-based authentication (required)
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const { searchParams } = new URL(req.url);
-    const secret = searchParams.get("secret");
-    if (secret !== cronSecret) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    }
+  if (!cronSecret) {
+    console.error("[cron] CRON_SECRET not configured — endpoint disabled for security");
+    return NextResponse.json({ error: "Endpoint non configuré" }, { status: 503 });
+  }
+  const secret = req.headers.get("x-cron-secret");
+  if (secret !== cronSecret) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
   try {

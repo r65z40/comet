@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 
 interface Column<T> {
@@ -61,20 +61,21 @@ export default function DataTable<T extends { id: string }>({
     }
   }
 
-  const sortedData = sortKey
-    ? [...data].sort((a, b) => {
-        const valA = getNestedValue(a, sortKey);
-        const valB = getNestedValue(b, sortKey);
-        const strA = valA != null ? String(valA).toLowerCase() : "";
-        const strB = valB != null ? String(valB).toLowerCase() : "";
-        const numA = Number(valA);
-        const numB = Number(valB);
-        if (!isNaN(numA) && !isNaN(numB) && strA !== "" && strB !== "") {
-          return sortDir === "asc" ? numA - numB : numB - numA;
-        }
-        return sortDir === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
-      })
-    : data;
+  const sortedData = useMemo(() => {
+    if (!sortKey) return data;
+    return [...data].sort((a, b) => {
+      const valA = getNestedValue(a, sortKey);
+      const valB = getNestedValue(b, sortKey);
+      const strA = valA != null ? String(valA).toLowerCase() : "";
+      const strB = valB != null ? String(valB).toLowerCase() : "";
+      const numA = Number(valA);
+      const numB = Number(valB);
+      if (!isNaN(numA) && !isNaN(numB) && strA !== "" && strB !== "") {
+        return sortDir === "asc" ? numA - numB : numB - numA;
+      }
+      return sortDir === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }, [data, sortKey, sortDir]);
 
   if (isLoading) {
     return (

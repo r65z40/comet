@@ -7,8 +7,8 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "20") || 20));
   const search = searchParams.get("search");
   const clientId = searchParams.get("clientId");
 

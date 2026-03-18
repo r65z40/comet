@@ -30,7 +30,18 @@ export async function GET(
     include: {
       client: true,
       product: true,
-      invoice: { include: { lines: true } },
+      invoice: {
+        select: {
+          id: true,
+          invoiceNumber: true,
+          invoiceDate: true,
+          totalAmount: true,
+          status: true,
+          lines: {
+            select: { id: true, description: true, quantity: true, unitPrice: true, totalPrice: true },
+          },
+        },
+      },
       ...includeHistory,
     },
   });

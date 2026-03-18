@@ -33,9 +33,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ...result, parisTime });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erreur d'envoi";
-      const stack = err instanceof Error ? err.stack : undefined;
+      console.error("[notifications] send error:", err);
       return NextResponse.json(
-        { error: message, details: stack },
+        { error: message },
         { status: 500 }
       );
     }
