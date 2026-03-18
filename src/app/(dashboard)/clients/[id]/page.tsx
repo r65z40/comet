@@ -464,18 +464,32 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
-  function downloadPdf() {
+  async function downloadPdf() {
     const html = buildReportHtml();
     if (!html) return;
-    // Download as a self-contained HTML file styled for PDF print
-    const fileName = `rapport-${client!.name.replace(/[^a-zA-Z0-9]/g, "_")}-${new Date().toISOString().split("T")[0]}.html`;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
+    const html2pdf = (await import("html2pdf.js")).default;
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    // Extract just the body content for html2pdf
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    if (bodyMatch) container.innerHTML = bodyMatch[1];
+    // Apply styles from the HTML
+    const styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    if (styleMatch) {
+      const style = document.createElement("style");
+      style.textContent = styleMatch[1];
+      container.prepend(style);
+    }
+    document.body.appendChild(container);
+    const fileName = `rapport-${client!.name.replace(/[^a-zA-Z0-9]/g, "_")}-${new Date().toISOString().split("T")[0]}`;
+    await html2pdf().set({
+      margin: [10, 10, 10, 10],
+      filename: `${fileName}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: "mm", format: "a4", orientation: reportSettings.report_orientation === "landscape" ? "landscape" : "portrait" },
+    }).from(container).save();
+    document.body.removeChild(container);
   }
 
   if (loading) return <LoadingSpinner />;
