@@ -12,6 +12,8 @@ interface User {
 }
 
 export default function SettingsPage() {
+  const [userRole, setUserRole] = useState<string>("");
+  const isAdmin = userRole === "ADMIN";
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -240,6 +242,10 @@ export default function SettingsPage() {
 
 
   useEffect(() => {
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((data) => { if (data?.user?.role) setUserRole(data.user.role); })
+      .catch(() => {});
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data) => {
@@ -570,8 +576,8 @@ export default function SettingsPage() {
         <p className="text-sm text-slate-500 mt-1">Configuration de l&apos;application</p>
       </div>
 
-      {/* Apparence du site */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
+      {/* Apparence du site (admin only) */}
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
         <div className="flex items-center gap-3 mb-2">
           <div className="rounded-lg bg-primary-50 p-2">
             <Palette className="h-4 w-4 text-primary-600" />
@@ -695,10 +701,10 @@ export default function SettingsPage() {
           </button>
           {savedSiteLogo && <span className="text-xs text-emerald-600">Apparence enregistrée — rechargez la page pour voir le changement</span>}
         </div>
-      </div>
+      </div>}
 
-      {/* API Axonaut */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
+      {/* API Axonaut (admin only) */}
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
         <div className="flex items-center gap-3 mb-2">
           <div className="rounded-lg bg-primary-50 p-2">
             <Key className="h-4 w-4 text-primary-600" />
@@ -760,7 +766,7 @@ export default function SettingsPage() {
             <span className="text-xs text-emerald-600">Paramètres enregistrés</span>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Configuration SMTP */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
@@ -1552,8 +1558,8 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Gestion des utilisateurs */}
-      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+      {/* Gestion des utilisateurs (admin only) */}
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary-50 p-2">
@@ -1768,10 +1774,10 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
-      {/* Message broadcast */}
-      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+      {/* Message broadcast (admin only) */}
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-amber-50 p-2">
@@ -1906,10 +1912,10 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Fusion de clients */}
-      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="rounded-lg bg-primary-50 p-2">
             <Merge className="h-4 w-4 text-primary-600" />
@@ -1997,7 +2003,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Fusion de produits */}
-      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="rounded-lg bg-violet-50 p-2">
             <Merge className="h-4 w-4 text-violet-600" />
@@ -2084,8 +2090,8 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Suppression de données */}
-      <div className="lg:col-span-2 rounded-xl border border-red-200 bg-white p-6">
+      {/* Suppression de données (admin only) */}
+      {isAdmin && <div className="lg:col-span-2 rounded-xl border border-red-200 bg-white p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="rounded-lg bg-red-50 p-2">
             <Trash2 className="h-4 w-4 text-red-600" />
@@ -2193,7 +2199,7 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
     </div>
   );
