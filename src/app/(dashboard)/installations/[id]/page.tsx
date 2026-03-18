@@ -473,12 +473,12 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
           </div>
 
           {/* Historique des modifications */}
-          {installation.history && installation.history.length > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <History className="h-4 w-4 text-slate-400" />
-                <h3 className="text-sm font-medium text-slate-500">Historique des modifications</h3>
-              </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <History className="h-4 w-4 text-slate-400" />
+              <h3 className="text-sm font-medium text-slate-500">Historique des modifications</h3>
+            </div>
+            {installation.history && installation.history.length > 0 ? (
               <div className="space-y-0 relative">
                 <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
                 {installation.history.map((h) => (
@@ -499,8 +499,10 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-slate-400">Aucune modification enregistrée pour le moment. L&apos;historique apparaîtra ici dès qu&apos;un champ sera modifié.</p>
+            )}
+          </div>
         </div>
 
         <div className="space-y-6">
