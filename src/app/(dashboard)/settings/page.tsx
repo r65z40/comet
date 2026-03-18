@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough } from "lucide-react";
 
 interface User {
   id: string;
@@ -98,6 +98,50 @@ export default function SettingsPage() {
   const [mergeSource, setMergeSource] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
   const [mergeResult, setMergeResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Broadcast message
+  const [broadcastEnabled, setBroadcastEnabled] = useState(false);
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastSaving, setBroadcastSaving] = useState(false);
+  const [broadcastSaved, setBroadcastSaved] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [editorReady, setEditorReady] = useState(false);
+
+  useEffect(() => {
+    if (editorRef.current && broadcastMessage && !editorReady) {
+      editorRef.current.innerHTML = broadcastMessage;
+      setEditorReady(true);
+    }
+  }, [broadcastMessage, editorReady]);
+
+  function execCmd(command: string, value?: string) {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  }
+
+  async function saveBroadcast() {
+    setBroadcastSaving(true);
+    setBroadcastSaved(false);
+    const html = editorRef.current?.innerHTML || "";
+    try {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          broadcast_enabled: broadcastEnabled ? "true" : "false",
+          broadcast_message: html,
+        }),
+      });
+      setBroadcastMessage(html);
+      setBroadcastSaved(true);
+      // Clear dismissed state so users see updated message
+      setTimeout(() => setBroadcastSaved(false), 3000);
+    } catch {
+      // silent
+    } finally {
+      setBroadcastSaving(false);
+    }
+  }
 
   // Product merge
   const [mergeProductSearch, setMergeProductSearch] = useState("");
@@ -242,6 +286,8 @@ export default function SettingsPage() {
         setReportCoverBgOpacity(data.report_cover_bg_opacity || "15");
         setSiteLogo(data.site_logo || "");
         setSiteFavicon(data.site_favicon || "");
+        setBroadcastEnabled(data.broadcast_enabled === "true");
+        setBroadcastMessage(data.broadcast_message || "");
       })
       .finally(() => setLoading(false));
 
@@ -1722,6 +1768,144 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Message broadcast */}
+      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-amber-50 p-2">
+              <Megaphone className="h-4 w-4 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Message aux utilisateurs</h3>
+              <p className="text-xs text-slate-400">Affichez un message visible par tous les utilisateurs en haut de l&apos;application.</p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={broadcastEnabled}
+              onChange={(e) => setBroadcastEnabled(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-600"></div>
+          </label>
+        </div>
+
+        <div className="space-y-3">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center gap-1 rounded-t-lg border border-slate-200 bg-slate-50 p-1.5">
+            <button type="button" onClick={() => execCmd("bold")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Gras">
+              <Bold className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => execCmd("italic")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Italique">
+              <Italic className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => execCmd("underline")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Souligné">
+              <Underline className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => execCmd("strikeThrough")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Barré">
+              <Strikethrough className="h-3.5 w-3.5" />
+            </button>
+
+            <div className="mx-1 h-5 w-px bg-slate-300" />
+
+            <button type="button" onClick={() => execCmd("formatBlock", "<h1>")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Titre 1">
+              <Heading1 className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => execCmd("formatBlock", "<h2>")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Titre 2">
+              <Heading2 className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => execCmd("formatBlock", "<p>")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Paragraphe">
+              <Type className="h-3.5 w-3.5" />
+            </button>
+
+            <div className="mx-1 h-5 w-px bg-slate-300" />
+
+            <button type="button" onClick={() => execCmd("insertUnorderedList")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Liste à puces">
+              <List className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => execCmd("insertOrderedList")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Liste numérotée">
+              <ListOrdered className="h-3.5 w-3.5" />
+            </button>
+
+            <div className="mx-1 h-5 w-px bg-slate-300" />
+
+            <button type="button" onClick={() => execCmd("justifyLeft")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Aligner à gauche">
+              <AlignLeft className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => execCmd("justifyCenter")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Centrer">
+              <AlignCenter className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => execCmd("justifyRight")} className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors" title="Aligner à droite">
+              <AlignRight className="h-3.5 w-3.5" />
+            </button>
+
+            <div className="mx-1 h-5 w-px bg-slate-300" />
+
+            <label className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors cursor-pointer" title="Couleur du texte">
+              <input
+                type="color"
+                className="sr-only"
+                onChange={(e) => execCmd("foreColor", e.target.value)}
+              />
+              <Palette className="h-3.5 w-3.5" />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => {
+                const url = prompt("URL du lien :");
+                if (url) execCmd("createLink", url);
+              }}
+              className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors"
+              title="Insérer un lien"
+            >
+              <Link className="h-3.5 w-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const url = prompt("URL de l'image :");
+                if (url) execCmd("insertImage", url);
+              }}
+              className="rounded p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 transition-colors"
+              title="Insérer une image"
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Editor area */}
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            className="min-h-[120px] max-h-[300px] overflow-y-auto rounded-b-lg border border-t-0 border-slate-200 bg-white p-4 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-500 [&_a]:text-primary-600 [&_a]:underline [&_img]:inline-block [&_img]:max-h-40 [&_img]:rounded"
+            data-placeholder="Rédigez votre message ici..."
+            onFocus={(e) => {
+              if (e.currentTarget.innerHTML === "") {
+                e.currentTarget.classList.remove("empty");
+              }
+            }}
+          />
+
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              {broadcastEnabled ? "Le message sera affiché à tous les utilisateurs." : "Le message est actuellement désactivé."}
+            </p>
+            <button
+              onClick={saveBroadcast}
+              disabled={broadcastSaving}
+              className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+            >
+              {broadcastSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {broadcastSaved ? "Enregistré !" : "Enregistrer le message"}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Fusion de clients */}
