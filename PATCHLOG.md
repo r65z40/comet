@@ -2,6 +2,18 @@
 
 ## 2026-03-18
 
+### Sécurité — Audit et corrections de sécurité
+- **Stack traces** : suppression de l'exposition des traces d'erreur dans les réponses API (notifications, sync)
+- **Endpoint cron** : `CRON_SECRET` désormais obligatoire, secret passé via header `x-cron-secret` (plus en query param)
+- **CSV injection** : protection contre l'injection de formules Excel (=, +, -, @) dans les exports CSV
+- **Pagination** : validation stricte des paramètres `page` (min 1) et `limit` (min 1, max 200) sur toutes les routes
+- **Export** : limite de 10 000 lignes maximum par export CSV pour éviter les surcharges mémoire
+
+### Optimisation — Performance du code
+- **Axonaut config** : 2 requêtes DB fusionnées en 1 seule pour charger la configuration API
+- **Installation détail** : utilisation de `select` sur les factures pour réduire la taille des réponses
+- **DataTable** : `useMemo` sur le tri pour éviter le recalcul à chaque rendu
+
 ### Correctif — Historique des modifications toujours visible
 - La section "Historique des modifications" sur la page installation est désormais toujours affichée
 - Quand il n'y a aucune entrée, un message explicatif s'affiche à la place
