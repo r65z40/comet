@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, X, ShieldCheck, ShieldAlert, RefreshCw } from "lucide-react";
+import { Search, X, ShieldCheck, ShieldAlert, RefreshCw, Trash2, CheckSquare } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
+import { useDebounce } from "@/lib/hooks/useDebounce";
 
 interface Installation {
   id: string;
@@ -36,16 +37,21 @@ export default function InstallationsPage() {
   const [expiringFilter, setExpiringFilter] = useState(searchParams.get("expiring") || "");
   const [monthFilter, setMonthFilter] = useState(searchParams.get("month") || "");
   const [perPage, setPerPage] = useState(40);
+  const debouncedSearch = useDebounce(search);
+  const debouncedFamily = useDebounce(familyFilter);
+  const debouncedSupplier = useDebounce(supplierFilter);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("page", String(page));
     params.set("limit", String(perPage));
-    if (search) params.set("search", search);
+    if (debouncedSearch) params.set("search", debouncedSearch);
     if (statusFilter) params.set("status", statusFilter);
-    if (familyFilter) params.set("family", familyFilter);
-    if (supplierFilter) params.set("supplier", supplierFilter);
+    if (debouncedFamily) params.set("family", debouncedFamily);
+    if (debouncedSupplier) params.set("supplier", debouncedSupplier);
     if (expiringFilter) params.set("expiring", expiringFilter);
     if (monthFilter) params.set("month", monthFilter);
     if (!statusFilter) params.set("excludeRenewed", "true");
@@ -55,11 +61,25 @@ export default function InstallationsPage() {
     setInstallations(data.installations || []);
     setTotalPages(data.pagination?.totalPages || 1);
     setLoading(false);
-  }, [page, search, statusFilter, familyFilter, supplierFilter, expiringFilter, monthFilter, perPage]);
+  }, [page, debouncedSearch, statusFilter, debouncedFamily, debouncedSupplier, expiringFilter, monthFilter, perPage]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  async function bulkAction(action: string, value?: string | boolean) {
+    if (selectedIds.size === 0) return;
+    if (action === "delete" && !confirm(`Supprimer ${selectedIds.size} installation(s) ? (récupérable depuis la corbeille)`)) return;
+    setBulkLoading(true);
+    await fetch("/api/installations/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selectedIds), action, value }),
+    });
+    setSelectedIds(new Set());
+    setBulkLoading(false);
+    fetchData();
+  }
 
   async function quickAction(installId: string, action: { status?: string; alwaysInFleet?: boolean }) {
     await fetch(`/api/installations/${installId}`, {
@@ -234,6 +254,43 @@ export default function InstallationsPage() {
         />
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary-200 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-800 px-4 py-2.5">
+          <CheckSquare className="h-4 w-4 text-primary-600" />
+          <span className="text-sm font-medium text-primary-700 dark:text-primary-300">{selectedIds.size} sélectionné(s)</span>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={() => bulkAction("status", "RENOUVELE")}
+              disabled={bulkLoading}
+              className="rounded-lg bg-blue-100 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-200 transition-colors disabled:opacity-50"
+            >
+              Renouvelé
+            </button>
+            <button
+              onClick={() => bulkAction("status", "HORS_PARC")}
+              disabled={bulkLoading}
+              className="rounded-lg bg-orange-100 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-200 transition-colors disabled:opacity-50"
+            >
+              Hors parc
+            </button>
+            <button
+              onClick={() => bulkAction("delete")}
+              disabled={bulkLoading}
+              className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50 flex items-center gap-1"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Supprimer
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
       <DataTable
         columns={columns}
         data={installations}
@@ -245,6 +302,9 @@ export default function InstallationsPage() {
         rowClassName={() => ""}
         perPage={perPage}
         onPerPageChange={setPerPage}
+        selectable
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
       />
     </div>
   );

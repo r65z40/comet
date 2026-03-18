@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
+import { useDebounce } from "@/lib/hooks/useDebounce";
 
 interface Client {
   id: string;
@@ -22,20 +23,21 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [perPage, setPerPage] = useState(40);
+  const debouncedSearch = useDebounce(search);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("page", String(page));
     params.set("limit", String(perPage));
-    if (search) params.set("search", search);
+    if (debouncedSearch) params.set("search", debouncedSearch);
 
     const res = await fetch(`/api/clients?${params}`);
     const data = await res.json();
     setClients(data.clients || []);
     setTotalPages(data.pagination?.totalPages || 1);
     setLoading(false);
-  }, [page, search, perPage]);
+  }, [page, debouncedSearch, perPage]);
 
   useEffect(() => {
     fetchData();

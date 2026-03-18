@@ -16,6 +16,7 @@ import {
   X,
   RotateCcw,
   ArrowLeftRight,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ const navigation = [
   { name: "Factures", href: "/invoices", icon: FileText },
   { name: "Import / Export", href: "/import", icon: ArrowLeftRight },
   { name: "Synchronisation", href: "/sync", icon: RefreshCwIcon },
+  { name: "Activité", href: "/activity", icon: Activity },
   { name: "Paramètres", href: "/settings", icon: Settings },
 ];
 
@@ -63,11 +65,11 @@ export default function Sidebar() {
 
   const sidebarContent = (
     <>
-      <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-6">
+      <div className="flex h-16 items-center gap-2 border-b border-slate-200 dark:border-slate-700 px-6">
         <img src={siteLogo || "/logo.png"} alt="COMET" width={32} height={32} className="h-8 w-8 rounded" />
         <div>
-          <span className="text-base font-bold tracking-tight text-slate-900">COMET</span>
-          <span className="ml-0.5 text-base font-light tracking-tight text-primary-600">- CEDELIA</span>
+          <span className="text-base font-bold tracking-tight text-slate-900 dark:text-white">COMET</span>
+          <span className="ml-0.5 text-base font-light tracking-tight text-primary-600 dark:text-primary-400">- CEDELIA</span>
         </div>
         <button
           onClick={() => setOpen(false)}
@@ -87,8 +89,8 @@ export default function Sidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-primary-50 text-primary-600"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  ? "bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -98,10 +100,10 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-slate-200 p-3">
+      <div className="border-t border-slate-200 dark:border-slate-700 p-3">
         <Link
           href="/signout"
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white transition-colors"
         >
           <LogOut className="h-4 w-4" />
           Déconnexion
@@ -131,7 +133,7 @@ export default function Sidebar() {
       {/* Mobile drawer */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen w-64 border-r border-slate-200 bg-white flex flex-col transition-transform duration-300 lg:hidden",
+          "fixed left-0 top-0 z-50 h-screen w-64 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-col transition-transform duration-300 lg:hidden",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -139,7 +141,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-64 border-r border-slate-200 bg-white flex-col">
+      <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-64 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex-col">
         {sidebarContent}
       </aside>
     </>

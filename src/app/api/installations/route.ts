@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { autoCorrectInstallationStatuses } from "@/lib/auto-status";
+import { installationCreateSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -27,7 +28,9 @@ export async function GET(req: NextRequest) {
   const sortOrder = rawSortOrder === "desc" ? "desc" : "asc";
 
   const excludeRenewed = searchParams.get("excludeRenewed");
+  const includeDeleted = searchParams.get("deleted") === "true";
   const where: Record<string, unknown> = {};
+  if (!includeDeleted) where.deletedAt = null;
 
   if (status) {
     where.status = status;
@@ -97,12 +100,12 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const body = await req.json();
-  const { invoiceLineId, durationMonths, endDate } = body;
-
-  if (!invoiceLineId) {
-    return NextResponse.json({ error: "invoiceLineId requis" }, { status: 400 });
+  const raw = await req.json();
+  const parsed = installationCreateSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides", details: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
+  const { invoiceLineId, durationMonths, endDate } = parsed.data;
 
   // Load invoice line with product and invoice
   const invoiceLine = await prisma.invoiceLine.findUnique({

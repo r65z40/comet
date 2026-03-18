@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { installationPatchSchema } from "@/lib/validations";
+import { logActivity } from "@/lib/activity";
 
 export async function GET(
   _req: NextRequest,
@@ -61,7 +63,12 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { id } = await params;
-  const body = await req.json();
+  const raw = await req.json();
+  const parsed = installationPatchSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides", details: parsed.error.flatten().fieldErrors }, { status: 400 });
+  }
+  const body = parsed.data;
   const changedBy = session.user?.name || session.user?.email || "Inconnu";
 
   // Fetch current installation for history comparison
@@ -71,30 +78,14 @@ export async function PATCH(
   const updateData: Record<string, unknown> = {};
   if (body.notes !== undefined) updateData.notes = body.notes;
   if (body.comParc !== undefined) updateData.comParc = body.comParc;
-  if (body.status && ["EN_PARC", "HORS_PARC", "RENOUVELE", "EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE"].includes(body.status)) {
-    updateData.status = body.status;
-  }
-  if (body.alwaysInFleet !== undefined) {
-    updateData.alwaysInFleet = Boolean(body.alwaysInFleet);
-  }
-  if (body.endDate) {
-    updateData.endDate = new Date(body.endDate);
-  }
-  if (body.startDate) {
-    updateData.startDate = new Date(body.startDate);
-  }
-  if (body.durationMonths !== undefined) {
-    updateData.durationMonths = parseInt(body.durationMonths, 10);
-  }
-  if (body.family !== undefined) {
-    updateData.family = body.family || null;
-  }
-  if (body.supplier !== undefined) {
-    updateData.supplier = body.supplier || null;
-  }
-  if (body.quantity !== undefined) {
-    updateData.quantity = parseFloat(body.quantity);
-  }
+  if (body.status) updateData.status = body.status;
+  if (body.alwaysInFleet !== undefined) updateData.alwaysInFleet = body.alwaysInFleet;
+  if (body.endDate) updateData.endDate = new Date(body.endDate);
+  if (body.startDate) updateData.startDate = new Date(body.startDate);
+  if (body.durationMonths !== undefined) updateData.durationMonths = body.durationMonths;
+  if (body.family !== undefined) updateData.family = body.family || null;
+  if (body.supplier !== undefined) updateData.supplier = body.supplier || null;
+  if (body.quantity !== undefined) updateData.quantity = body.quantity;
 
   // Build history entries for changed fields
   const fieldLabels: Record<string, string> = {
@@ -144,6 +135,15 @@ export async function PATCH(
     data: updateData,
   });
 
+  await logActivity({
+    userId: session.user?.id,
+    userName: changedBy,
+    action: "UPDATE",
+    entity: "installation",
+    entityId: id,
+    details: historyEntries.map((e) => `${e.field}: ${e.oldValue || "—"} → ${e.newValue || "—"}`).join(", "),
+  });
+
   // Save history entries (skip if table doesn't exist)
   if (historyEntries.length > 0) {
     try {
@@ -171,7 +171,21 @@ export async function DELETE(
 
   const { id } = await params;
 
-  await prisma.installation.delete({ where: { id } });
+  const installation = await prisma.installation.findUnique({
+    where: { id },
+    select: { product: { select: { name: true } }, client: { select: { name: true } } },
+  });
+
+  await prisma.installation.update({ where: { id }, data: { deletedAt: new Date() } });
+
+  await logActivity({
+    userId: session.user?.id,
+    userName: session.user?.name || session.user?.email,
+    action: "DELETE",
+    entity: "installation",
+    entityId: id,
+    details: installation ? `${installation.client.name} — ${installation.product.name}` : null,
+  });
 
   return NextResponse.json({ success: true });
 }

@@ -1,20 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { testSmtpConnection, sendExpiryNotifications, sendEmail, getNotificationConfig, getSmtpConfig } from "@/lib/email";
+import { notificationActionSchema } from "@/lib/validations";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
-  const body = await req.json();
+  const raw = await req.json();
+  const parsed = notificationActionSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
+  }
+  const body = parsed.data;
 
   if (body.action === "test") {
     // Use provided SMTP config from form if available
     const config = body.smtp
       ? {
           host: body.smtp.host,
-          port: parseInt(body.smtp.port || "587"),
+          port: parseInt(String(body.smtp.port) || "587"),
           secure: body.smtp.secure === true || body.smtp.secure === "true",
           user: body.smtp.user,
           pass: body.smtp.pass,

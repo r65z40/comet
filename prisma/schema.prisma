@@ -52,11 +52,13 @@ model Client {
   country         String?
   clientType      String?
   logoUrl         String?
+  deletedAt       DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   invoices        Invoice[]
   installations   Installation[]
 
+  @@index([deletedAt])
   @@map("clients")
 }
 
@@ -71,11 +73,13 @@ model Product {
   duration        String?
   durationMonths  Int?
   unitPrice       Float?
+  deletedAt       DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   invoiceLines    InvoiceLine[]
   installations   Installation[]
 
+  @@index([deletedAt])
   @@map("products")
 }
 
@@ -136,10 +140,12 @@ model Installation {
   updatedAt       DateTime           @updatedAt
   history         InstallationHistory[]
 
+  deletedAt       DateTime?
   @@index([clientId])
   @@index([status])
   @@index([endDate])
   @@index([status, endDate])
+  @@index([deletedAt])
   @@map("installations")
 }
 
@@ -168,6 +174,22 @@ model SyncLog {
   completedAt DateTime?
 
   @@map("sync_logs")
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userName   String?
+  action     String   // CREATE, UPDATE, DELETE, RESTORE, LOGIN, LOGOUT, EXPORT, SYNC, BULK_DELETE, BULK_UPDATE
+  entity     String   // client, product, installation, invoice, user, settings
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@index([userId])
+  @@map("activity_logs")
 }
 
 model Setting {

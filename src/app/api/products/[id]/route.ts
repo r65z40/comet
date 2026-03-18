@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { logActivity } from "@/lib/activity";
 
 export async function GET(
   _req: NextRequest,
@@ -41,12 +42,20 @@ export async function DELETE(
 
   const { id } = await params;
 
-  // Delete related installations first
-  await prisma.installation.deleteMany({ where: { productId: id } });
-  // Delete related invoice lines
-  await prisma.invoiceLine.deleteMany({ where: { productId: id } });
-  // Delete the product
-  await prisma.product.delete({ where: { id } });
+  const product = await prisma.product.findUnique({ where: { id }, select: { name: true } });
+
+  // Soft delete: mark product and its installations as deleted
+  await prisma.installation.updateMany({ where: { productId: id }, data: { deletedAt: new Date() } });
+  await prisma.product.update({ where: { id }, data: { deletedAt: new Date() } });
+
+  await logActivity({
+    userId: session.user?.id,
+    userName: session.user?.name || session.user?.email,
+    action: "DELETE",
+    entity: "product",
+    entityId: id,
+    details: product?.name || null,
+  });
 
   return NextResponse.json({ success: true });
 }

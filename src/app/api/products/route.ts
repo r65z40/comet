@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const family = searchParams.get("family");
   const supplier = searchParams.get("supplier");
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { deletedAt: null };
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },

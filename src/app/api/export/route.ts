@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { logActivity } from "@/lib/activity";
 
 function escapeCSV(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";
@@ -177,6 +178,14 @@ export async function GET(req: NextRequest) {
   }
 
   const filename = `export_${type}_${new Date().toISOString().split("T")[0]}.csv`;
+
+  await logActivity({
+    userId: session.user?.id,
+    userName: session.user?.name || session.user?.email,
+    action: "EXPORT",
+    entity: type,
+    details: filename,
+  });
 
   return new NextResponse(BOM + csv, {
     headers: {

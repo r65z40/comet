@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   const showAll = searchParams.get("showAll") === "true";
 
-  const conditions: Prisma.ClientWhereInput[] = [];
+  const conditions: Prisma.ClientWhereInput[] = [{ deletedAt: null }];
 
   // By default exclude fournisseurs and prospects (null is treated as client)
   if (!showAll) {
