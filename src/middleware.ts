@@ -10,7 +10,7 @@ export default auth(async (req) => {
   // Portal routes - separate auth
   if (pathname.startsWith("/portal") || pathname.startsWith("/api/portal")) {
     // Public portal routes
-    if (pathname === "/portal/login" || pathname === "/api/portal/auth") {
+    if (pathname === "/portal/login" || pathname === "/api/portal/auth" || pathname === "/portal/setup" || pathname === "/api/portal/setup") {
       return addSecurityHeaders(NextResponse.next());
     }
 

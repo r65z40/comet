@@ -65,17 +65,20 @@ model Client {
 }
 
 model ClientUser {
-  id        String   @id @default(cuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  name      String
-  email     String   @unique
-  password  String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String    @id @default(cuid())
+  clientId          String
+  client            Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name              String
+  email             String    @unique
+  password          String    @default("")
+  active            Boolean   @default(true)
+  inviteToken       String?   @unique
+  inviteTokenExpiry DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([clientId])
+  @@index([inviteToken])
   @@map("client_users")
 }
 

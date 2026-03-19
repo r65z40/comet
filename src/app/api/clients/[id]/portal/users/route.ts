@@ -13,12 +13,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const { name, email, password } = await req.json();
 
-  if (!name || !email || !password) {
-    return NextResponse.json({ error: "Nom, email et mot de passe requis" }, { status: 400 });
-  }
-
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères" }, { status: 400 });
+  if (!name || !email) {
+    return NextResponse.json({ error: "Nom et email requis" }, { status: 400 });
   }
 
   // Check email uniqueness
@@ -27,10 +23,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Cet email est déjà utilisé" }, { status: 409 });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  // Password is optional - if not provided, user will set it via invite link
+  const data: { clientId: string; name: string; email: string; password?: string } = { clientId: id, name, email };
+  if (password) {
+    if (password.length < 8) {
+      return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères" }, { status: 400 });
+    }
+    data.password = await bcrypt.hash(password, 10);
+  }
 
   const user = await prisma.clientUser.create({
-    data: { clientId: id, name, email, password: hashedPassword },
+    data,
     select: { id: true, name: true, email: true, active: true, createdAt: true },
   });
 
