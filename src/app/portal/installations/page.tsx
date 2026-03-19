@@ -195,7 +195,7 @@ export default function PortalInstallationsPage() {
                     <td className="px-3 py-3 text-slate-500 whitespace-nowrap">{formatDate(inst.endDate)}</td>
                     {portalSettings?.showDuration && <td className="px-3 py-3 text-slate-500">{inst.durationMonths} mois</td>}
                     <td className="px-3 py-3">
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusColor(inst.status, inst.endDate, inst.alwaysInFleet)}`}>
+                      <span className={`inline-flex items-center justify-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusColor(inst.status, inst.endDate, inst.alwaysInFleet)}`}>
                         {getStatusLabel(inst.status, inst.endDate, inst.alwaysInFleet)}
                       </span>
                     </td>

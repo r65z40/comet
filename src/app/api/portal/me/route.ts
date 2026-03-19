@@ -25,9 +25,14 @@ export async function GET() {
     return NextResponse.json({ error: "Client non trouvé" }, { status: 404 });
   }
 
+  const companyLogoSetting = await prisma.setting.findUnique({ where: { key: "company_logo" } });
+  const companyNameSetting = await prisma.setting.findUnique({ where: { key: "company_name" } });
+
   return NextResponse.json({
     user: { id: session.sub, name: session.name, email: session.email },
     client,
     portalSettings: client.portalSettings,
+    companyLogo: companyLogoSetting?.value || null,
+    companyName: companyNameSetting?.value || null,
   });
 }

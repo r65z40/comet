@@ -4,11 +4,18 @@ import { prisma } from "@/lib/db";
 import { randomBytes } from "crypto";
 import { sendEmail } from "@/lib/email";
 
-function buildInviteEmailHtml(userName: string, clientName: string, inviteUrl: string): string {
+function buildInviteEmailHtml(userName: string, clientName: string, inviteUrl: string, companyLogo?: string | null, clientLogo?: string | null): string {
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "COMET";
+  const logosHtml = (companyLogo || clientLogo)
+    ? `<div style="text-align: center; margin-bottom: 24px;">
+        ${companyLogo ? `<img src="${companyLogo}" alt="${appName}" style="max-height: 48px; max-width: 180px; object-fit: contain; margin: 0 8px;" />` : ""}
+        ${clientLogo ? `<img src="${clientLogo}" alt="${clientName}" style="max-height: 48px; max-width: 180px; object-fit: contain; margin: 0 8px;" />` : ""}
+      </div>`
+    : "";
   return `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
       <div style="text-align: center; margin-bottom: 32px;">
+        ${logosHtml}
         <h1 style="color: #1e293b; font-size: 24px; margin: 0;">${appName}</h1>
       </div>
       <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px;">
@@ -48,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const user = await prisma.clientUser.findFirst({
     where: { id: userId, clientId: id },
-    include: { client: { select: { name: true } } },
+    include: { client: { select: { name: true, logoUrl: true } } },
   });
 
   if (!user) {
@@ -66,10 +73,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const origin = req.headers.get("origin") || req.nextUrl.origin;
   const inviteUrl = `${origin}/portal/setup?token=${token}`;
 
+  // Fetch company logo for email branding
+  const companyLogoSetting = await prisma.setting.findUnique({ where: { key: "company_logo" } });
+
   // Send invitation email using SMTP configured in settings
   let emailSent = false;
   try {
-    const html = buildInviteEmailHtml(user.name, user.client.name, inviteUrl);
+    const html = buildInviteEmailHtml(user.name, user.client.name, inviteUrl, companyLogoSetting?.value, user.client.logoUrl);
     await sendEmail([user.email], `Invitation - Espace client ${user.client.name}`, html);
     emailSent = true;
   } catch (err) {

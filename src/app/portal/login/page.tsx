@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { portalLoginAction } from "./actions";
 
@@ -9,6 +9,16 @@ export default function PortalLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [companyLogo, setCompanyLogo] = useState("");
+
+  useEffect(() => {
+    fetch("/api/branding")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.company_logo) setCompanyLogo(data.company_logo);
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,9 +45,13 @@ export default function PortalLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
       <div className="w-full max-w-md space-y-8 px-4">
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary-50">
-            <ShieldCheck className="h-7 w-7 text-primary-600" />
-          </div>
+          {companyLogo ? (
+            <img src={companyLogo} alt="Logo" className="mx-auto h-16 object-contain" />
+          ) : (
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary-50">
+              <ShieldCheck className="h-7 w-7 text-primary-600" />
+            </div>
+          )}
           <h1 className="mt-6 text-2xl font-bold text-slate-900">Espace Client</h1>
           <p className="mt-2 text-sm text-slate-500">
             Connectez-vous pour consulter vos garanties

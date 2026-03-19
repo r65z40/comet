@@ -30,9 +30,11 @@ interface PortalContextType {
     showComParc: boolean;
     footerText: string | null;
   } | null;
+  companyLogo: string | null;
+  companyName: string | null;
 }
 
-const PortalContext = createContext<PortalContextType>({ client: null, user: null, portalSettings: null });
+const PortalContext = createContext<PortalContextType>({ client: null, user: null, portalSettings: null, companyLogo: null, companyName: null });
 export const usePortal = () => useContext(PortalContext);
 
 const navItems = [
@@ -60,7 +62,7 @@ const defaultSettings: PortalContextType["portalSettings"] = {
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [ctx, setCtx] = useState<PortalContextType>({ client: null, user: null, portalSettings: null });
+  const [ctx, setCtx] = useState<PortalContextType>({ client: null, user: null, portalSettings: null, companyLogo: null, companyName: null });
   const [loading, setLoading] = useState(true);
 
   const isPublicPage = pathname === "/portal/login" || pathname === "/portal/setup";
@@ -86,6 +88,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             client: data.client,
             user: data.user,
             portalSettings: data.portalSettings || defaultSettings,
+            companyLogo: data.companyLogo || null,
+            companyName: data.companyName || null,
           });
           setLoading(false);
           return;
@@ -134,11 +138,18 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         >
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
             <div className="flex items-center gap-3">
-              {(ctx.portalSettings?.headerLogo || ctx.client?.logoUrl) && (
+              {ctx.companyLogo && (
                 <img
-                  src={ctx.portalSettings?.headerLogo || ctx.client?.logoUrl || ""}
-                  alt="Logo"
-                  className="h-9 w-9 rounded-lg object-contain"
+                  src={ctx.companyLogo}
+                  alt={ctx.companyName || "Société"}
+                  className="h-9 rounded-lg object-contain"
+                />
+              )}
+              {ctx.client?.logoUrl && (
+                <img
+                  src={ctx.client.logoUrl}
+                  alt={ctx.client.name}
+                  className="h-9 rounded-lg object-contain"
                 />
               )}
               <div>
