@@ -67,6 +67,11 @@ export async function POST(req: NextRequest) {
     const ALLOWED_SEPARATORS = [";", ",", "\t", "|"];
     const rawSeparator = (formData.get("separator") as string) || ";";
     const separatorParam = ALLOWED_SEPARATORS.includes(rawSeparator) ? rawSeparator : ";";
+    // duplicateAction: "skip" (default) | "update" | "force"
+    const duplicateAction = (formData.get("duplicateAction") as string) || "skip";
+    // skipLines: comma-separated line numbers to skip (1-indexed, from duplicate check)
+    const skipLinesRaw = (formData.get("skipLines") as string) || "";
+    const skipLines = new Set(skipLinesRaw ? skipLinesRaw.split(",").map(Number) : []);
 
     if (!file) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
@@ -151,6 +156,11 @@ export async function POST(req: NextRequest) {
       const fields = parseCSVLine(lines[i], separator);
       if (fields.length < 3) continue;
       results.total++;
+
+      // Skip lines that the user chose to skip individually
+      if (skipLines.has(i + 1)) {
+        continue;
+      }
 
       const getValue = (key: string): string => {
         const idx = colMap[key];
@@ -247,7 +257,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Create installation if we have warranty info
+        // Create or update installation if we have warranty info
         const warrantyEnd = parseDate(warrantyEndStr);
         if (product && warrantyEnd) {
           const startDate = invoiceDate;
@@ -263,6 +273,37 @@ export async function POST(req: NextRequest) {
             status = "HORS_PARC";
           } else if (warrantyEnd < new Date()) {
             status = "EN_PARC_HORS_GARANTIE";
+          }
+
+          // Check for existing installation (duplicate)
+          const existingInstall = await prisma.installation.findFirst({
+            where: { clientId: client.id, productId: product.id, deletedAt: null },
+          });
+
+          if (existingInstall) {
+            if (duplicateAction === "skip") {
+              results.errors.push(`Ligne ${i + 1}: Doublon ignoré (${clientName} / ${productName})`);
+              continue;
+            }
+            if (duplicateAction === "update") {
+              await prisma.installation.update({
+                where: { id: existingInstall.id },
+                data: {
+                  supplier: supplier || existingInstall.supplier,
+                  family: family || existingInstall.family,
+                  quantity,
+                  startDate,
+                  durationMonths,
+                  endDate: warrantyEnd,
+                  status,
+                  comParc: comParc || existingInstall.comParc,
+                },
+              });
+              results.updated++;
+              results.created++;
+              continue;
+            }
+            // duplicateAction === "force" → create a new one anyway (fall through)
           }
 
           await prisma.installation.create({
@@ -292,7 +333,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Import terminé: ${results.created} lignes importées sur ${results.total}`,
+      message: `Import terminé: ${results.created} lignes importées${results.updated > 0 ? ` (dont ${results.updated} mises à jour)` : ""} sur ${results.total}`,
       ...results,
     });
   } catch (err) {

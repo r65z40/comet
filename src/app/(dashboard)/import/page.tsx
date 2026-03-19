@@ -24,9 +24,12 @@ interface ImportResult {
   success: boolean;
   message: string;
   created?: number;
+  updated?: number;
   total?: number;
   errors?: string[];
 }
+
+type DuplicateAction = "skip" | "update" | "force";
 
 // Expected fields for the app
 const APP_FIELDS = [
@@ -138,6 +141,9 @@ export default function ImportPage() {
   const [duplicates, setDuplicates] = useState<{ line: number; client: string; product: string; invoice: string }[] | null>(null);
   const [duplicateStats, setDuplicateStats] = useState<{ existingClients: number; newClients: number; existingProducts: number; newProducts: number; existingInvoices: number } | null>(null);
   const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
+  const [duplicateAction, setDuplicateAction] = useState<DuplicateAction>("skip");
+  const [skippedLines, setSkippedLines] = useState<Set<number>>(new Set());
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const readFile = useCallback((f: File) => {
@@ -256,6 +262,7 @@ export default function ImportPage() {
 
     setImporting(true);
     setResult(null);
+    setUploadProgress(0);
 
     try {
       // Build a column-name mapping: rename CSV headers to match API expectations
@@ -280,20 +287,73 @@ export default function ImportPage() {
       const formData = new FormData();
       formData.append("file", mappedFile);
       formData.append("separator", separator);
-
-      const res = await fetch("/api/import", { method: "POST", body: formData });
-      const data = await res.json();
-
-      if (res.ok) {
-        setResult({ success: true, message: data.message, created: data.created, total: data.total, errors: data.errors });
-        setStep(3);
-      } else {
-        setResult({ success: false, message: data.error || "Erreur inconnue" });
+      formData.append("duplicateAction", duplicateAction);
+      if (skippedLines.size > 0) {
+        formData.append("skipLines", Array.from(skippedLines).join(","));
       }
+
+      // Use XMLHttpRequest for upload progress tracking
+      const data = await new Promise<ImportResult>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/import");
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 50)); // 0-50% = upload
+          }
+        };
+
+        xhr.onload = () => {
+          setUploadProgress(100);
+          try {
+            const json = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve({ success: true, message: json.message, created: json.created, updated: json.updated, total: json.total, errors: json.errors });
+            } else {
+              resolve({ success: false, message: json.error || "Erreur inconnue" });
+            }
+          } catch {
+            resolve({ success: false, message: "Réponse invalide du serveur" });
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Erreur réseau"));
+
+        // After upload completes, show "processing" phase (50-99%)
+        xhr.upload.onload = () => {
+          setUploadProgress(50);
+          const interval = setInterval(() => {
+            setUploadProgress((prev) => {
+              if (prev === null || prev >= 95) { clearInterval(interval); return prev; }
+              return prev + 1;
+            });
+          }, 200);
+          xhr.onload = () => {
+            clearInterval(interval);
+            setUploadProgress(100);
+            try {
+              const json = JSON.parse(xhr.responseText);
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve({ success: true, message: json.message, created: json.created, updated: json.updated, total: json.total, errors: json.errors });
+              } else {
+                resolve({ success: false, message: json.error || "Erreur inconnue" });
+              }
+            } catch {
+              resolve({ success: false, message: "Réponse invalide du serveur" });
+            }
+          };
+        };
+
+        xhr.send(formData);
+      });
+
+      setResult(data);
+      if (data.success) setStep(3);
     } catch {
       setResult({ success: false, message: "Erreur de connexion au serveur" });
     } finally {
       setImporting(false);
+      setUploadProgress(null);
     }
   };
 
@@ -307,6 +367,9 @@ export default function ImportPage() {
     setDuplicates(null);
     setDuplicateStats(null);
     setSkipDuplicateCheck(false);
+    setDuplicateAction("skip");
+    setSkippedLines(new Set());
+    setUploadProgress(null);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -534,74 +597,169 @@ export default function ImportPage() {
 
           {/* Duplicate check results */}
           {duplicates !== null && (
-            <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 p-6 space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Eye className="h-4 w-4 text-primary-600" />
-                <h3 className="text-sm font-semibold text-slate-900">Analyse pré-import</h3>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Analyse pré-import</h3>
               </div>
 
               {duplicateStats && (
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <div className="rounded-lg bg-slate-50 p-3 text-center">
-                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingClients}</p>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-700 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{duplicateStats.existingClients}</p>
                     <p className="text-xs text-slate-400">Clients existants</p>
                   </div>
-                  <div className="rounded-lg bg-emerald-50 p-3 text-center">
+                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-3 text-center">
                     <p className="text-lg font-bold text-emerald-600">{duplicateStats.newClients}</p>
                     <p className="text-xs text-slate-400">Nouveaux clients</p>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-3 text-center">
-                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingProducts}</p>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-700 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{duplicateStats.existingProducts}</p>
                     <p className="text-xs text-slate-400">Produits existants</p>
                   </div>
-                  <div className="rounded-lg bg-emerald-50 p-3 text-center">
+                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-3 text-center">
                     <p className="text-lg font-bold text-emerald-600">{duplicateStats.newProducts}</p>
                     <p className="text-xs text-slate-400">Nouveaux produits</p>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-3 text-center">
-                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingInvoices}</p>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-700 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{duplicateStats.existingInvoices}</p>
                     <p className="text-xs text-slate-400">Factures existantes</p>
                   </div>
                 </div>
               )}
 
               {duplicates.length > 0 ? (
-                <div className="space-y-3">
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-2">
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-3 flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                    <p className="text-xs text-amber-700">
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
                       <strong>{duplicates.length} doublon(s) potentiel(s)</strong> détecté(s) — ces lignes correspondent à des installations déjà existantes (même client + produit).
                     </p>
                   </div>
-                  <div className="rounded-lg border border-slate-200 max-h-48 overflow-y-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200">
-                          <th className="px-3 py-2 text-left font-medium text-slate-600">Ligne</th>
-                          <th className="px-3 py-2 text-left font-medium text-slate-600">Client</th>
-                          <th className="px-3 py-2 text-left font-medium text-slate-600">Produit</th>
-                          <th className="px-3 py-2 text-left font-medium text-slate-600">Facture</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {duplicates.map((d, i) => (
-                          <tr key={i} className="border-b border-slate-100">
-                            <td className="px-3 py-2 text-slate-500">{d.line}</td>
-                            <td className="px-3 py-2 text-slate-700">{d.client}</td>
-                            <td className="px-3 py-2 text-slate-700">{d.product}</td>
-                            <td className="px-3 py-2 text-slate-500">{d.invoice}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+
+                  {/* Global duplicate resolution */}
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-600 p-4 space-y-3">
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Que faire avec les doublons ?</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {([
+                        { value: "skip" as DuplicateAction, label: "Ignorer les doublons", desc: "Les lignes en double sont ignorées, seules les nouvelles sont importées", color: "border-amber-300 bg-amber-50 dark:bg-amber-900/20" },
+                        { value: "update" as DuplicateAction, label: "Mettre à jour les existants", desc: "Les installations existantes sont mises à jour avec les nouvelles données", color: "border-blue-300 bg-blue-50 dark:bg-blue-900/20" },
+                        { value: "force" as DuplicateAction, label: "Tout importer", desc: "Créer de nouvelles installations même si des doublons existent", color: "border-red-300 bg-red-50 dark:bg-red-900/20" },
+                      ]).map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setDuplicateAction(opt.value)}
+                          className={`rounded-lg border-2 p-3 text-left transition-all ${
+                            duplicateAction === opt.value
+                              ? opt.color + " ring-2 ring-primary-400"
+                              : "border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-300"
+                          }`}
+                        >
+                          <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{opt.label}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{opt.desc}</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+
+                  {/* Per-row skip toggles (only in "skip" mode) */}
+                  {duplicateAction === "skip" && (
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-700 max-h-56 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600 sticky top-0">
+                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300 w-10">
+                              <input
+                                type="checkbox"
+                                checked={duplicates.every((d) => skippedLines.has(d.line))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSkippedLines(new Set(duplicates.map((d) => d.line)));
+                                  } else {
+                                    setSkippedLines(new Set());
+                                  }
+                                }}
+                                className="h-3.5 w-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                                title="Tout ignorer / Tout garder"
+                              />
+                            </th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">Ligne</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">Client</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">Produit</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">Facture</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {duplicates.map((d, i) => {
+                            const isSkipped = skippedLines.has(d.line);
+                            return (
+                              <tr key={i} className={`border-b border-slate-100 dark:border-slate-700 ${isSkipped ? "opacity-50" : ""}`}>
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSkipped}
+                                    onChange={() => {
+                                      const next = new Set(skippedLines);
+                                      if (isSkipped) next.delete(d.line);
+                                      else next.add(d.line);
+                                      setSkippedLines(next);
+                                    }}
+                                    className="h-3.5 w-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                                  />
+                                </td>
+                                <td className="px-3 py-2 text-slate-500">{d.line}</td>
+                                <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{d.client}</td>
+                                <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{d.product}</td>
+                                <td className="px-3 py-2 text-slate-500">{d.invoice}</td>
+                                <td className="px-3 py-2">
+                                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${isSkipped ? "bg-red-100 text-red-600 dark:bg-red-900/30" : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30"}`}>
+                                    {isSkipped ? "Ignorer" : "Importer"}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex items-center gap-2">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 p-3 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                  <p className="text-xs text-emerald-700">Aucun doublon détecté. Vous pouvez importer en toute sécurité.</p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400">Aucun doublon détecté. Vous pouvez importer en toute sécurité.</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Upload progress bar */}
+          {importing && uploadProgress !== null && (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-slate-700">
+                  {uploadProgress < 50
+                    ? "Envoi du fichier..."
+                    : uploadProgress < 100
+                    ? "Traitement en cours..."
+                    : "Terminé !"}
+                </p>
+                <span className="text-xs font-semibold text-primary-600">{uploadProgress}%</span>
+              </div>
+              <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ease-out ${
+                    uploadProgress >= 100 ? "bg-emerald-500" : "bg-primary-500"
+                  }`}
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-slate-400">
+                <span>Envoi</span>
+                <span>Traitement serveur</span>
+                <span>Terminé</span>
+              </div>
             </div>
           )}
 
@@ -678,6 +836,12 @@ export default function ImportPage() {
                       <p className="text-2xl font-bold text-emerald-600">{result.created}</p>
                       <p className="text-xs text-slate-400">Importées</p>
                     </div>
+                    {(result.updated ?? 0) > 0 && (
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-blue-600">{result.updated}</p>
+                        <p className="text-xs text-slate-400">Mises à jour</p>
+                      </div>
+                    )}
                     <div className="text-center">
                       <p className="text-2xl font-bold text-slate-400">{result.total - result.created}</p>
                       <p className="text-xs text-slate-400">Erreurs</p>
