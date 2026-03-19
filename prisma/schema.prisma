@@ -57,9 +57,45 @@ model Client {
   updatedAt       DateTime       @updatedAt
   invoices        Invoice[]
   installations   Installation[]
+  portalUsers     ClientUser[]
+  portalSettings  ClientPortalSettings?
 
   @@index([deletedAt])
   @@map("clients")
+}
+
+model ClientUser {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  email     String   @unique
+  password  String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@map("client_users")
+}
+
+model ClientPortalSettings {
+  id              String  @id @default(cuid())
+  clientId        String  @unique
+  client          Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  primaryColor    String  @default("#3b82f6")
+  headerLogo      String?
+  welcomeMessage  String?
+  showFamily      Boolean @default(true)
+  showSupplier    Boolean @default(true)
+  showDuration    Boolean @default(true)
+  showQuantity    Boolean @default(false)
+  showComParc     Boolean @default(false)
+  footerText      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("client_portal_settings")
 }
 
 model Product {
