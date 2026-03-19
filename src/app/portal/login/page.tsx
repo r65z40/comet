@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck } from "lucide-react";
 
 export default function PortalLoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -30,7 +28,8 @@ export default function PortalLoginPage() {
         return;
       }
 
-      router.push("/portal");
+      // Full page navigation to ensure the cookie is sent with the request
+      window.location.href = "/portal";
     } catch {
       setError("Erreur de connexion");
       setLoading(false);
