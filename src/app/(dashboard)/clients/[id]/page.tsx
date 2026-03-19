@@ -330,8 +330,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
     .cover-page {
       position: relative;
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: ${orientation === "landscape" ? "190mm" : "277mm"};
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -356,6 +356,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page > *:not(.cover-bg) { position: relative; z-index: 1; }
     .cover-logos { display: flex; align-items: center; justify-content: center; gap: 40px; margin-bottom: 40px; }
     .cover-logos img { border-radius: 12px; background: white; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .client-logo-inline { margin-top: 16px; margin-bottom: 16px; }
+    .client-logo-inline img { border-radius: 12px; background: white; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .cover-page h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; color: #1e293b; }
     .cover-page .client-name { font-size: 42px; font-weight: 800; color: ${primaryColor}; margin-bottom: 30px; }
     .cover-page .subtitle { font-size: 18px; color: #64748b; margin-bottom: 8px; }
@@ -393,12 +395,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   <div class="cover-page">
     ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
     ${showVerticalName ? `<div class="vertical-text">${esc(client.name)}</div>` : ""}
-    <div class="cover-logos">
-      ${companyLogoHtml}
-      ${clientLogoHtml}
-    </div>
+    ${companyLogoHtml ? `<div class="cover-logos">${companyLogoHtml}</div>` : ""}
     <h1>${title}</h1>
     <div class="client-name">${esc(client.name)}</div>
+    ${clientLogoHtml ? `<div class="client-logo-inline">${clientLogoHtml}</div>` : ""}
     ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ""}
     <div class="date">${today}</div>
     ${message ? `<div class="message">${message}</div>` : ""}
