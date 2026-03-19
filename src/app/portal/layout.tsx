@@ -96,7 +96,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         }
       }
       if (!cancelled) {
-        router.push("/portal/login");
+        window.location.href = "/portal/login";
       }
     }
 
@@ -106,7 +106,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   async function handleLogout() {
     await fetch("/api/portal/auth", { method: "DELETE" });
-    router.push("/portal/login");
+    window.location.href = "/portal/login";
   }
 
   // Public pages (login, setup) render without portal chrome

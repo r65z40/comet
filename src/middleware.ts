@@ -1,41 +1,12 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-
-const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || "fallback-secret-change-me");
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
 
-  // Portal routes - separate auth
+  // Portal routes use their own auth (JWT verified in API routes & layout)
   if (pathname.startsWith("/portal") || pathname.startsWith("/api/portal")) {
-    // Public portal routes
-    if (pathname === "/portal/login" || pathname === "/api/portal/auth" || pathname === "/portal/setup" || pathname === "/api/portal/setup") {
-      return addSecurityHeaders(NextResponse.next());
-    }
-
-    // Verify portal JWT
-    const portalToken = req.cookies.get("portal_token")?.value;
-    if (!portalToken) {
-      if (pathname.startsWith("/api/portal")) {
-        return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-      }
-      return NextResponse.redirect(new URL("/portal/login", req.url));
-    }
-
-    try {
-      await jwtVerify(portalToken, SECRET);
-      // If on login page with valid token, redirect to portal dashboard
-      if (pathname === "/portal/login") {
-        return NextResponse.redirect(new URL("/portal", req.url));
-      }
-      return addSecurityHeaders(NextResponse.next());
-    } catch {
-      if (pathname.startsWith("/api/portal")) {
-        return NextResponse.json({ error: "Session expirée" }, { status: 401 });
-      }
-      return NextResponse.redirect(new URL("/portal/login", req.url));
-    }
+    return addSecurityHeaders(NextResponse.next());
   }
 
   // Admin/dashboard routes - NextAuth
