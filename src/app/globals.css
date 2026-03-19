@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
   --color-primary-50: #eff6ff;
   --color-primary-100: #dbeafe;
@@ -35,32 +33,15 @@
   --chart-label: #475569;
 }
 
-.dark {
-  --tooltip-bg: #1e293b;
-  --tooltip-border: #334155;
-  --tooltip-text: #e2e8f0;
-  --chart-label: #94a3b8;
-}
-
 body {
   background-color: var(--color-surface-950);
   color: var(--color-surface-600);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-.dark body,
-:root.dark body {
-  background-color: #0f172a;
-  color: #cbd5e1;
-}
-
 @layer base {
   * {
     border-color: var(--color-surface-300);
-  }
-
-  .dark * {
-    border-color: #334155;
   }
 
   ::-webkit-scrollbar {
@@ -79,13 +60,5 @@ body {
 
   ::-webkit-scrollbar-thumb:hover {
     background: var(--color-surface-500);
-  }
-
-  .dark ::-webkit-scrollbar-track {
-    background: #1e293b;
-  }
-
-  .dark ::-webkit-scrollbar-thumb {
-    background: #475569;
   }
 }

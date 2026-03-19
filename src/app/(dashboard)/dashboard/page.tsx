@@ -165,26 +165,26 @@ function StatsMainPanel({ data }: { data: DashboardData }) {
 function StatsExpiringPanel({ data }: { data: DashboardData }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <Link href="/installations?expiring=30" className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+      <Link href="/installations?expiring=30" className="rounded-xl border border-red-200 bg-red-50 p-4 hover:bg-red-100 transition-colors">
         <div className="flex items-center gap-2 mb-1">
-          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-          <span className="text-sm font-medium text-red-600 dark:text-red-400">Expire dans 30 jours</span>
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <span className="text-sm font-medium text-red-600">Expire dans 30 jours</span>
         </div>
-        <p className="text-2xl font-bold text-slate-900 dark:text-white">{data.counts.expiring30}</p>
+        <p className="text-2xl font-bold text-slate-900">{data.counts.expiring30}</p>
       </Link>
-      <Link href="/installations?expiring=60" className="rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 p-4 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">
+      <Link href="/installations?expiring=60" className="rounded-xl border border-orange-200 bg-orange-50 p-4 hover:bg-orange-100 transition-colors">
         <div className="flex items-center gap-2 mb-1">
-          <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-          <span className="text-sm font-medium text-orange-600 dark:text-orange-400">Expire dans 60 jours</span>
+          <Clock className="h-4 w-4 text-orange-600" />
+          <span className="text-sm font-medium text-orange-600">Expire dans 60 jours</span>
         </div>
-        <p className="text-2xl font-bold text-slate-900 dark:text-white">{data.counts.expiring60}</p>
+        <p className="text-2xl font-bold text-slate-900">{data.counts.expiring60}</p>
       </Link>
-      <Link href="/installations?expiring=90" className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
+      <Link href="/installations?expiring=90" className="rounded-xl border border-amber-200 bg-amber-50 p-4 hover:bg-amber-100 transition-colors">
         <div className="flex items-center gap-2 mb-1">
-          <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Expire dans 90 jours</span>
+          <Clock className="h-4 w-4 text-amber-600" />
+          <span className="text-sm font-medium text-amber-600">Expire dans 90 jours</span>
         </div>
-        <p className="text-2xl font-bold text-slate-900 dark:text-white">{data.counts.expiring90}</p>
+        <p className="text-2xl font-bold text-slate-900">{data.counts.expiring90}</p>
       </Link>
     </div>
   );
@@ -202,8 +202,8 @@ function StatsEntitiesPanel({ data }: { data: DashboardData }) {
 function ChartMonthlyPanel({ data }: { data: DashboardData }) {
   const router = useRouter();
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Fins de garantie par mois</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Fins de garantie par mois</h3>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={data.byMonth}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--tooltip-border, #e2e8f0)" />
@@ -220,8 +220,8 @@ function ChartMonthlyPanel({ data }: { data: DashboardData }) {
 
 function ChartFamilyPanel({ data }: { data: DashboardData }) {
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Répartition par famille</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par famille</h3>
       <ResponsiveContainer width="100%" height={320}>
         <PieChart>
           <Pie data={data.byFamily} cx="50%" cy="45%" innerRadius={55} outerRadius={90} dataKey="value" stroke="none" label={renderPieLabel}>
@@ -237,8 +237,8 @@ function ChartFamilyPanel({ data }: { data: DashboardData }) {
 
 function ChartSupplierPanel({ data }: { data: DashboardData }) {
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Répartition par fournisseur</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par fournisseur</h3>
       <ResponsiveContainer width="100%" height={320}>
         <PieChart>
           <Pie data={data.bySupplier} cx="50%" cy="45%" innerRadius={55} outerRadius={90} dataKey="value" stroke="none" label={renderPieLabel}>
@@ -271,22 +271,22 @@ function ListRenewalsPanel({ data }: { data: DashboardData }) {
     <div className="rounded-xl border border-slate-200 bg-white p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-slate-500">Prochaines fins de garantie</h3>
-        <Link href="/installations?status=EN_PARC" className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400">Voir tout</Link>
+        <Link href="/installations?status=EN_PARC" className="text-xs text-primary-600 hover:text-primary-700">Voir tout</Link>
       </div>
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         {(["30", "90"] as const).map((mode) => (
           <button key={mode} onClick={() => setFilterMode(mode)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${filterMode === mode ? "bg-primary-600 text-white" : "border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${filterMode === mode ? "bg-primary-600 text-white" : "border border-slate-200 text-slate-500 hover:bg-slate-50"}`}>
             {mode} jours
           </button>
         ))}
         <button onClick={() => setFilterMode("custom")}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterMode === "custom" ? "bg-primary-600 text-white" : "border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterMode === "custom" ? "bg-primary-600 text-white" : "border border-slate-200 text-slate-500 hover:bg-slate-50"}`}>
           <Calendar className="h-3 w-3" /> Date
         </button>
         {filterMode === "custom" && (
           <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)}
-            className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs text-slate-600 dark:text-slate-300 focus:border-primary-500 focus:outline-none" />
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 focus:border-primary-500 focus:outline-none" />
         )}
       </div>
       <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -297,9 +297,9 @@ function ListRenewalsPanel({ data }: { data: DashboardData }) {
             const days = daysUntil(r.endDate);
             return (
               <Link key={r.id} href={`/installations/${r.id}`}
-                className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                className="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{r.product.name}</p>
+                  <p className="text-sm font-medium text-slate-800 truncate">{r.product.name}</p>
                   <p className="text-xs text-slate-400">{r.client.name}</p>
                 </div>
                 <div className="flex items-center gap-3 ml-3">
@@ -320,20 +320,20 @@ function ListRenewalsPanel({ data }: { data: DashboardData }) {
 function ListExpiredPanel({ data }: { data: DashboardData }) {
   if (data.recentlyExpired.length === 0) return null;
   return (
-    <div className="rounded-xl border border-red-200 dark:border-red-800 bg-white dark:bg-slate-800 p-6">
+    <div className="rounded-xl border border-red-200 bg-white p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <ShieldX className="h-4 w-4 text-red-600 dark:text-red-400" />
-          <h3 className="text-sm font-medium text-red-600 dark:text-red-400">Hors parc</h3>
+          <ShieldX className="h-4 w-4 text-red-600" />
+          <h3 className="text-sm font-medium text-red-600">Hors parc</h3>
         </div>
-        <Link href="/installations?status=HORS_PARC" className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400">Voir tout</Link>
+        <Link href="/installations?status=HORS_PARC" className="text-xs text-primary-600 hover:text-primary-700">Voir tout</Link>
       </div>
       <div className="space-y-2 max-h-[250px] overflow-y-auto">
         {data.recentlyExpired.map((r) => (
           <Link key={r.id} href={`/installations/${r.id}`}
-            className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 p-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            className="flex items-center justify-between rounded-lg border border-slate-200 p-2.5 hover:bg-slate-50 transition-colors">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{r.product.name}</p>
+              <p className="text-sm font-medium text-slate-800 truncate">{r.product.name}</p>
               <p className="text-xs text-slate-400">{r.client.name}</p>
             </div>
             <div className="text-right ml-3">
@@ -349,22 +349,22 @@ function ListExpiredPanel({ data }: { data: DashboardData }) {
 function TopClientsPanel({ data }: { data: DashboardData }) {
   const topClients = data.topClients || [];
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Top clients (par installations)</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Top clients (par installations)</h3>
       {topClients.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-8">Aucune donnée</p>
       ) : (
         <div className="space-y-2 max-h-[300px] overflow-y-auto">
           {topClients.map((c, i) => (
             <Link key={c.id} href={`/clients/${c.id}`}
-              className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-50 dark:bg-primary-900/30 text-xs font-bold text-primary-600 dark:text-primary-400">
+              className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary-600">
                 {i + 1}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{c.name}</p>
+                <p className="text-sm font-medium text-slate-800 truncate">{c.name}</p>
               </div>
-              <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{c.count}</span>
+              <span className="text-sm font-bold text-slate-600">{c.count}</span>
             </Link>
           ))}
         </div>
@@ -376,8 +376,8 @@ function TopClientsPanel({ data }: { data: DashboardData }) {
 function StatusBreakdownPanel({ data }: { data: DashboardData }) {
   const breakdown = data.statusBreakdown || [];
   if (breakdown.length === 0) return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Répartition par statut</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par statut</h3>
       <p className="text-sm text-slate-400 text-center py-8">Aucune donnée</p>
     </div>
   );
@@ -387,8 +387,8 @@ function StatusBreakdownPanel({ data }: { data: DashboardData }) {
     fill: STATUS_COLORS[s.status] || "#94a3b8",
   }));
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Répartition par statut</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Répartition par statut</h3>
       <ResponsiveContainer width="100%" height={320}>
         <PieChart>
           <Pie data={chartData} cx="50%" cy="45%" innerRadius={55} outerRadius={90} dataKey="value" stroke="none" label={renderPieLabel}>
@@ -404,8 +404,8 @@ function StatusBreakdownPanel({ data }: { data: DashboardData }) {
 
 function ChartTrendPanel({ data }: { data: DashboardData }) {
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Tendance des expirations</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Tendance des expirations</h3>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data.byMonth}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--tooltip-border, #e2e8f0)" />
@@ -422,29 +422,29 @@ function ChartTrendPanel({ data }: { data: DashboardData }) {
 function FinancialSummaryPanel({ data }: { data: DashboardData }) {
   const fin = data.financialSummary;
   if (!fin) return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Résumé financier</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Résumé financier</h3>
       <p className="text-sm text-slate-400 text-center py-4">Aucune donnée</p>
     </div>
   );
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Résumé financier</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Résumé financier</h3>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-4 text-center">
-          <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mx-auto mb-1" />
-          <p className="text-xl font-bold text-slate-900 dark:text-white">{formatCurrency(fin.totalValue)}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Valeur totale</p>
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-center">
+          <DollarSign className="h-5 w-5 text-emerald-600 mx-auto mb-1" />
+          <p className="text-xl font-bold text-slate-900">{formatCurrency(fin.totalValue)}</p>
+          <p className="text-xs text-slate-500">Valeur totale</p>
         </div>
-        <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 text-center">
-          <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 mx-auto mb-1" />
-          <p className="text-xl font-bold text-slate-900 dark:text-white">{fin.avgDuration.toFixed(0)} mois</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Durée moyenne</p>
+        <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-center">
+          <Clock className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+          <p className="text-xl font-bold text-slate-900">{fin.avgDuration.toFixed(0)} mois</p>
+          <p className="text-xs text-slate-500">Durée moyenne</p>
         </div>
-        <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 p-4 text-center">
-          <RefreshCw className="h-5 w-5 text-purple-600 dark:text-purple-400 mx-auto mb-1" />
-          <p className="text-xl font-bold text-slate-900 dark:text-white">{fin.renewalRate.toFixed(1)}%</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Taux de renouvellement</p>
+        <div className="rounded-lg bg-purple-50 border border-purple-200 p-4 text-center">
+          <RefreshCw className="h-5 w-5 text-purple-600 mx-auto mb-1" />
+          <p className="text-xl font-bold text-slate-900">{fin.renewalRate.toFixed(1)}%</p>
+          <p className="text-xs text-slate-500">Taux de renouvellement</p>
         </div>
       </div>
     </div>
@@ -454,19 +454,19 @@ function FinancialSummaryPanel({ data }: { data: DashboardData }) {
 function RecentActivityPanel({ data }: { data: DashboardData }) {
   const activity = data.recentActivity || [];
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-      <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Activité récente</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-medium text-slate-500 mb-4">Activité récente</h3>
       {activity.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-8">Aucune activité récente</p>
       ) : (
         <div className="space-y-2 max-h-[300px] overflow-y-auto">
           {activity.map((a) => (
-            <div key={a.id} className="flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-              <div className={`mt-0.5 rounded-full p-1.5 ${a.type === "sync" ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : a.type === "import" ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}>
+            <div key={a.id} className="flex items-start gap-3 rounded-lg border border-slate-200 p-3">
+              <div className={`mt-0.5 rounded-full p-1.5 ${a.type === "sync" ? "bg-blue-50 text-blue-600" : a.type === "import" ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"}`}>
                 {a.type === "sync" ? <RefreshCw className="h-3 w-3" /> : a.type === "import" ? <FileText className="h-3 w-3" /> : <Activity className="h-3 w-3" />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-700 dark:text-slate-300">{a.description}</p>
+                <p className="text-sm text-slate-700">{a.description}</p>
                 <p className="text-xs text-slate-400">{formatDate(a.date)}</p>
               </div>
             </div>
@@ -510,10 +510,10 @@ function AddPanelModal({ currentPanels, onAdd, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl bg-white dark:bg-slate-800 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Ajouter un panneau</h3>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600"><X className="h-5 w-5" /></button>
+      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h3 className="text-lg font-semibold text-slate-900">Ajouter un panneau</h3>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"><X className="h-5 w-5" /></button>
         </div>
         <div className="max-h-96 overflow-y-auto p-4 space-y-2">
           {available.length === 0 ? (
@@ -521,12 +521,12 @@ function AddPanelModal({ currentPanels, onAdd, onClose }: {
           ) : (
             available.map(([type, info]) => (
               <button key={type} onClick={() => { onAdd(type); onClose(); }}
-                className="flex w-full items-center gap-4 rounded-lg border border-slate-200 dark:border-slate-700 p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                <div className="rounded-lg bg-primary-50 dark:bg-primary-900/30 p-2.5">
-                  <info.icon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                className="flex w-full items-center gap-4 rounded-lg border border-slate-200 p-4 text-left hover:bg-slate-50 transition-colors">
+                <div className="rounded-lg bg-primary-50 p-2.5">
+                  <info.icon className="h-5 w-5 text-primary-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">{info.label}</p>
+                  <p className="text-sm font-medium text-slate-900">{info.label}</p>
                   <p className="text-xs text-slate-400">{info.description}</p>
                 </div>
                 <Plus className="h-4 w-4 text-slate-400" />
@@ -664,8 +664,8 @@ export default function DashboardPage() {
   if (error || !data) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-        <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6 text-center">
+        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
           <p className="text-red-600 font-medium mb-2">Erreur de chargement</p>
           <p className="text-sm text-slate-500">{error || "Données indisponibles"}</p>
           <button onClick={() => { setError(null); setLoading(true); fetch("/api/dashboard/stats").then(r => { if (!r.ok) throw new Error(`Erreur ${r.status}`); return r.json(); }).then(setData).catch(e => setError(e.message)).finally(() => setLoading(false)); }}
@@ -855,9 +855,9 @@ export default function DashboardPage() {
                 className="h-10 w-10 rounded-lg object-contain drop-shadow-md"
               />
             </button>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Suivi des garanties et échéances</p>
+          <p className="text-sm text-slate-500 mt-1">Suivi des garanties et échéances</p>
         </div>
         <div className="flex items-center gap-2">
           {editMode && (
@@ -874,7 +874,7 @@ export default function DashboardPage() {
           )}
           <button onClick={() => setEditMode(!editMode)}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-              editMode ? "bg-slate-900 text-white hover:bg-slate-800" : "border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+              editMode ? "bg-slate-900 text-white hover:bg-slate-800" : "border border-slate-300 text-slate-500 hover:bg-slate-50"
             }`}>
             <Settings2 className="h-3.5 w-3.5" />
             {editMode ? "Terminer" : "Personnaliser"}

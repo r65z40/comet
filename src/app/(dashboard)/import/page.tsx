@@ -597,32 +597,32 @@ export default function ImportPage() {
 
           {/* Duplicate check results */}
           {duplicates !== null && (
-            <div className="rounded-xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 p-6 space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Eye className="h-4 w-4 text-primary-600" />
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Analyse pré-import</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Analyse pré-import</h3>
               </div>
 
               {duplicateStats && (
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <div className="rounded-lg bg-slate-50 dark:bg-slate-700 p-3 text-center">
-                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{duplicateStats.existingClients}</p>
+                  <div className="rounded-lg bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingClients}</p>
                     <p className="text-xs text-slate-400">Clients existants</p>
                   </div>
-                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-3 text-center">
+                  <div className="rounded-lg bg-emerald-50 p-3 text-center">
                     <p className="text-lg font-bold text-emerald-600">{duplicateStats.newClients}</p>
                     <p className="text-xs text-slate-400">Nouveaux clients</p>
                   </div>
-                  <div className="rounded-lg bg-slate-50 dark:bg-slate-700 p-3 text-center">
-                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{duplicateStats.existingProducts}</p>
+                  <div className="rounded-lg bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingProducts}</p>
                     <p className="text-xs text-slate-400">Produits existants</p>
                   </div>
-                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-3 text-center">
+                  <div className="rounded-lg bg-emerald-50 p-3 text-center">
                     <p className="text-lg font-bold text-emerald-600">{duplicateStats.newProducts}</p>
                     <p className="text-xs text-slate-400">Nouveaux produits</p>
                   </div>
-                  <div className="rounded-lg bg-slate-50 dark:bg-slate-700 p-3 text-center">
-                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{duplicateStats.existingInvoices}</p>
+                  <div className="rounded-lg bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingInvoices}</p>
                     <p className="text-xs text-slate-400">Factures existantes</p>
                   </div>
                 </div>
@@ -630,21 +630,21 @@ export default function ImportPage() {
 
               {duplicates.length > 0 ? (
                 <div className="space-y-4">
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-3 flex items-center gap-2">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                    <p className="text-xs text-amber-700">
                       <strong>{duplicates.length} doublon(s) potentiel(s)</strong> détecté(s) — ces lignes correspondent à des installations déjà existantes (même client + produit).
                     </p>
                   </div>
 
                   {/* Global duplicate resolution */}
-                  <div className="rounded-lg border border-slate-200 dark:border-slate-600 p-4 space-y-3">
-                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Que faire avec les doublons ?</p>
+                  <div className="rounded-lg border border-slate-200 p-4 space-y-3">
+                    <p className="text-xs font-semibold text-slate-700">Que faire avec les doublons ?</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {([
-                        { value: "skip" as DuplicateAction, label: "Ignorer les doublons", desc: "Les lignes en double sont ignorées, seules les nouvelles sont importées", color: "border-amber-300 bg-amber-50 dark:bg-amber-900/20" },
-                        { value: "update" as DuplicateAction, label: "Mettre à jour les existants", desc: "Les installations existantes sont mises à jour avec les nouvelles données", color: "border-blue-300 bg-blue-50 dark:bg-blue-900/20" },
-                        { value: "force" as DuplicateAction, label: "Tout importer", desc: "Créer de nouvelles installations même si des doublons existent", color: "border-red-300 bg-red-50 dark:bg-red-900/20" },
+                        { value: "skip" as DuplicateAction, label: "Ignorer les doublons", desc: "Les lignes en double sont ignorées, seules les nouvelles sont importées", color: "border-amber-300 bg-amber-50" },
+                        { value: "update" as DuplicateAction, label: "Mettre à jour les existants", desc: "Les installations existantes sont mises à jour avec les nouvelles données", color: "border-blue-300 bg-blue-50" },
+                        { value: "force" as DuplicateAction, label: "Tout importer", desc: "Créer de nouvelles installations même si des doublons existent", color: "border-red-300 bg-red-50" },
                       ]).map((opt) => (
                         <button
                           key={opt.value}
@@ -652,11 +652,11 @@ export default function ImportPage() {
                           className={`rounded-lg border-2 p-3 text-left transition-all ${
                             duplicateAction === opt.value
                               ? opt.color + " ring-2 ring-primary-400"
-                              : "border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-300"
+                              : "border-slate-200 bg-white hover:border-slate-300"
                           }`}
                         >
-                          <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{opt.label}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{opt.desc}</p>
+                          <p className="text-xs font-semibold text-slate-800">{opt.label}</p>
+                          <p className="text-xs text-slate-500 mt-1">{opt.desc}</p>
                         </button>
                       ))}
                     </div>
@@ -664,11 +664,11 @@ export default function ImportPage() {
 
                   {/* Per-row skip toggles (only in "skip" mode) */}
                   {duplicateAction === "skip" && (
-                    <div className="rounded-lg border border-slate-200 dark:border-slate-700 max-h-56 overflow-y-auto">
+                    <div className="rounded-lg border border-slate-200 max-h-56 overflow-y-auto">
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600 sticky top-0">
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300 w-10">
+                          <tr className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                            <th className="px-3 py-2 text-left font-medium text-slate-600 w-10">
                               <input
                                 type="checkbox"
                                 checked={duplicates.every((d) => skippedLines.has(d.line))}
@@ -683,18 +683,18 @@ export default function ImportPage() {
                                 title="Tout ignorer / Tout garder"
                               />
                             </th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">Ligne</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">Client</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">Produit</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">Facture</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">Action</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-600">Ligne</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-600">Client</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-600">Produit</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-600">Facture</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-600">Action</th>
                           </tr>
                         </thead>
                         <tbody>
                           {duplicates.map((d, i) => {
                             const isSkipped = skippedLines.has(d.line);
                             return (
-                              <tr key={i} className={`border-b border-slate-100 dark:border-slate-700 ${isSkipped ? "opacity-50" : ""}`}>
+                              <tr key={i} className={`border-b border-slate-100 ${isSkipped ? "opacity-50" : ""}`}>
                                 <td className="px-3 py-2">
                                   <input
                                     type="checkbox"
@@ -709,11 +709,11 @@ export default function ImportPage() {
                                   />
                                 </td>
                                 <td className="px-3 py-2 text-slate-500">{d.line}</td>
-                                <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{d.client}</td>
-                                <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{d.product}</td>
+                                <td className="px-3 py-2 text-slate-700">{d.client}</td>
+                                <td className="px-3 py-2 text-slate-700">{d.product}</td>
                                 <td className="px-3 py-2 text-slate-500">{d.invoice}</td>
                                 <td className="px-3 py-2">
-                                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${isSkipped ? "bg-red-100 text-red-600 dark:bg-red-900/30" : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30"}`}>
+                                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${isSkipped ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}>
                                     {isSkipped ? "Ignorer" : "Importer"}
                                   </span>
                                 </td>
@@ -726,9 +726,9 @@ export default function ImportPage() {
                   )}
                 </div>
               ) : (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 p-3 flex items-center gap-2">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                  <p className="text-xs text-emerald-700 dark:text-emerald-400">Aucun doublon détecté. Vous pouvez importer en toute sécurité.</p>
+                  <p className="text-xs text-emerald-700">Aucun doublon détecté. Vous pouvez importer en toute sécurité.</p>
                 </div>
               )}
             </div>

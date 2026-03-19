@@ -104,7 +104,7 @@ export default function DataTable<T extends { id: string }>({
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8">
+      <div className="rounded-xl border border-slate-200 bg-white p-8">
         <div className="flex items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
         </div>
@@ -113,11 +113,11 @@ export default function DataTable<T extends { id: string }>({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-700">
+            <tr className="border-b border-slate-200">
               {selectable && (
                 <th className="px-3 py-3 w-10">
                   <input
@@ -132,8 +132,8 @@ export default function DataTable<T extends { id: string }>({
                 <th
                   key={col.key}
                   style={col.width ? { width: col.width, minWidth: col.width } : undefined}
-                  className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 ${
-                    col.sortable !== false ? "cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors" : ""
+                  className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500 ${
+                    col.sortable !== false ? "cursor-pointer select-none hover:text-slate-700 transition-colors" : ""
                   }`}
                   onClick={() => col.sortable !== false && handleSort(col.key)}
                 >
@@ -151,10 +151,10 @@ export default function DataTable<T extends { id: string }>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+          <tbody className="divide-y divide-slate-100">
             {sortedData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + (selectable ? 1 : 0)} className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                <td colSpan={columns.length + (selectable ? 1 : 0)} className="px-4 py-8 text-center text-sm text-slate-500">
                   Aucune donnée disponible
                 </td>
               </tr>
@@ -162,7 +162,7 @@ export default function DataTable<T extends { id: string }>({
               sortedData.map((item) => (
                 <tr
                   key={item.id}
-                  className={`transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50 ${onRowClick ? "cursor-pointer" : ""} ${selectedIds?.has(item.id) ? "bg-primary-50/50 dark:bg-primary-900/20" : ""} ${rowClassName ? rowClassName(item) : ""}`}
+                  className={`transition-colors hover:bg-slate-50 ${onRowClick ? "cursor-pointer" : ""} ${selectedIds?.has(item.id) ? "bg-primary-50/50" : ""} ${rowClassName ? rowClassName(item) : ""}`}
                   onClick={() => onRowClick?.(item)}
                 >
                   {selectable && (
@@ -176,7 +176,7 @@ export default function DataTable<T extends { id: string }>({
                     </td>
                   )}
                   {columns.map((col) => (
-                    <td key={col.key} className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                    <td key={col.key} className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">
                       {col.render
                         ? col.render(item)
                         : String((item as Record<string, unknown>)[col.key] ?? "")}
@@ -189,9 +189,9 @@ export default function DataTable<T extends { id: string }>({
         </table>
       </div>
 
-      <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-700 px-4 py-3">
+      <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
           <div className="flex items-center gap-3">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-slate-500">
               Page {page} sur {totalPages}
             </p>
             {onPerPageChange && (
@@ -200,7 +200,7 @@ export default function DataTable<T extends { id: string }>({
                 <select
                   value={perPage || 40}
                   onChange={(e) => { onPerPageChange(Number(e.target.value)); onPageChange(1); }}
-                  className="rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-1.5 py-1 text-xs text-slate-600 dark:text-slate-300 focus:border-primary-500 focus:outline-none"
+                  className="rounded border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600 focus:border-primary-500 focus:outline-none"
                 >
                   {PER_PAGE_OPTIONS.map((n) => (
                     <option key={n} value={n}>{n}</option>
@@ -214,14 +214,14 @@ export default function DataTable<T extends { id: string }>({
             <button
               onClick={() => onPageChange(page - 1)}
               disabled={page <= 1}
-              className="rounded-lg border border-slate-200 dark:border-slate-600 p-1.5 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => onPageChange(page + 1)}
               disabled={page >= totalPages}
-              className="rounded-lg border border-slate-200 dark:border-slate-600 p-1.5 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
