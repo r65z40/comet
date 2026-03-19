@@ -55,9 +55,10 @@ export async function portalLogin(email: string, password: string): Promise<{ to
 
 export async function setPortalCookie(token: string) {
   const cookieStore = await cookies();
+  const useSecureCookie = process.env.AUTH_URL?.startsWith("https") ?? process.env.NODE_ENV === "production";
   cookieStore.set(PORTAL_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: useSecureCookie,
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: "/",

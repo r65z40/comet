@@ -14,9 +14,10 @@ export async function portalLoginAction(email: string, password: string) {
   }
 
   const cookieStore = await cookies();
+  const useSecureCookie = process.env.AUTH_URL?.startsWith("https") ?? process.env.NODE_ENV === "production";
   cookieStore.set("portal_token", result.token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: useSecureCookie,
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7,
     path: "/",
