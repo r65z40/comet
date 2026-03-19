@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { portalLogin, setPortalCookie, clearPortalCookie } from "@/lib/portal-auth";
+import { portalLogin } from "@/lib/portal-auth";
+
+const PORTAL_COOKIE = "portal_token";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,14 +15,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 });
     }
 
-    await setPortalCookie(result.token);
-    return NextResponse.json({ success: true, clientId: result.clientId });
+    const response = NextResponse.json({ success: true, clientId: result.clientId });
+    response.cookies.set(PORTAL_COOKIE, result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+    return response;
   } catch {
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
 
 export async function DELETE() {
-  await clearPortalCookie();
-  return NextResponse.json({ success: true });
+  const response = NextResponse.json({ success: true });
+  response.cookies.delete(PORTAL_COOKIE);
+  return response;
 }

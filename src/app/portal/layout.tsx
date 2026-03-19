@@ -71,22 +71,37 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       return;
     }
 
-    fetch("/api/portal/me")
-      .then((r) => {
-        if (!r.ok) throw new Error("Unauthorized");
-        return r.json();
-      })
-      .then((data) => {
-        setCtx({
-          client: data.client,
-          user: data.user,
-          portalSettings: data.portalSettings || defaultSettings,
-        });
-        setLoading(false);
-      })
-      .catch(() => {
+    let cancelled = false;
+
+    async function loadSession() {
+      // Retry once after a short delay to handle cookie propagation timing
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (cancelled) return;
+        try {
+          const r = await fetch("/api/portal/me");
+          if (!r.ok) throw new Error("Unauthorized");
+          const data = await r.json();
+          if (cancelled) return;
+          setCtx({
+            client: data.client,
+            user: data.user,
+            portalSettings: data.portalSettings || defaultSettings,
+          });
+          setLoading(false);
+          return;
+        } catch {
+          if (attempt === 0) {
+            await new Promise((r) => setTimeout(r, 300));
+          }
+        }
+      }
+      if (!cancelled) {
         router.push("/portal/login");
-      });
+      }
+    }
+
+    loadSession();
+    return () => { cancelled = true; };
   }, [router, isPublicPage]);
 
   async function handleLogout() {
