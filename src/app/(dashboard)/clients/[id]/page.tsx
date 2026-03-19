@@ -66,6 +66,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [portalUsers, setPortalUsers] = useState<{ id: string; name: string; email: string; active: boolean; createdAt: string }[]>([]);
   const [portalSettings, setPortalSettings] = useState<{
     primaryColor: string; headerLogo: string | null; welcomeMessage: string | null;
+    welcomeTitle: string | null; welcomeContent: string | null;
+    showStats: boolean; showExpiring: boolean;
     showFamily: boolean; showSupplier: boolean; showDuration: boolean;
     showQuantity: boolean; showComParc: boolean; footerText: string | null;
   } | null>(null);
@@ -73,7 +75,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [portalSaving, setPortalSaving] = useState(false);
   const [newPortalUser, setNewPortalUser] = useState({ name: "", email: "" });
   const [portalUserCreating, setPortalUserCreating] = useState(false);
-  const [inviteLink, setInviteLink] = useState<{ userId: string; url: string } | null>(null);
+  const [inviteLink, setInviteLink] = useState<{ userId: string; url: string; emailSent?: boolean } | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [inviteGenerating, setInviteGenerating] = useState<string | null>(null);
 
@@ -84,6 +86,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     setPortalUsers(data.portalUsers || []);
     setPortalSettings(data.portalSettings || {
       primaryColor: "#3b82f6", headerLogo: null, welcomeMessage: null,
+      welcomeTitle: null, welcomeContent: null,
+      showStats: true, showExpiring: true,
       showFamily: true, showSupplier: true, showDuration: true,
       showQuantity: false, showComParc: false, footerText: null,
     });
@@ -128,7 +132,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       const res = await fetch(`/api/clients/${id}/portal/users/${userId}/invite`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        setInviteLink({ userId, url: data.inviteUrl });
+        setInviteLink({ userId, url: data.inviteUrl, emailSent: data.emailSent });
         setInviteCopied(false);
       } else {
         const err = await res.json();
@@ -840,7 +844,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       {inst.alwaysInFleet ? "Toujours en parc" : inst.status === "RENOUVELE" ? "Renouvelé" : formatCountdown(inst.endDate)}
                     </span>
                   </td>
-                  <td className="px-4 py-3"><StatusBadge status={inst.status} endDate={inst.endDate} alwaysInFleet={inst.alwaysInFleet} /></td>
+                  <td className="px-4 py-3 text-center"><StatusBadge status={inst.status} endDate={inst.endDate} alwaysInFleet={inst.alwaysInFleet} /></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       <button
@@ -996,25 +1000,37 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         </div>
                       </div>
                       {inviteLink && inviteLink.userId === u.id && (
-                        <div className="mt-1 ml-5 flex items-center gap-2 rounded-lg border border-primary-100 bg-primary-50 p-2">
-                          <input
-                            type="text"
-                            readOnly
-                            value={inviteLink.url}
-                            className="flex-1 bg-transparent text-xs font-mono text-primary-700 outline-none truncate"
-                          />
-                          <button
-                            onClick={copyInviteLink}
-                            className="rounded-md bg-primary-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-700 transition-colors flex items-center gap-1 shrink-0"
-                          >
-                            {inviteCopied ? <><Check className="h-3 w-3" /> Copié</> : <><Copy className="h-3 w-3" /> Copier</>}
-                          </button>
-                          <button
-                            onClick={() => setInviteLink(null)}
-                            className="rounded-md p-1 text-primary-400 hover:bg-primary-100 transition-colors"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
+                        <div className="mt-1 ml-5 space-y-1">
+                          {inviteLink.emailSent && (
+                            <p className="text-xs text-emerald-600 flex items-center gap-1">
+                              <Check className="h-3 w-3" /> Email d&apos;invitation envoyé à {u.email}
+                            </p>
+                          )}
+                          {inviteLink.emailSent === false && (
+                            <p className="text-xs text-orange-600">
+                              Email non envoyé (SMTP non configuré). Partagez le lien manuellement :
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 rounded-lg border border-primary-100 bg-primary-50 p-2">
+                            <input
+                              type="text"
+                              readOnly
+                              value={inviteLink.url}
+                              className="flex-1 bg-transparent text-xs font-mono text-primary-700 outline-none truncate"
+                            />
+                            <button
+                              onClick={copyInviteLink}
+                              className="rounded-md bg-primary-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-700 transition-colors flex items-center gap-1 shrink-0"
+                            >
+                              {inviteCopied ? <><Check className="h-3 w-3" /> Copié</> : <><Copy className="h-3 w-3" /> Copier</>}
+                            </button>
+                            <button
+                              onClick={() => setInviteLink(null)}
+                              className="rounded-md p-1 text-primary-400 hover:bg-primary-100 transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1092,13 +1108,35 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Message d&apos;accueil</label>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Titre d&apos;accueil</label>
+                  <input
+                    type="text"
+                    placeholder="Bienvenue sur votre espace client"
+                    value={portalSettings.welcomeTitle || ""}
+                    onChange={(e) => setPortalSettings({ ...portalSettings, welcomeTitle: e.target.value || null })}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Sous-titre d&apos;accueil</label>
                   <input
                     type="text"
                     placeholder="Bienvenue sur votre espace de suivi..."
                     value={portalSettings.welcomeMessage || ""}
                     onChange={(e) => setPortalSettings({ ...portalSettings, welcomeMessage: e.target.value || null })}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Contenu d&apos;accueil</label>
+                  <textarea
+                    placeholder="Texte affiché sur la page d'accueil du portail..."
+                    value={portalSettings.welcomeContent || ""}
+                    onChange={(e) => setPortalSettings({ ...portalSettings, welcomeContent: e.target.value || null })}
+                    rows={3}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-y"
                   />
                 </div>
 
@@ -1111,6 +1149,28 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     onChange={(e) => setPortalSettings({ ...portalSettings, footerText: e.target.value || null })}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-2">Sections de l&apos;accueil</label>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {([
+                      ["showStats", "Statistiques"],
+                      ["showExpiring", "Expirations proches"],
+                    ] as const).map(([key, label]) => (
+                      <button
+                        key={key}
+                        onClick={() => setPortalSettings({ ...portalSettings, [key]: !portalSettings[key] })}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          portalSettings[key]
+                            ? "border-primary-300 bg-primary-50 text-primary-700"
+                            : "border-slate-200 text-slate-400"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="sm:col-span-2">

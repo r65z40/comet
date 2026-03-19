@@ -19,6 +19,10 @@ interface PortalContextType {
     primaryColor: string;
     headerLogo: string | null;
     welcomeMessage: string | null;
+    welcomeTitle: string | null;
+    welcomeContent: string | null;
+    showStats: boolean;
+    showExpiring: boolean;
     showFamily: boolean;
     showSupplier: boolean;
     showDuration: boolean;
@@ -43,8 +47,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const [ctx, setCtx] = useState<PortalContextType>({ client: null, user: null, portalSettings: null });
   const [loading, setLoading] = useState(true);
 
-  // Login page has no layout
-  if (pathname === "/portal/login") {
+  // Login and setup pages have no layout
+  if (pathname === "/portal/login" || pathname === "/portal/setup") {
     return <>{children}</>;
   }
 
@@ -63,6 +67,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             primaryColor: "#3b82f6",
             headerLogo: null,
             welcomeMessage: null,
+            welcomeTitle: null,
+            welcomeContent: null,
+            showStats: true,
+            showExpiring: true,
             showFamily: true,
             showSupplier: true,
             showDuration: true,

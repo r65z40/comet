@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { randomBytes } from "crypto";
+import { sendInviteEmail } from "@/lib/mail";
 
-// POST - generate an invitation token for a portal user
+// POST - generate an invitation token for a portal user and send email
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string; userId: string }> }) {
   const session = await auth();
   if (!session || session.user?.role !== "ADMIN") {
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const user = await prisma.clientUser.findFirst({
     where: { id: userId, clientId: id },
+    include: { client: { select: { name: true } } },
   });
 
   if (!user) {
@@ -31,5 +33,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const origin = req.headers.get("origin") || req.nextUrl.origin;
   const inviteUrl = `${origin}/portal/setup?token=${token}`;
 
-  return NextResponse.json({ inviteUrl, expiresAt: expiry.toISOString() });
+  // Send invitation email
+  let emailSent = false;
+  try {
+    await sendInviteEmail({
+      to: user.email,
+      userName: user.name,
+      clientName: user.client.name,
+      inviteUrl,
+    });
+    emailSent = true;
+  } catch (err) {
+    console.error("Failed to send invite email:", err);
+  }
+
+  return NextResponse.json({ inviteUrl, expiresAt: expiry.toISOString(), emailSent });
 }

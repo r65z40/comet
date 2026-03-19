@@ -89,6 +89,10 @@ model ClientPortalSettings {
   primaryColor    String  @default("#3b82f6")
   headerLogo      String?
   welcomeMessage  String?
+  welcomeTitle    String?
+  welcomeContent  String?
+  showStats       Boolean @default(true)
+  showExpiring    Boolean @default(true)
   showFamily      Boolean @default(true)
   showSupplier    Boolean @default(true)
   showDuration    Boolean @default(true)

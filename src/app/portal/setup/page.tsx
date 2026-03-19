@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ShieldCheck, CheckCircle, AlertCircle } from "lucide-react";
 
-export default function PortalSetupPage() {
+function SetupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -216,5 +216,17 @@ export default function PortalSetupPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function PortalSetupPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    }>
+      <SetupForm />
+    </Suspense>
   );
 }

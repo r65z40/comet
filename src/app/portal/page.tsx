@@ -59,14 +59,20 @@ export default function PortalDashboard() {
       {/* Welcome */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">
-          Bienvenue, <span style={{ color: primaryColor }}>{client?.name}</span>
+          {portalSettings?.welcomeTitle || (<>Bienvenue, <span style={{ color: primaryColor }}>{client?.name}</span></>)}
         </h1>
         {portalSettings?.welcomeMessage && (
           <p className="mt-1 text-sm text-slate-500">{portalSettings.welcomeMessage}</p>
         )}
+        {portalSettings?.welcomeContent && (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+            {portalSettings.welcomeContent}
+          </div>
+        )}
       </div>
 
       {/* Stats */}
+      {portalSettings?.showStats !== false && (
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <div className="flex items-center gap-3">
@@ -116,9 +122,10 @@ export default function PortalDashboard() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Expiring soon list */}
-      {expiringSoon.length > 0 && (
+      {portalSettings?.showExpiring !== false && expiringSoon.length > 0 && (
         <div className="rounded-xl border border-orange-200 bg-white p-5">
           <h2 className="text-sm font-semibold text-slate-900 mb-3">
             Garanties expirant dans les 90 prochains jours
