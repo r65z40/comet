@@ -408,7 +408,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       align-items: center;
       justify-content: center;
       text-align: center;
-      page-break-after: always;
       background: #ffffff;
       color: #1a1a2e;
       padding: 20px;
@@ -435,7 +434,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page .date { font-size: 16px; color: #94a3b8; margin-top: 40px; }
     .cover-page .message { font-size: 14px; color: #64748b; margin-top: 20px; max-width: 500px; line-height: 1.6; }
     .cover-page .vertical-text { position: absolute; right: 0; top: 0; bottom: 0; writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; padding-right: 5px; }
-    @media print { .cover-page .vertical-text { top: 50%; bottom: auto; transform: translateY(-50%); } }
+    @media print { .cover-page { page-break-after: always; } .cover-page .vertical-text { top: 50%; bottom: auto; transform: translateY(-50%); } }
 
     .report-content { padding: 10px 5mm; }
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
