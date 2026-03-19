@@ -41,19 +41,36 @@ const navItems = [
   { name: "Rapport", href: "/portal/report", icon: FileText },
 ];
 
+const defaultSettings: PortalContextType["portalSettings"] = {
+  primaryColor: "#3b82f6",
+  headerLogo: null,
+  welcomeMessage: null,
+  welcomeTitle: null,
+  welcomeContent: null,
+  showStats: true,
+  showExpiring: true,
+  showFamily: true,
+  showSupplier: true,
+  showDuration: true,
+  showQuantity: false,
+  showComParc: false,
+  footerText: null,
+};
+
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [ctx, setCtx] = useState<PortalContextType>({ client: null, user: null, portalSettings: null });
   const [loading, setLoading] = useState(true);
 
-  // Login and setup pages have no layout
-  if (pathname === "/portal/login" || pathname === "/portal/setup") {
-    return <>{children}</>;
-  }
+  const isPublicPage = pathname === "/portal/login" || pathname === "/portal/setup";
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
+    if (isPublicPage) {
+      setLoading(false);
+      return;
+    }
+
     fetch("/api/portal/me")
       .then((r) => {
         if (!r.ok) throw new Error("Unauthorized");
@@ -63,32 +80,23 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         setCtx({
           client: data.client,
           user: data.user,
-          portalSettings: data.portalSettings || {
-            primaryColor: "#3b82f6",
-            headerLogo: null,
-            welcomeMessage: null,
-            welcomeTitle: null,
-            welcomeContent: null,
-            showStats: true,
-            showExpiring: true,
-            showFamily: true,
-            showSupplier: true,
-            showDuration: true,
-            showQuantity: false,
-            showComParc: false,
-            footerText: null,
-          },
+          portalSettings: data.portalSettings || defaultSettings,
         });
         setLoading(false);
       })
       .catch(() => {
         router.push("/portal/login");
       });
-  }, [router]);
+  }, [router, isPublicPage]);
 
   async function handleLogout() {
     await fetch("/api/portal/auth", { method: "DELETE" });
     router.push("/portal/login");
+  }
+
+  // Public pages (login, setup) render without portal chrome
+  if (isPublicPage) {
+    return <>{children}</>;
   }
 
   if (loading) {

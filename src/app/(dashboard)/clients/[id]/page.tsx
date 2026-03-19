@@ -146,7 +146,19 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   function copyInviteLink() {
     if (!inviteLink) return;
-    navigator.clipboard.writeText(inviteLink.url);
+    // Fallback for non-HTTPS contexts where navigator.clipboard is unavailable
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(inviteLink.url);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = inviteLink.url;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
     setInviteCopied(true);
     setTimeout(() => setInviteCopied(false), 3000);
   }
