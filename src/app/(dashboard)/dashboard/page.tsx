@@ -586,13 +586,30 @@ export default function DashboardPage() {
   }, []);
 
   // Load dashboard data
-  useEffect(() => {
+  const refreshData = useCallback(() => {
     fetch("/api/dashboard/stats")
       .then((r) => { if (!r.ok) throw new Error(`Erreur ${r.status}`); return r.json(); })
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
+
+  // Refresh data when returning to the page (e.g. after editing an installation)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refreshData();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", refreshData);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", refreshData);
+    };
+  }, [refreshData]);
 
   // Save layout
   const saveLayout = useCallback((newPanels: PanelConfig[]) => {

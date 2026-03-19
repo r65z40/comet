@@ -8,8 +8,8 @@ function buildInviteEmailHtml(userName: string, clientName: string, inviteUrl: s
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "COMET";
   const logosHtml = (companyLogo || clientLogo)
     ? `<div style="text-align: center; margin-bottom: 24px;">
-        ${companyLogo ? `<img src="${companyLogo}" alt="${appName}" style="max-height: 48px; max-width: 180px; object-fit: contain; margin: 0 8px;" />` : ""}
-        ${clientLogo ? `<img src="${clientLogo}" alt="${clientName}" style="max-height: 48px; max-width: 180px; object-fit: contain; margin: 0 8px;" />` : ""}
+        ${companyLogo ? `<img src="${companyLogo}" alt="${appName}" style="max-height: 32px; max-width: 120px; object-fit: contain; margin: 0 8px;" />` : ""}
+        ${clientLogo ? `<img src="${clientLogo}" alt="${clientName}" style="max-height: 32px; max-width: 120px; object-fit: contain; margin: 0 8px;" />` : ""}
       </div>`
     : "";
   return `

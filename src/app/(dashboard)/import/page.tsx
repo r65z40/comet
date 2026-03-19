@@ -29,8 +29,6 @@ interface ImportResult {
   errors?: string[];
 }
 
-type DuplicateAction = "skip" | "update" | "force";
-
 // Expected fields for the app
 const APP_FIELDS = [
   { key: "", label: "— Ignorer —" },
@@ -137,48 +135,63 @@ export default function ImportPage() {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
-  const [duplicates, setDuplicates] = useState<{ line: number; client: string; product: string; invoice: string }[] | null>(null);
-  const [duplicateStats, setDuplicateStats] = useState<{ existingClients: number; newClients: number; existingProducts: number; newProducts: number; existingInvoices: number } | null>(null);
-  const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
-  const [duplicateAction, setDuplicateAction] = useState<DuplicateAction>("skip");
-  const [skippedLines, setSkippedLines] = useState<Set<number>>(new Set());
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const readFile = useCallback((f: File) => {
+  const readFile = useCallback(async (f: File) => {
     setFile(f);
     setResult(null);
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const buffer = e.target?.result as ArrayBuffer;
-      const bytes = new Uint8Array(buffer);
 
-      let text: string;
-      // Check for UTF-8 BOM (EF BB BF)
-      const hasUtf8Bom = bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
-      if (hasUtf8Bom) {
-        text = new TextDecoder("utf-8").decode(bytes);
-      } else {
-        // Try strict UTF-8 first
-        try {
-          text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-        } catch {
-          // Fallback to Latin-1 (Windows-1252) for French Excel exports
-          text = new TextDecoder("iso-8859-1").decode(bytes);
-        }
-      }
+    const isXlsx = f.name.toLowerCase().endsWith(".xlsx") || f.name.toLowerCase().endsWith(".xls");
 
-      setFileText(text);
-      const detected = detectSeparator(text);
-      setSeparator(detected);
-      const p = parseCSVPreview(text, detected);
+    if (isXlsx) {
+      // Dynamic import of xlsx library
+      const XLSX = (await import("xlsx")).default || await import("xlsx");
+      const buffer = await f.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      // Convert to CSV with semicolon separator
+      const csvText = XLSX.utils.sheet_to_csv(sheet, { FS: ";" });
+      setFileText(csvText);
+      setSeparator(";");
+      const p = parseCSVPreview(csvText, ";");
       setPreview(p);
       const autoMappings = autoMapColumns(p.headers);
       setMappings(autoMappings);
       setStep(2);
-    };
-    reader.readAsArrayBuffer(f);
+    } else {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const buffer = e.target?.result as ArrayBuffer;
+        const bytes = new Uint8Array(buffer);
+
+        let text: string;
+        // Check for UTF-8 BOM (EF BB BF)
+        const hasUtf8Bom = bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+        if (hasUtf8Bom) {
+          text = new TextDecoder("utf-8").decode(bytes);
+        } else {
+          // Try strict UTF-8 first
+          try {
+            text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+          } catch {
+            // Fallback to Latin-1 (Windows-1252) for French Excel exports
+            text = new TextDecoder("iso-8859-1").decode(bytes);
+          }
+        }
+
+        setFileText(text);
+        const detected = detectSeparator(text);
+        setSeparator(detected);
+        const p = parseCSVPreview(text, detected);
+        setPreview(p);
+        const autoMappings = autoMapColumns(p.headers);
+        setMappings(autoMappings);
+        setStep(2);
+      };
+      reader.readAsArrayBuffer(f);
+    }
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -213,52 +226,8 @@ export default function ImportPage() {
 
   const hasRequiredMappings = mappings.some((m) => m.appField === "client");
 
-  const checkDuplicates = async () => {
-    if (!preview || !fileText) return;
-    setCheckingDuplicates(true);
-    try {
-      const lines = fileText.split(/\r?\n/).filter((l) => l.trim());
-      const rows: { client: string; product: string; invoice: string }[] = [];
-      const clientIdx = mappings.findIndex((m) => m.appField === "client");
-      const productIdx = mappings.findIndex((m) => m.appField === "nom_produit");
-      const invoiceIdx = mappings.findIndex((m) => m.appField === "num_facture");
-
-      for (let i = 1; i < lines.length; i++) {
-        const fields = parseCSVPreview(lines.slice(i, i + 1).join("\n") + "\n" + "dummy", separator).rows[0] || [];
-        // Simple re-parse using the same logic
-        const rawFields = lines[i].split(separator).map((f) => f.trim().replace(/^"|"$/g, ""));
-        rows.push({
-          client: clientIdx >= 0 ? (rawFields[clientIdx] || "") : "",
-          product: productIdx >= 0 ? (rawFields[productIdx] || "") : "",
-          invoice: invoiceIdx >= 0 ? (rawFields[invoiceIdx] || "") : "",
-        });
-      }
-
-      const res = await fetch("/api/import/check-duplicates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setDuplicates(data.duplicates || []);
-        setDuplicateStats(data.stats || null);
-      }
-    } catch {
-      // Silently fail duplicate check — don't block import
-    } finally {
-      setCheckingDuplicates(false);
-    }
-  };
-
-  const handleImport = async (forceImport = false) => {
+  const handleImport = async () => {
     if (!file) return;
-
-    // Run duplicate check first if not already done
-    if (!forceImport && !skipDuplicateCheck && duplicates === null) {
-      await checkDuplicates();
-      return; // Show results first, user clicks again to confirm
-    }
 
     setImporting(true);
     setResult(null);
@@ -287,10 +256,6 @@ export default function ImportPage() {
       const formData = new FormData();
       formData.append("file", mappedFile);
       formData.append("separator", separator);
-      formData.append("duplicateAction", duplicateAction);
-      if (skippedLines.size > 0) {
-        formData.append("skipLines", Array.from(skippedLines).join(","));
-      }
 
       // Use XMLHttpRequest for upload progress tracking
       const data = await new Promise<ImportResult>((resolve, reject) => {
@@ -364,11 +329,6 @@ export default function ImportPage() {
     setPreview(null);
     setMappings([]);
     setResult(null);
-    setDuplicates(null);
-    setDuplicateStats(null);
-    setSkipDuplicateCheck(false);
-    setDuplicateAction("skip");
-    setSkippedLines(new Set());
     setUploadProgress(null);
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -391,7 +351,7 @@ export default function ImportPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Import / Export</h1>
-        <p className="text-sm text-slate-500 mt-1">Importez ou exportez vos données au format CSV</p>
+        <p className="text-sm text-slate-500 mt-1">Importez ou exportez vos données au format CSV ou Excel</p>
       </div>
 
       {/* Steps indicator */}
@@ -431,7 +391,7 @@ export default function ImportPage() {
             <input
               ref={fileRef}
               type="file"
-              accept=".csv,.txt,.tsv"
+              accept=".csv,.txt,.tsv,.xlsx,.xls"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -440,7 +400,7 @@ export default function ImportPage() {
             />
             <Upload className={`h-12 w-12 mx-auto mb-4 ${dragOver ? "text-primary-500" : "text-slate-400"}`} />
             <p className="text-sm font-medium text-slate-700 mb-1">
-              Glissez-déposez votre fichier CSV ici
+              Glissez-déposez votre fichier CSV ou Excel ici
             </p>
             <p className="text-xs text-slate-400 mb-4">ou</p>
             <button
@@ -449,7 +409,7 @@ export default function ImportPage() {
             >
               Parcourir les fichiers
             </button>
-            <p className="text-xs text-slate-400 mt-3">Formats : .csv, .txt, .tsv — Max 10 Mo</p>
+            <p className="text-xs text-slate-400 mt-3">Formats : .csv, .txt, .tsv, .xlsx, .xls — Max 10 Mo</p>
           </div>
 
           <div className="flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200 p-4">
@@ -595,145 +555,6 @@ export default function ImportPage() {
             </div>
           </div>
 
-          {/* Duplicate check results */}
-          {duplicates !== null && (
-            <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Eye className="h-4 w-4 text-primary-600" />
-                <h3 className="text-sm font-semibold text-slate-900">Analyse pré-import</h3>
-              </div>
-
-              {duplicateStats && (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <div className="rounded-lg bg-slate-50 p-3 text-center">
-                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingClients}</p>
-                    <p className="text-xs text-slate-400">Clients existants</p>
-                  </div>
-                  <div className="rounded-lg bg-emerald-50 p-3 text-center">
-                    <p className="text-lg font-bold text-emerald-600">{duplicateStats.newClients}</p>
-                    <p className="text-xs text-slate-400">Nouveaux clients</p>
-                  </div>
-                  <div className="rounded-lg bg-slate-50 p-3 text-center">
-                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingProducts}</p>
-                    <p className="text-xs text-slate-400">Produits existants</p>
-                  </div>
-                  <div className="rounded-lg bg-emerald-50 p-3 text-center">
-                    <p className="text-lg font-bold text-emerald-600">{duplicateStats.newProducts}</p>
-                    <p className="text-xs text-slate-400">Nouveaux produits</p>
-                  </div>
-                  <div className="rounded-lg bg-slate-50 p-3 text-center">
-                    <p className="text-lg font-bold text-slate-700">{duplicateStats.existingInvoices}</p>
-                    <p className="text-xs text-slate-400">Factures existantes</p>
-                  </div>
-                </div>
-              )}
-
-              {duplicates.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                    <p className="text-xs text-amber-700">
-                      <strong>{duplicates.length} doublon(s) potentiel(s)</strong> détecté(s) — ces lignes correspondent à des installations déjà existantes (même client + produit).
-                    </p>
-                  </div>
-
-                  {/* Global duplicate resolution */}
-                  <div className="rounded-lg border border-slate-200 p-4 space-y-3">
-                    <p className="text-xs font-semibold text-slate-700">Que faire avec les doublons ?</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {([
-                        { value: "skip" as DuplicateAction, label: "Ignorer les doublons", desc: "Les lignes en double sont ignorées, seules les nouvelles sont importées", color: "border-amber-300 bg-amber-50" },
-                        { value: "update" as DuplicateAction, label: "Mettre à jour les existants", desc: "Les installations existantes sont mises à jour avec les nouvelles données", color: "border-blue-300 bg-blue-50" },
-                        { value: "force" as DuplicateAction, label: "Tout importer", desc: "Créer de nouvelles installations même si des doublons existent", color: "border-red-300 bg-red-50" },
-                      ]).map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setDuplicateAction(opt.value)}
-                          className={`rounded-lg border-2 p-3 text-left transition-all ${
-                            duplicateAction === opt.value
-                              ? opt.color + " ring-2 ring-primary-400"
-                              : "border-slate-200 bg-white hover:border-slate-300"
-                          }`}
-                        >
-                          <p className="text-xs font-semibold text-slate-800">{opt.label}</p>
-                          <p className="text-xs text-slate-500 mt-1">{opt.desc}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Per-row skip toggles (only in "skip" mode) */}
-                  {duplicateAction === "skip" && (
-                    <div className="rounded-lg border border-slate-200 max-h-56 overflow-y-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 sticky top-0">
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 w-10">
-                              <input
-                                type="checkbox"
-                                checked={duplicates.every((d) => skippedLines.has(d.line))}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSkippedLines(new Set(duplicates.map((d) => d.line)));
-                                  } else {
-                                    setSkippedLines(new Set());
-                                  }
-                                }}
-                                className="h-3.5 w-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                                title="Tout ignorer / Tout garder"
-                              />
-                            </th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600">Ligne</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600">Client</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600">Produit</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600">Facture</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {duplicates.map((d, i) => {
-                            const isSkipped = skippedLines.has(d.line);
-                            return (
-                              <tr key={i} className={`border-b border-slate-100 ${isSkipped ? "opacity-50" : ""}`}>
-                                <td className="px-3 py-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSkipped}
-                                    onChange={() => {
-                                      const next = new Set(skippedLines);
-                                      if (isSkipped) next.delete(d.line);
-                                      else next.add(d.line);
-                                      setSkippedLines(next);
-                                    }}
-                                    className="h-3.5 w-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                                  />
-                                </td>
-                                <td className="px-3 py-2 text-slate-500">{d.line}</td>
-                                <td className="px-3 py-2 text-slate-700">{d.client}</td>
-                                <td className="px-3 py-2 text-slate-700">{d.product}</td>
-                                <td className="px-3 py-2 text-slate-500">{d.invoice}</td>
-                                <td className="px-3 py-2">
-                                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${isSkipped ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}>
-                                    {isSkipped ? "Ignorer" : "Importer"}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                  <p className="text-xs text-emerald-700">Aucun doublon détecté. Vous pouvez importer en toute sécurité.</p>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Upload progress bar */}
           {importing && uploadProgress !== null && (
             <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
@@ -779,44 +600,23 @@ export default function ImportPage() {
               <ArrowLeft className="h-4 w-4" />
               Retour
             </button>
-            <div className="flex items-center gap-3">
-              {duplicates === null && (
-                <button
-                  onClick={() => handleImport()}
-                  disabled={!hasRequiredMappings || checkingDuplicates}
-                  className="flex items-center gap-2 rounded-lg bg-slate-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 transition-colors"
-                >
-                  {checkingDuplicates ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Vérification...
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="h-4 w-4" />
-                      Vérifier les doublons
-                    </>
-                  )}
-                </button>
+            <button
+              onClick={() => handleImport()}
+              disabled={!hasRequiredMappings || importing}
+              className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+            >
+              {importing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Import en cours...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4" />
+                  Importer {preview.totalRows} ligne{preview.totalRows > 1 ? "s" : ""}
+                </>
               )}
-              <button
-                onClick={() => handleImport(true)}
-                disabled={!hasRequiredMappings || importing || duplicates === null}
-                className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
-              >
-                {importing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Import en cours...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4" />
-                    Importer {preview.totalRows} ligne{preview.totalRows > 1 ? "s" : ""}
-                  </>
-                )}
-              </button>
-            </div>
+            </button>
           </div>
         </div>
       )}
