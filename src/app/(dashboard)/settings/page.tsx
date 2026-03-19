@@ -2101,6 +2101,48 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Outils */}
+      <div className="lg:col-span-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="rounded-lg bg-slate-100 dark:bg-slate-700 p-2">
+            <Plug className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-slate-900 dark:text-white">Outils</h3>
+            <p className="text-xs text-slate-400">Accédez aux outils de gestion de données</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <a href="/import" className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="rounded-lg bg-primary-50 dark:bg-primary-900/30 p-2">
+              <Upload className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-900 dark:text-white">Import / Export</p>
+              <p className="text-xs text-slate-400">Importer ou exporter des données CSV</p>
+            </div>
+          </a>
+          <a href="/sync" className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="rounded-lg bg-cyan-50 dark:bg-cyan-900/30 p-2">
+              <FileText className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-900 dark:text-white">Synchronisation</p>
+              <p className="text-xs text-slate-400">Synchroniser avec une source externe</p>
+            </div>
+          </a>
+          <a href="/activity" className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/30 p-2">
+              <Bell className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-900 dark:text-white">Journal d&apos;activité</p>
+              <p className="text-xs text-slate-400">Historique des actions</p>
+            </div>
+          </a>
+        </div>
+      </div>
+
       {/* Suppression de données (admin only) */}
       {isAdmin && <div className="lg:col-span-2 rounded-xl border border-red-200 bg-white p-6">
         <div className="flex items-center gap-3 mb-4">

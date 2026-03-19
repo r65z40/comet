@@ -28,6 +28,20 @@
   --color-surface-950: #f8fafc;
 }
 
+:root {
+  --tooltip-bg: #ffffff;
+  --tooltip-border: #e2e8f0;
+  --tooltip-text: #334155;
+  --chart-label: #475569;
+}
+
+.dark {
+  --tooltip-bg: #1e293b;
+  --tooltip-border: #334155;
+  --tooltip-text: #e2e8f0;
+  --chart-label: #94a3b8;
+}
+
 body {
   background-color: var(--color-surface-950);
   color: var(--color-surface-600);
