@@ -3,6 +3,20 @@ import { portalLogin } from "@/lib/portal-auth";
 
 const PORTAL_COOKIE = "portal_token";
 
+function buildSetCookie(name: string, value: string, maxAge: number): string {
+  const parts = [
+    `${name}=${value}`,
+    `Path=/`,
+    `HttpOnly`,
+    `SameSite=Lax`,
+    `Max-Age=${maxAge}`,
+  ];
+  if (process.env.NODE_ENV === "production") {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
@@ -16,13 +30,10 @@ export async function POST(req: NextRequest) {
     }
 
     const response = NextResponse.json({ success: true, clientId: result.clientId });
-    response.cookies.set(PORTAL_COOKIE, result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-      path: "/",
-    });
+    response.headers.append(
+      "Set-Cookie",
+      buildSetCookie(PORTAL_COOKIE, result.token, 60 * 60 * 24 * 7)
+    );
     return response;
   } catch {
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
@@ -31,6 +42,9 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   const response = NextResponse.json({ success: true });
-  response.cookies.delete(PORTAL_COOKIE);
+  response.headers.append(
+    "Set-Cookie",
+    `${PORTAL_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+  );
   return response;
 }

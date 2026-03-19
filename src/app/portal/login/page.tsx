@@ -18,6 +18,7 @@ export default function PortalLoginPage() {
       const res = await fetch("/api/portal/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
