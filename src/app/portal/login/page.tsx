@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
+import { portalLoginAction } from "./actions";
 
 export default function PortalLoginPage() {
   const [email, setEmail] = useState("");
@@ -15,21 +16,14 @@ export default function PortalLoginPage() {
     setError("");
 
     try {
-      const res = await fetch("/api/portal/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
-      });
+      const result = await portalLoginAction(email, password);
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Identifiants incorrects");
+      if (result.error) {
+        setError(result.error);
         setLoading(false);
         return;
       }
 
-      // Full page navigation to ensure the cookie is sent with the request
       window.location.href = "/portal";
     } catch {
       setError("Erreur de connexion");
