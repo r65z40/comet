@@ -142,56 +142,65 @@ export default function ImportPage() {
     setFile(f);
     setResult(null);
 
-    const isXlsx = f.name.toLowerCase().endsWith(".xlsx") || f.name.toLowerCase().endsWith(".xls");
+    const buffer = await f.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
 
-    if (isXlsx) {
-      // Dynamic import of xlsx library
-      const XLSX = (await import("xlsx")).default || await import("xlsx");
-      const buffer = await f.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      // Convert to CSV with semicolon separator
-      const csvText = XLSX.utils.sheet_to_csv(sheet, { FS: ";" });
-      setFileText(csvText);
-      setSeparator(";");
-      const p = parseCSVPreview(csvText, ";");
-      setPreview(p);
-      const autoMappings = autoMapColumns(p.headers);
-      setMappings(autoMappings);
-      setStep(2);
-    } else {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const buffer = e.target?.result as ArrayBuffer;
-        const bytes = new Uint8Array(buffer);
+    // Detect Excel files by extension OR by content (PK zip signature = 0x504B0304)
+    const hasExcelExtension = /\.(xlsx|xls)$/i.test(f.name);
+    const hasZipSignature = bytes[0] === 0x50 && bytes[1] === 0x4B && bytes[2] === 0x03 && bytes[3] === 0x04;
+    const hasExcelMime = f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      || f.type === "application/vnd.ms-excel";
+    const isExcel = hasExcelExtension || hasZipSignature || hasExcelMime;
 
-        let text: string;
-        // Check for UTF-8 BOM (EF BB BF)
-        const hasUtf8Bom = bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
-        if (hasUtf8Bom) {
-          text = new TextDecoder("utf-8").decode(bytes);
-        } else {
-          // Try strict UTF-8 first
-          try {
-            text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-          } catch {
-            // Fallback to Latin-1 (Windows-1252) for French Excel exports
-            text = new TextDecoder("iso-8859-1").decode(bytes);
-          }
-        }
-
-        setFileText(text);
-        const detected = detectSeparator(text);
-        setSeparator(detected);
-        const p = parseCSVPreview(text, detected);
+    if (isExcel) {
+      try {
+        // Dynamic import of xlsx library
+        const xlsxModule = await import("xlsx");
+        const XLSX = xlsxModule.default || xlsxModule;
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        // Convert to CSV with semicolon separator
+        const csvText = XLSX.utils.sheet_to_csv(sheet, { FS: ";" });
+        setFileText(csvText);
+        setSeparator(";");
+        const p = parseCSVPreview(csvText, ";");
         setPreview(p);
         const autoMappings = autoMapColumns(p.headers);
         setMappings(autoMappings);
         setStep(2);
-      };
-      reader.readAsArrayBuffer(f);
+        return;
+      } catch (err) {
+        console.error("Erreur de lecture Excel:", err);
+        setResult({ success: false, message: "Impossible de lire le fichier Excel. Vérifiez que le fichier n'est pas corrompu." });
+        return;
+      }
     }
+
+    // CSV / TSV / text file
+    let text: string;
+    // Check for UTF-8 BOM (EF BB BF)
+    const hasUtf8Bom = bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+    if (hasUtf8Bom) {
+      text = new TextDecoder("utf-8").decode(bytes);
+    } else {
+      // Try strict UTF-8 first
+      try {
+        text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      } catch {
+        // Fallback to Latin-1 (Windows-1252) for French Excel exports
+        text = new TextDecoder("iso-8859-1").decode(bytes);
+      }
+    }
+
+    setFileText(text);
+    const detected = detectSeparator(text);
+    setSeparator(detected);
+    const p = parseCSVPreview(text, detected);
+    setPreview(p);
+    const autoMappings = autoMapColumns(p.headers);
+    setMappings(autoMappings);
+    setStep(2);
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -391,7 +400,7 @@ export default function ImportPage() {
             <input
               ref={fileRef}
               type="file"
-              accept=".csv,.txt,.tsv,.xlsx,.xls"
+              accept=".csv,.txt,.tsv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
