@@ -234,16 +234,18 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Create invoice line
+        // Create invoice line — salePrice is the total; unitPrice is derived
+        const totalPrice = salePrice;
+        const unitPrice = totalPrice && quantity ? totalPrice / quantity : null;
         const invoiceLine = await prisma.invoiceLine.create({
           data: {
             invoiceId: invoice.id,
             productId: product?.id || null,
             description: description || productName || null,
             quantity,
-            unitPrice: salePrice,
+            unitPrice,
             purchasePrice,
-            totalPrice: salePrice ? salePrice * quantity : null,
+            totalPrice,
           },
         });
 

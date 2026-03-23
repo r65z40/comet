@@ -211,7 +211,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                         {line.quantity}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600 text-right">
-                        {line.unitPrice != null ? formatCurrency(line.unitPrice) : "—"}
+                        {line.totalPrice != null && line.quantity ? formatCurrency(line.totalPrice / line.quantity) : "—"}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-900 font-medium text-right">
                         {line.totalPrice != null ? formatCurrency(line.totalPrice) : "—"}
@@ -250,20 +250,18 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                     </tr>
                   ))}
                 </tbody>
-                {invoice.totalAmount != null && (
-                  <tfoot>
-                    <tr className="border-t border-slate-200">
-                      <td colSpan={5} className="px-4 py-3 text-sm font-medium text-slate-500 text-right">
-                        Total
-                      </td>
-                      <td className="px-4 py-3 text-sm font-bold text-slate-900 text-right">
-                        {formatCurrency(invoice.totalAmount)}
-                      </td>
-                      <td />
-                      <td />
-                    </tr>
-                  </tfoot>
-                )}
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 bg-slate-50">
+                    <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-slate-700 text-right">
+                      Total
+                    </td>
+                    <td className="px-4 py-3 text-sm font-bold text-slate-900 text-right">
+                      {formatCurrency(invoice.lines.reduce((sum, line) => sum + (line.totalPrice || 0), 0))}
+                    </td>
+                    <td />
+                    <td />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>

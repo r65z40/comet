@@ -167,7 +167,7 @@ export async function GET(req: NextRequest) {
             escapeCSV(line.product?.name),
             escapeCSV(line.description),
             escapeCSV(line.quantity),
-            escapeCSV(line.unitPrice),
+            escapeCSV(line.totalPrice != null && line.quantity ? line.totalPrice / line.quantity : line.unitPrice),
             escapeCSV(line.purchasePrice),
             escapeCSV(line.totalPrice),
             escapeCSV(inv.status),
