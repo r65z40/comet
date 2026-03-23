@@ -170,30 +170,66 @@ export async function syncProducts() {
         const supplier = getCustomField(cf, "Fournisseur") || null;
         const duration = getCustomField(cf, "Durée") || getCustomField(cf, "Duree") || null;
 
-        await prisma.product.upsert({
-          where: { axonautId: p.id },
-          create: {
-            axonautId: p.id,
-            name: p.name || "Sans nom",
-            code: p.code || null,
-            description: p.description || null,
-            family,
-            supplier,
-            duration,
-            durationMonths: durationMonths || null,
-            unitPrice: toFloat(p.price),
-          },
-          update: {
-            name: p.name || "Sans nom",
-            code: p.code || null,
-            description: p.description || null,
-            family,
-            supplier,
-            duration,
-            durationMonths: durationMonths || null,
-            unitPrice: toFloat(p.price),
-          },
-        });
+        // Check if a product with this axonautId already exists
+        const existingProductByAxonaut = await prisma.product.findUnique({ where: { axonautId: p.id } });
+
+        if (existingProductByAxonaut) {
+          // Already linked to Axonaut — just update
+          await prisma.product.update({
+            where: { id: existingProductByAxonaut.id },
+            data: {
+              name: p.name || "Sans nom",
+              code: p.code || null,
+              description: p.description || null,
+              family,
+              supplier,
+              duration,
+              durationMonths: durationMonths || null,
+              unitPrice: toFloat(p.price),
+            },
+          });
+        } else {
+          // No axonautId match — look for a manually imported product with the same name
+          const existingProductByName = await prisma.product.findFirst({
+            where: {
+              name: { equals: p.name || "Sans nom", mode: "insensitive" },
+              axonautId: null,
+            },
+          });
+
+          if (existingProductByName) {
+            // Link the existing manually imported product to Axonaut
+            await prisma.product.update({
+              where: { id: existingProductByName.id },
+              data: {
+                axonautId: p.id,
+                name: p.name || "Sans nom",
+                code: p.code || null,
+                description: p.description || null,
+                family,
+                supplier,
+                duration,
+                durationMonths: durationMonths || null,
+                unitPrice: toFloat(p.price),
+              },
+            });
+          } else {
+            // No match at all — create a new product
+            await prisma.product.create({
+              data: {
+                axonautId: p.id,
+                name: p.name || "Sans nom",
+                code: p.code || null,
+                description: p.description || null,
+                family,
+                supplier,
+                duration,
+                durationMonths: durationMonths || null,
+                unitPrice: toFloat(p.price),
+              },
+            });
+          }
+        }
         totalSynced++;
       }
 
@@ -255,30 +291,66 @@ export async function syncClients() {
         if (c.is_supplier || c.supplier) clientType = "fournisseur";
         else if (c.is_prospect || c.prospect) clientType = "prospect";
 
-        await prisma.client.upsert({
-          where: { axonautId: c.id },
-          create: {
-            axonautId: c.id,
-            name: c.name || "Sans nom",
-            email: c.email || null,
-            phone: c.phone || null,
-            address: c.address_street || null,
-            city: c.address_city || null,
-            zipCode: c.address_zip_code || null,
-            country: c.address_country || null,
-            clientType,
-          },
-          update: {
-            name: c.name || "Sans nom",
-            email: c.email || null,
-            phone: c.phone || null,
-            address: c.address_street || null,
-            city: c.address_city || null,
-            zipCode: c.address_zip_code || null,
-            country: c.address_country || null,
-            clientType,
-          },
-        });
+        // Check if a client with this axonautId already exists
+        const existingByAxonaut = await prisma.client.findUnique({ where: { axonautId: c.id } });
+
+        if (existingByAxonaut) {
+          // Already linked to Axonaut — just update
+          await prisma.client.update({
+            where: { id: existingByAxonaut.id },
+            data: {
+              name: c.name || "Sans nom",
+              email: c.email || null,
+              phone: c.phone || null,
+              address: c.address_street || null,
+              city: c.address_city || null,
+              zipCode: c.address_zip_code || null,
+              country: c.address_country || null,
+              clientType,
+            },
+          });
+        } else {
+          // No axonautId match — look for a manually imported client with the same name
+          const existingByName = await prisma.client.findFirst({
+            where: {
+              name: { equals: c.name || "Sans nom", mode: "insensitive" },
+              axonautId: null,
+            },
+          });
+
+          if (existingByName) {
+            // Link the existing manually imported client to Axonaut
+            await prisma.client.update({
+              where: { id: existingByName.id },
+              data: {
+                axonautId: c.id,
+                name: c.name || "Sans nom",
+                email: c.email || null,
+                phone: c.phone || null,
+                address: c.address_street || null,
+                city: c.address_city || null,
+                zipCode: c.address_zip_code || null,
+                country: c.address_country || null,
+                clientType,
+              },
+            });
+          } else {
+            // No match at all — create a new client
+            await prisma.client.create({
+              data: {
+                axonautId: c.id,
+                name: c.name || "Sans nom",
+                email: c.email || null,
+                phone: c.phone || null,
+                address: c.address_street || null,
+                city: c.address_city || null,
+                zipCode: c.address_zip_code || null,
+                country: c.address_country || null,
+                clientType,
+              },
+            });
+          }
+        }
         totalSynced++;
       }
 
@@ -538,30 +610,37 @@ export async function refreshClient(axonautId: number) {
   if (c.is_supplier || c.supplier) clientType = "fournisseur";
   else if (c.is_prospect || c.prospect) clientType = "prospect";
 
-  await prisma.client.upsert({
-    where: { axonautId: c.id },
-    create: {
-      axonautId: c.id,
-      name: c.name || "Sans nom",
-      email: c.email || null,
-      phone: c.phone || null,
-      address: c.address_street || null,
-      city: c.address_city || null,
-      zipCode: c.address_zip_code || null,
-      country: c.address_country || null,
-      clientType,
-    },
-    update: {
-      name: c.name || "Sans nom",
-      email: c.email || null,
-      phone: c.phone || null,
-      address: c.address_street || null,
-      city: c.address_city || null,
-      zipCode: c.address_zip_code || null,
-      country: c.address_country || null,
-      clientType,
-    },
-  });
+  const clientData = {
+    name: c.name || "Sans nom",
+    email: c.email || null,
+    phone: c.phone || null,
+    address: c.address_street || null,
+    city: c.address_city || null,
+    zipCode: c.address_zip_code || null,
+    country: c.address_country || null,
+    clientType,
+  };
+
+  // Check if already linked by axonautId
+  const existingByAxonaut = await prisma.client.findUnique({ where: { axonautId: c.id } });
+
+  if (existingByAxonaut) {
+    await prisma.client.update({ where: { id: existingByAxonaut.id }, data: clientData });
+  } else {
+    // Look for a manually imported client with the same name
+    const existingByName = await prisma.client.findFirst({
+      where: { name: { equals: c.name || "Sans nom", mode: "insensitive" }, axonautId: null },
+    });
+
+    if (existingByName) {
+      await prisma.client.update({
+        where: { id: existingByName.id },
+        data: { axonautId: c.id, ...clientData },
+      });
+    } else {
+      await prisma.client.create({ data: { axonautId: c.id, ...clientData } });
+    }
+  }
 
   return { success: true };
 }
