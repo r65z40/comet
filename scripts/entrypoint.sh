@@ -150,7 +150,7 @@ CRON_SECRET="${CRON_SECRET:-comet_cron_secret_2024}"
   sleep 20
   echo "=== Cron scheduler started (every 5 min, TZ=Europe/Paris) ==="
   while true; do
-    RESULT=$(curl -sf --max-time 30 "http://localhost:3000/api/cron?secret=${CRON_SECRET}" 2>&1) || true
+    RESULT=$(curl -sf --max-time 30 -H "x-cron-secret: ${CRON_SECRET}" "http://localhost:3000/api/cron" 2>&1) || true
     if [ -n "$RESULT" ]; then
       echo "[CRON] $(date '+%Y-%m-%d %H:%M:%S') $RESULT"
     fi

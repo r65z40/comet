@@ -587,7 +587,7 @@ export default function SettingsPage() {
             <p className="text-xs text-slate-400">Accédez aux outils de gestion de données</p>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <a href="/import" className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 hover:bg-slate-50 transition-colors">
             <div className="rounded-lg bg-primary-50 p-2">
               <Upload className="h-4 w-4 text-primary-600" />
@@ -615,6 +615,17 @@ export default function SettingsPage() {
               <p className="text-xs text-slate-400">Historique des actions</p>
             </div>
           </a>
+          {isAdmin && (
+            <a href="/backup" className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 hover:bg-slate-50 transition-colors">
+              <div className="rounded-lg bg-purple-50 p-2">
+                <Save className="h-4 w-4 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900">Sauvegardes</p>
+                <p className="text-xs text-slate-400">Backups de la base de données</p>
+              </div>
+            </a>
+          )}
         </div>
       </div>
 

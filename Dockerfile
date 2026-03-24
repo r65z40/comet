@@ -29,6 +29,8 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/scripts/entrypoint.sh ./entrypoint.sh
 
+RUN mkdir -p /app/backups && chown nextjs:nodejs /app/backups
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000

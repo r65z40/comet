@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendExpiryNotifications } from "@/lib/email";
+import { createBackup, getBackupSettings, rotateBackups, sendBackupFailureNotification } from "@/lib/backup";
 
 // Paris timezone helpers using Intl for reliable timezone handling
 function getParisComponents() {
@@ -194,9 +195,27 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // === Automatic Backup Check ===
+    let backupResult: { done: boolean; reason?: string; filename?: string } = { done: false };
+    try {
+      backupResult = await runAutoBackup(parisHour, parisMinute, todayStr);
+    } catch (backupErr) {
+      const backupMsg = backupErr instanceof Error ? backupErr.message : String(backupErr);
+      await prisma.syncLog.create({
+        data: {
+          type: "BACKUP",
+          status: "ERROR",
+          message: `${todayStr} - ${backupMsg}`,
+          startedAt: new Date(),
+          completedAt: new Date(),
+        },
+      }).catch(() => {});
+    }
+
     return NextResponse.json({
       success: true,
       ...result,
+      backup: backupResult,
       parisTime: `${String(parisHour).padStart(2, "0")}:${String(parisMinute).padStart(2, "0")}`,
     });
   } catch (err) {
@@ -214,5 +233,101 @@ export async function GET(req: NextRequest) {
     }).catch(() => {});
 
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+/**
+ * Run automatic backup if conditions match (time, frequency, not already done today).
+ */
+async function runAutoBackup(
+  parisHour: number,
+  parisMinute: number,
+  todayStr: string
+): Promise<{ done: boolean; reason?: string; filename?: string }> {
+  const settings = await getBackupSettings();
+
+  if (!settings.enabled) {
+    return { done: false, reason: "Backup automatique désactivé" };
+  }
+
+  const [targetHour, targetMinute] = settings.time.split(":").map(Number);
+
+  // Check time match (15-minute window)
+  const isTimeMatch =
+    parisHour === targetHour &&
+    parisMinute >= targetMinute &&
+    parisMinute < targetMinute + 15;
+
+  if (!isTimeMatch) {
+    return { done: false, reason: "Hors créneau backup" };
+  }
+
+  // Check day match for weekly/monthly
+  if (settings.frequency === "weekly") {
+    const parisDow = getParisDayOfWeek();
+    if (parisDow !== settings.day) {
+      return { done: false, reason: "Pas le bon jour pour le backup" };
+    }
+  } else if (settings.frequency === "monthly") {
+    const parisDay = getParisDayOfMonth();
+    if (parisDay !== settings.day) {
+      return { done: false, reason: "Pas le bon jour du mois pour le backup" };
+    }
+  }
+
+  // Check if already backed up today
+  const recentCutoff = new Date();
+  recentCutoff.setHours(recentCutoff.getHours() - 36);
+  const recentLogs = await prisma.syncLog.findMany({
+    where: {
+      type: "BACKUP",
+      status: "SUCCESS",
+      startedAt: { gte: recentCutoff },
+    },
+  });
+  const alreadyDone = recentLogs.find((log) => log.message?.includes(todayStr));
+  if (alreadyDone) {
+    return { done: false, reason: "Backup déjà effectué aujourd'hui" };
+  }
+
+  // Perform the backup
+  try {
+    const backup = await createBackup("auto");
+
+    // Rotate old backups
+    const deleted = await rotateBackups(settings.retention);
+
+    // Log success
+    await prisma.syncLog.create({
+      data: {
+        type: "BACKUP",
+        status: "SUCCESS",
+        message: `${todayStr} - Backup auto: ${backup.filename} (${backup.sizeFormatted})${deleted > 0 ? ` — ${deleted} ancien(s) supprimé(s)` : ""}`,
+        startedAt: new Date(),
+        completedAt: new Date(),
+      },
+    }).catch(() => {});
+
+    return { done: true, filename: backup.filename };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+
+    // Log failure
+    await prisma.syncLog.create({
+      data: {
+        type: "BACKUP",
+        status: "ERROR",
+        message: `${todayStr} - Échec backup auto: ${errMsg}`,
+        startedAt: new Date(),
+        completedAt: new Date(),
+      },
+    }).catch(() => {});
+
+    // Send failure notification
+    if (settings.notifyOnFailure) {
+      await sendBackupFailureNotification(errMsg);
+    }
+
+    return { done: false, reason: errMsg };
   }
 }
