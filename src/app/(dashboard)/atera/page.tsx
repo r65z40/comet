@@ -269,7 +269,7 @@ export default function AteraReportPage() {
                 ))}
               </Pie>
               <Tooltip
-                formatter={(v: number) => [v, "Tickets"]}
+                formatter={(v) => [v, "Tickets"]}
                 contentStyle={{ background: "var(--tooltip-bg, #fff)", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }}
               />
               <Legend content={({ payload }) => renderLegend(payload || [])} />
