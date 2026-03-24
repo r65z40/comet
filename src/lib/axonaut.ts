@@ -291,23 +291,30 @@ export async function syncClients() {
         if (c.is_supplier || c.supplier) clientType = "fournisseur";
         else if (c.is_prospect || c.prospect) clientType = "prospect";
 
+        const clientData = {
+          name: c.name || "Sans nom",
+          email: c.email || null,
+          phone: c.phone || null,
+          mobile: c.cellphone_number || c.mobile || null,
+          fax: c.fax || null,
+          website: c.website || c.url || null,
+          siret: c.siret || c.registration_number || null,
+          address: c.address_street || null,
+          addressComplement: c.address_complement || c.address_street_2 || null,
+          city: c.address_city || null,
+          zipCode: c.address_zip_code || null,
+          country: c.address_country || null,
+          clientType,
+          notes: c.notes || c.comments || null,
+        };
+
         // Check if a client with this axonautId already exists
         const existingByAxonaut = await prisma.client.findUnique({ where: { axonautId: c.id } });
 
         if (existingByAxonaut) {
-          // Already linked to Axonaut — just update
           await prisma.client.update({
             where: { id: existingByAxonaut.id },
-            data: {
-              name: c.name || "Sans nom",
-              email: c.email || null,
-              phone: c.phone || null,
-              address: c.address_street || null,
-              city: c.address_city || null,
-              zipCode: c.address_zip_code || null,
-              country: c.address_country || null,
-              clientType,
-            },
+            data: clientData,
           });
         } else {
           // No axonautId match — look for a manually imported client with the same name
@@ -319,35 +326,13 @@ export async function syncClients() {
           });
 
           if (existingByName) {
-            // Link the existing manually imported client to Axonaut
             await prisma.client.update({
               where: { id: existingByName.id },
-              data: {
-                axonautId: c.id,
-                name: c.name || "Sans nom",
-                email: c.email || null,
-                phone: c.phone || null,
-                address: c.address_street || null,
-                city: c.address_city || null,
-                zipCode: c.address_zip_code || null,
-                country: c.address_country || null,
-                clientType,
-              },
+              data: { axonautId: c.id, ...clientData },
             });
           } else {
-            // No match at all — create a new client
             await prisma.client.create({
-              data: {
-                axonautId: c.id,
-                name: c.name || "Sans nom",
-                email: c.email || null,
-                phone: c.phone || null,
-                address: c.address_street || null,
-                city: c.address_city || null,
-                zipCode: c.address_zip_code || null,
-                country: c.address_country || null,
-                clientType,
-              },
+              data: { axonautId: c.id, ...clientData },
             });
           }
         }
@@ -368,6 +353,92 @@ export async function syncClients() {
       data: {
         status: "success",
         message: `${totalSynced} clients synchronisés`,
+        itemCount: totalSynced,
+        completedAt: new Date(),
+      },
+    });
+
+    return { success: true, count: totalSynced };
+  } catch (error) {
+    await prisma.syncLog.update({
+      where: { id: log.id },
+      data: {
+        status: "error",
+        message: error instanceof Error ? error.message : "Erreur inconnue",
+        completedAt: new Date(),
+      },
+    });
+    throw error;
+  }
+}
+
+export async function syncContacts() {
+  const log = await prisma.syncLog.create({
+    data: { type: "contacts", status: "running", message: "Synchronisation des contacts..." },
+  });
+
+  try {
+    let page = 1;
+    let totalSynced = 0;
+    let hasMore = true;
+    const PAGE_SIZE = 100;
+
+    while (hasMore) {
+      const data = await axonautFetch("/employees", page);
+      const employees = Array.isArray(data) ? data : data.employees || [];
+
+      if (employees.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      for (const emp of employees) {
+        const companyId = emp.company_id || emp.company?.id;
+        if (!companyId) continue;
+
+        // Find the local client linked to this Axonaut company
+        const client = await prisma.client.findUnique({ where: { axonautId: companyId } });
+        if (!client) continue;
+
+        const contactData = {
+          clientId: client.id,
+          firstName: emp.firstname || emp.first_name || null,
+          lastName: emp.lastname || emp.last_name || null,
+          email: emp.email || null,
+          phone: emp.phone_number || emp.phone || null,
+          mobile: emp.cellphone_number || emp.mobile || null,
+          jobTitle: emp.job || emp.job_title || null,
+          isBillingContact: emp.is_billing_contact || false,
+        };
+
+        const existingContact = await prisma.contact.findUnique({ where: { axonautId: emp.id } });
+
+        if (existingContact) {
+          await prisma.contact.update({
+            where: { id: existingContact.id },
+            data: contactData,
+          });
+        } else {
+          await prisma.contact.create({
+            data: { axonautId: emp.id, ...contactData },
+          });
+        }
+        totalSynced++;
+      }
+
+      await updateProgress(log.id, `Contacts: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
+
+      if (employees.length < PAGE_SIZE) {
+        hasMore = false;
+      }
+      page++;
+    }
+
+    await prisma.syncLog.update({
+      where: { id: log.id },
+      data: {
+        status: "success",
+        message: `${totalSynced} contacts synchronisés`,
         itemCount: totalSynced,
         completedAt: new Date(),
       },
@@ -614,20 +685,27 @@ export async function refreshClient(axonautId: number) {
     name: c.name || "Sans nom",
     email: c.email || null,
     phone: c.phone || null,
+    mobile: c.cellphone_number || c.mobile || null,
+    fax: c.fax || null,
+    website: c.website || c.url || null,
+    siret: c.siret || c.registration_number || null,
     address: c.address_street || null,
+    addressComplement: c.address_complement || c.address_street_2 || null,
     city: c.address_city || null,
     zipCode: c.address_zip_code || null,
     country: c.address_country || null,
     clientType,
+    notes: c.notes || c.comments || null,
   };
 
   // Check if already linked by axonautId
   const existingByAxonaut = await prisma.client.findUnique({ where: { axonautId: c.id } });
 
+  let clientId: string;
   if (existingByAxonaut) {
     await prisma.client.update({ where: { id: existingByAxonaut.id }, data: clientData });
+    clientId = existingByAxonaut.id;
   } else {
-    // Look for a manually imported client with the same name
     const existingByName = await prisma.client.findFirst({
       where: { name: { equals: c.name || "Sans nom", mode: "insensitive" }, axonautId: null },
     });
@@ -637,12 +715,66 @@ export async function refreshClient(axonautId: number) {
         where: { id: existingByName.id },
         data: { axonautId: c.id, ...clientData },
       });
+      clientId = existingByName.id;
     } else {
-      await prisma.client.create({ data: { axonautId: c.id, ...clientData } });
+      const created = await prisma.client.create({ data: { axonautId: c.id, ...clientData } });
+      clientId = created.id;
     }
   }
 
+  // Also refresh contacts for this company
+  await refreshClientContacts(axonautId, clientId);
+
   return { success: true };
+}
+
+async function refreshClientContacts(companyAxonautId: number, clientId: string) {
+  try {
+    // Fetch employees linked to this company from Axonaut
+    const data = await axonautFetchDirect(`/companies/${companyAxonautId}/employees`);
+    const employees = Array.isArray(data) ? data : data.employees || [];
+
+    // Get existing contacts for this client
+    const existingContacts = await prisma.contact.findMany({ where: { clientId } });
+    const existingAxonautIds = new Set(existingContacts.filter(c => c.axonautId).map(c => c.axonautId));
+    const seenAxonautIds = new Set<number>();
+
+    for (const emp of employees) {
+      if (!emp.id) continue;
+      seenAxonautIds.add(emp.id);
+
+      const contactData = {
+        clientId,
+        firstName: emp.firstname || emp.first_name || null,
+        lastName: emp.lastname || emp.last_name || null,
+        email: emp.email || null,
+        phone: emp.phone_number || emp.phone || null,
+        mobile: emp.cellphone_number || emp.mobile || null,
+        jobTitle: emp.job || emp.job_title || null,
+        isBillingContact: emp.is_billing_contact || false,
+      };
+
+      if (existingAxonautIds.has(emp.id)) {
+        await prisma.contact.update({
+          where: { axonautId: emp.id },
+          data: contactData,
+        });
+      } else {
+        await prisma.contact.create({
+          data: { axonautId: emp.id, ...contactData },
+        });
+      }
+    }
+
+    // Remove contacts that no longer exist in Axonaut
+    for (const existing of existingContacts) {
+      if (existing.axonautId && !seenAxonautIds.has(existing.axonautId)) {
+        await prisma.contact.delete({ where: { id: existing.id } });
+      }
+    }
+  } catch {
+    // If the employees endpoint fails (404 etc.), silently skip contacts sync
+  }
 }
 
 export async function refreshProduct(axonautId: number) {

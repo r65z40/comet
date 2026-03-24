@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import {
   syncProducts,
   syncClients,
+  syncContacts,
   syncInvoices,
   generateInstallations,
   updateInstallationStatuses,
@@ -26,6 +27,9 @@ export async function POST(req: NextRequest) {
       case "clients":
         result = await syncClients();
         break;
+      case "contacts":
+        result = await syncContacts();
+        break;
       case "invoices":
         result = await syncInvoices();
         break;
@@ -39,6 +43,7 @@ export async function POST(req: NextRequest) {
       case "full":
         const productsResult = await syncProducts();
         const clientsResult = await syncClients();
+        const contactsResult = await syncContacts();
         const invoicesResult = await syncInvoices();
         const installationsResult = await generateInstallations();
         await updateInstallationStatuses();
@@ -47,6 +52,7 @@ export async function POST(req: NextRequest) {
           details: {
             products: productsResult.count,
             clients: clientsResult.count,
+            contacts: contactsResult.count,
             invoices: invoicesResult.count,
             installations: installationsResult.count,
           },

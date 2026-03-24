@@ -41,24 +41,31 @@ model PasswordReset {
 }
 
 model Client {
-  id              String         @id @default(cuid())
-  axonautId       Int?           @unique
-  name            String
-  email           String?
-  phone           String?
-  address         String?
-  city            String?
-  zipCode         String?
-  country         String?
-  clientType      String?
-  logoUrl         String?
-  deletedAt       DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  invoices        Invoice[]
-  installations   Installation[]
-  portalUsers     ClientUser[]
-  portalSettings  ClientPortalSettings?
+  id                String         @id @default(cuid())
+  axonautId         Int?           @unique
+  name              String
+  email             String?
+  phone             String?
+  mobile            String?
+  fax               String?
+  website           String?
+  siret             String?
+  address           String?
+  addressComplement String?
+  city              String?
+  zipCode           String?
+  country           String?
+  clientType        String?
+  notes             String?
+  logoUrl           String?
+  deletedAt         DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  invoices          Invoice[]
+  installations     Installation[]
+  portalUsers       ClientUser[]
+  portalSettings    ClientPortalSettings?
+  contacts          Contact[]
 
   @@index([deletedAt])
   @@map("clients")
@@ -80,6 +87,25 @@ model ClientUser {
   @@index([clientId])
   @@index([inviteToken])
   @@map("client_users")
+}
+
+model Contact {
+  id                 String   @id @default(cuid())
+  axonautId          Int?     @unique
+  clientId           String
+  client             Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  firstName          String?
+  lastName           String?
+  email              String?
+  phone              String?
+  mobile             String?
+  jobTitle           String?
+  isBillingContact   Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([clientId])
+  @@map("contacts")
 }
 
 model ClientPortalSettings {

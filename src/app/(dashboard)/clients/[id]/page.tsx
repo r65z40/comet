@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -26,15 +26,33 @@ interface Installation {
 type SortKey = "product" | "family" | "supplier" | "startDate" | "durationMonths" | "endDate" | "status";
 type SortDir = "asc" | "desc";
 
+interface Contact {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  mobile: string | null;
+  jobTitle: string | null;
+  isBillingContact: boolean;
+}
+
 interface ClientDetail {
   id: string;
   axonautId: number | null;
   name: string;
   email: string | null;
   phone: string | null;
+  mobile: string | null;
+  fax: string | null;
+  website: string | null;
+  siret: string | null;
   address: string | null;
+  addressComplement: string | null;
   city: string | null;
   zipCode: string | null;
+  country: string | null;
+  notes: string | null;
   logoUrl: string | null;
   installations: Installation[];
   invoices: {
@@ -44,6 +62,7 @@ interface ClientDetail {
     totalAmount: number | null;
     status: string | null;
   }[];
+  contacts: Contact[];
 }
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -782,6 +801,130 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <p className="text-xs text-slate-500 mt-1">Renouvelés</p>
         </button>
       </div>
+
+      {/* Informations client et contacts */}
+      {(client.address || client.phone || client.mobile || client.website || client.siret || client.notes || (client.contacts && client.contacts.length > 0)) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Informations détaillées */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
+            <h3 className="text-sm font-medium text-slate-900 mb-3 flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-slate-400" />
+              Informations
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              {client.address && (
+                <div className="sm:col-span-2">
+                  <p className="text-xs text-slate-400 mb-0.5">Adresse</p>
+                  <p className="text-slate-700">
+                    {client.address}
+                    {client.addressComplement && <><br />{client.addressComplement}</>}
+                    {(client.zipCode || client.city) && <><br />{[client.zipCode, client.city].filter(Boolean).join(" ")}</>}
+                    {client.country && <><br />{client.country}</>}
+                  </p>
+                </div>
+              )}
+              {client.phone && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">Téléphone</p>
+                  <p className="text-slate-700 flex items-center gap-1"><Phone className="h-3 w-3 text-slate-400" />{client.phone}</p>
+                </div>
+              )}
+              {client.mobile && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">Mobile</p>
+                  <p className="text-slate-700 flex items-center gap-1"><Smartphone className="h-3 w-3 text-slate-400" />{client.mobile}</p>
+                </div>
+              )}
+              {client.fax && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">Fax</p>
+                  <p className="text-slate-700">{client.fax}</p>
+                </div>
+              )}
+              {client.email && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">Email</p>
+                  <p className="text-slate-700 flex items-center gap-1"><Mail className="h-3 w-3 text-slate-400" /><span className="truncate">{client.email}</span></p>
+                </div>
+              )}
+              {client.website && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">Site web</p>
+                  <p className="text-slate-700 flex items-center gap-1">
+                    <Globe className="h-3 w-3 text-slate-400" />
+                    <a href={client.website.startsWith("http") ? client.website : `https://${client.website}`} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline truncate">{client.website}</a>
+                  </p>
+                </div>
+              )}
+              {client.siret && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">SIRET</p>
+                  <p className="text-slate-700">{client.siret}</p>
+                </div>
+              )}
+              {client.notes && (
+                <div className="sm:col-span-2">
+                  <p className="text-xs text-slate-400 mb-0.5">Notes</p>
+                  <p className="text-slate-700 whitespace-pre-line text-xs">{client.notes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Contacts */}
+          {client.contacts && client.contacts.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white p-5">
+              <h3 className="text-sm font-medium text-slate-900 mb-3 flex items-center gap-2">
+                <Users className="h-4 w-4 text-slate-400" />
+                Contacts ({client.contacts.length})
+              </h3>
+              <div className="space-y-3">
+                {client.contacts.map((contact) => (
+                  <div key={contact.id} className="flex items-start gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-primary-600 text-xs font-medium shrink-0">
+                      {(contact.firstName?.[0] || "").toUpperCase()}{(contact.lastName?.[0] || "").toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-slate-900 truncate">
+                          {[contact.firstName, contact.lastName].filter(Boolean).join(" ") || "Sans nom"}
+                        </p>
+                        {contact.isBillingContact && (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                            Facturation
+                          </span>
+                        )}
+                      </div>
+                      {contact.jobTitle && (
+                        <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                          <Briefcase className="h-3 w-3" />{contact.jobTitle}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                        {contact.email && (
+                          <span className="text-xs text-slate-500 flex items-center gap-1">
+                            <Mail className="h-3 w-3" /><span className="truncate">{contact.email}</span>
+                          </span>
+                        )}
+                        {contact.phone && (
+                          <span className="text-xs text-slate-500 flex items-center gap-1">
+                            <Phone className="h-3 w-3" />{contact.phone}
+                          </span>
+                        )}
+                        {contact.mobile && (
+                          <span className="text-xs text-slate-500 flex items-center gap-1">
+                            <Smartphone className="h-3 w-3" />{contact.mobile}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tableau principal des installations avec toutes les infos */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">

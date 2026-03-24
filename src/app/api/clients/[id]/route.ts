@@ -29,6 +29,9 @@ export async function GET(
         orderBy: { invoiceDate: "desc" },
         take: 20,
       },
+      contacts: {
+        orderBy: { lastName: "asc" },
+      },
     },
   });
 

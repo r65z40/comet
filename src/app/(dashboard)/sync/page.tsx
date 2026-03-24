@@ -33,6 +33,7 @@ interface DebugData {
 const syncTypes = [
   { type: "products", label: "Produits", description: "Synchroniser les produits depuis Axonaut" },
   { type: "clients", label: "Clients", description: "Synchroniser les clients depuis Axonaut" },
+  { type: "contacts", label: "Contacts", description: "Synchroniser les contacts/employés depuis Axonaut" },
   { type: "invoices", label: "Factures", description: "Synchroniser les factures et lignes de factures" },
   { type: "installations", label: "Installations", description: "Générer les installations à partir des factures" },
   { type: "statuses", label: "Statuts", description: "Mettre à jour les statuts des installations" },
