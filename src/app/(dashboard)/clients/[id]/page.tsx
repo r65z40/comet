@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, Ticket } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, Ticket, FileText, ChevronDown, Calendar, Package, Clock } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -111,6 +111,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [inviteLink, setInviteLink] = useState<{ userId: string; url: string; emailSent?: boolean } | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [inviteGenerating, setInviteGenerating] = useState<string | null>(null);
+
+  // Contract recap state
+  const [recapOpen, setRecapOpen] = useState(false);
 
   // Atera tickets state
   const [ateraTickets, setAteraTickets] = useState<AteraTicket[]>([]);
@@ -387,6 +390,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const orientation = reportSettings.report_orientation || "portrait";
     const includeHorsParc = reportSettings.report_include_hors_parc !== "false";
     const showRenewedCount = reportSettings.report_show_renewed_count === "true";
+    const showContractRecap = reportSettings.report_show_contract_recap === "true";
     const coverBg = reportSettings.report_cover_bg || "";
     const coverBgOpacity = parseInt(reportSettings.report_cover_bg_opacity || "15") / 100;
     const showQuantity = reportSettings.report_show_quantity === "true";
@@ -627,6 +631,65 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       </div>` : ""}
     </div>` : ""}
 
+    ${showContractRecap ? (() => {
+      const recapInstalls = client.installations.filter(i => i.status !== "RENOUVELE");
+      const recapFamilies = new Map<string, number>();
+      recapInstalls.forEach(i => {
+        const fam = i.family || "Non classé";
+        recapFamilies.set(fam, (recapFamilies.get(fam) || 0) + 1);
+      });
+      const recapSuppliers = new Map<string, number>();
+      recapInstalls.forEach(i => {
+        const sup = i.supplier || "Non renseigné";
+        recapSuppliers.set(sup, (recapSuppliers.get(sup) || 0) + 1);
+      });
+      const recapDurations = recapInstalls.map(i => i.durationMonths);
+      const recapAvg = recapDurations.length > 0 ? Math.round(recapDurations.reduce((a, b) => a + b, 0) / recapDurations.length) : 0;
+      const recapQty = recapInstalls.reduce((acc, i) => acc + i.quantity, 0);
+      const recapAlways = client.installations.filter(i => i.alwaysInFleet).length;
+
+      return `
+      <div class="section-title" style="margin-top: 30px;">Récapitulatif du contrat</div>
+      <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 100px; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+          <div style="font-size: 20px; font-weight: 800; color: #0f172a;">${recapQty}</div>
+          <div style="font-size: 10px; color: #64748b; margin-top: 2px;">Quantité totale</div>
+        </div>
+        <div style="flex: 1; min-width: 100px; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+          <div style="font-size: 20px; font-weight: 800; color: #0f172a;">${recapAvg} <span style="font-size: 11px; font-weight: 400; color: #64748b;">mois</span></div>
+          <div style="font-size: 10px; color: #64748b; margin-top: 2px;">Durée moyenne</div>
+        </div>
+        <div style="flex: 1; min-width: 100px; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+          <div style="font-size: 20px; font-weight: 800; color: #0f172a;">${Array.from(recapFamilies.keys()).length}</div>
+          <div style="font-size: 10px; color: #64748b; margin-top: 2px;">Familles</div>
+        </div>
+        <div style="flex: 1; min-width: 100px; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+          <div style="font-size: 20px; font-weight: 800; color: #d97706;">${recapAlways}</div>
+          <div style="font-size: 10px; color: #64748b; margin-top: 2px;">Toujours en parc</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 8px;">Par famille</h4>
+          ${Array.from(recapFamilies.entries()).sort((a, b) => b[1] - a[1]).map(([fam, count]) =>
+            `<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px;">
+              <span style="color: #475569;">${esc(fam)}</span>
+              <span style="font-weight: 600; color: #64748b;">${count}</span>
+            </div>`
+          ).join("")}
+        </div>
+        <div style="flex: 1; min-width: 200px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 8px;">Par fournisseur</h4>
+          ${Array.from(recapSuppliers.entries()).sort((a, b) => b[1] - a[1]).map(([sup, count]) =>
+            `<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px;">
+              <span style="color: #475569;">${esc(sup)}</span>
+              <span style="font-weight: 600; color: #64748b;">${count}</span>
+            </div>`
+          ).join("")}
+        </div>
+      </div>`;
+    })() : ""}
+
     <div class="section-title">Détail des installations</div>
     ${tableContent}
     ${footerText ? `<div class="footer">${footerText}</div>` : ""}
@@ -842,6 +905,156 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <p className="text-xs text-slate-500 mt-1">Renouvelés</p>
         </button>
       </div>
+
+      {/* Récap du contrat */}
+      {client.installations.length > 0 && (() => {
+        const activeInstalls = client.installations.filter(i => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
+        const expiredInstalls = client.installations.filter(i => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
+        const renewedInstalls = client.installations.filter(i => i.status === "RENOUVELE");
+        const alwaysInFleetInstalls = client.installations.filter(i => i.alwaysInFleet);
+
+        // Prochaines échéances (en parc, triées par date de fin)
+        const upcomingExpiry = activeInstalls
+          .filter(i => !i.alwaysInFleet)
+          .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
+          .slice(0, 5);
+
+        // Familles distinctes
+        const familyMap = new Map<string, number>();
+        client.installations.filter(i => i.status !== "RENOUVELE").forEach(i => {
+          const fam = i.family || "Non classé";
+          familyMap.set(fam, (familyMap.get(fam) || 0) + 1);
+        });
+        const familyEntries = Array.from(familyMap.entries()).sort((a, b) => b[1] - a[1]);
+
+        // Fournisseurs distincts
+        const supplierMap = new Map<string, number>();
+        client.installations.filter(i => i.status !== "RENOUVELE").forEach(i => {
+          const sup = i.supplier || "Non renseigné";
+          supplierMap.set(sup, (supplierMap.get(sup) || 0) + 1);
+        });
+        const supplierEntries = Array.from(supplierMap.entries()).sort((a, b) => b[1] - a[1]);
+
+        // Durée moyenne
+        const durations = client.installations.filter(i => i.status !== "RENOUVELE").map(i => i.durationMonths);
+        const avgDuration = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0;
+
+        // Quantité totale
+        const totalQty = client.installations.filter(i => i.status !== "RENOUVELE").reduce((acc, i) => acc + i.quantity, 0);
+
+        return (
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <button
+              onClick={() => setRecapOpen(!recapOpen)}
+              className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-indigo-50 p-2">
+                  <FileText className="h-4 w-4 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-slate-900">Récapitulatif du contrat</h3>
+                  <p className="text-xs text-slate-400">Vue d&apos;ensemble du portefeuille de garanties</p>
+                </div>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${recapOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {recapOpen && (
+              <div className="border-t border-slate-200 p-6 space-y-6">
+                {/* Résumé global */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-900">{totalQty}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Quantité totale</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-900">{avgDuration} <span className="text-xs font-normal text-slate-500">mois</span></p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Durée moyenne</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-bold text-slate-900">{familyEntries.length}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Familles</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-bold text-amber-600">{alwaysInFleetInstalls.length}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Toujours en parc</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Prochaines échéances */}
+                  <div>
+                    <h4 className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                      Prochaines échéances
+                    </h4>
+                    {upcomingExpiry.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {upcomingExpiry.map((inst) => {
+                          const days = Math.ceil((new Date(inst.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                          const urgent = days <= 30;
+                          const warning = days > 30 && days <= 90;
+                          return (
+                            <div key={inst.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                              <span className="text-xs text-slate-700 truncate flex-1">{inst.product.name}</span>
+                              <span className={`text-xs font-bold ml-2 ${urgent ? "text-red-600" : warning ? "text-orange-500" : "text-slate-500"}`}>
+                                {days > 0 ? `${days}j` : "Expiré"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400">Aucune échéance proche</p>
+                    )}
+                  </div>
+
+                  {/* Répartition par famille */}
+                  <div>
+                    <h4 className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                      <Package className="h-3.5 w-3.5 text-slate-400" />
+                      Répartition par famille
+                    </h4>
+                    <div className="space-y-1.5">
+                      {familyEntries.slice(0, 6).map(([family, count]) => (
+                        <div key={family} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                          <span className="text-xs text-slate-700 truncate flex-1">{family}</span>
+                          <span className="text-xs font-medium text-slate-500 ml-2 rounded-full bg-white px-2 py-0.5 border border-slate-200">{count}</span>
+                        </div>
+                      ))}
+                      {familyEntries.length > 6 && (
+                        <p className="text-[10px] text-slate-400 text-center">+{familyEntries.length - 6} autres familles</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Répartition par fournisseur */}
+                {supplierEntries.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                      Répartition par fournisseur
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {supplierEntries.slice(0, 8).map(([supplier, count]) => (
+                        <span key={supplier} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">
+                          {supplier}
+                          <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500 border border-slate-200">{count}</span>
+                        </span>
+                      ))}
+                      {supplierEntries.length > 8 && (
+                        <span className="inline-flex items-center rounded-full px-3 py-1.5 text-[10px] text-slate-400">+{supplierEntries.length - 8} autres</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Informations client et contacts */}
       {(client.address || client.phone || client.mobile || client.website || client.siret || client.notes || (client.contacts && client.contacts.length > 0)) && (

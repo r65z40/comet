@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough, ChevronDown } from "lucide-react";
 
 interface User {
   id: string;
@@ -89,6 +89,7 @@ export default function SettingsPage() {
   const [reportShowRenewedCount, setReportShowRenewedCount] = useState(false);
   const [reportShowQuantity, setReportShowQuantity] = useState(false);
   const [reportShowComParc, setReportShowComParc] = useState(false);
+  const [reportShowContractRecap, setReportShowContractRecap] = useState(false);
   const [reportFooterText, setReportFooterText] = useState("");
   const [reportOrientation, setReportOrientation] = useState("portrait");
   const [reportCoverBg, setReportCoverBg] = useState("");
@@ -148,6 +149,14 @@ export default function SettingsPage() {
     } finally {
       setBroadcastSaving(false);
     }
+  }
+
+  // Collapsible sections
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    tools: true,
+  });
+  function toggleSection(key: string) {
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
   }
 
   // Product merge
@@ -291,6 +300,7 @@ export default function SettingsPage() {
         setReportShowRenewedCount(data.report_show_renewed_count === "true");
         setReportShowQuantity(data.report_show_quantity === "true");
         setReportShowComParc(data.report_show_com_parc === "true");
+        setReportShowContractRecap(data.report_show_contract_recap === "true");
         setReportFooterText(data.report_footer_text || "");
         setReportOrientation(data.report_orientation || "portrait");
         setReportCoverBg(data.report_cover_bg || "");
@@ -506,6 +516,7 @@ export default function SettingsPage() {
         report_show_renewed_count: reportShowRenewedCount ? "true" : "false",
         report_show_quantity: reportShowQuantity ? "true" : "false",
         report_show_com_parc: reportShowComParc ? "true" : "false",
+        report_show_contract_recap: reportShowContractRecap ? "true" : "false",
         report_footer_text: reportFooterText,
         report_orientation: reportOrientation,
         report_cover_bg: reportCoverBg,
@@ -649,16 +660,20 @@ export default function SettingsPage() {
       </div>
 
       {/* Apparence du site (admin only) */}
-      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg bg-primary-50 p-2">
-            <Palette className="h-4 w-4 text-primary-600" />
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("appearance")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary-50 p-2">
+              <Palette className="h-4 w-4 text-primary-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Apparence du site</h3>
+              <p className="text-xs text-slate-400">Personnalisez le logo affiché dans la barre latérale et la page de connexion.</p>
+            </div>
           </div>
-          <h3 className="text-sm font-medium text-slate-900">Apparence du site</h3>
-        </div>
-        <p className="text-xs text-slate-400">
-          Personnalisez le logo affiché dans la barre latérale et la page de connexion.
-        </p>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.appearance ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.appearance && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
 
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1.5">
@@ -774,15 +789,20 @@ export default function SettingsPage() {
           {savedSiteLogo && <span className="text-xs text-emerald-600">Apparence enregistrée — rechargez la page pour voir le changement</span>}
         </div>
       </div>}
+      </div>}
 
       {/* API Axonaut (admin only) */}
-      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg bg-primary-50 p-2">
-            <Key className="h-4 w-4 text-primary-600" />
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("axonaut")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary-50 p-2">
+              <Key className="h-4 w-4 text-primary-600" />
+            </div>
+            <h3 className="text-sm font-medium text-slate-900">API Axonaut</h3>
           </div>
-          <h3 className="text-sm font-medium text-slate-900">API Axonaut</h3>
-        </div>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.axonaut ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.axonaut && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
 
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1.5">
@@ -839,15 +859,20 @@ export default function SettingsPage() {
           )}
         </div>
       </div>}
+      </div>}
 
       {/* API Atera (admin only) */}
-      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg bg-primary-50 p-2">
-            <Plug className="h-4 w-4 text-primary-600" />
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("atera")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary-50 p-2">
+              <Plug className="h-4 w-4 text-primary-600" />
+            </div>
+            <h3 className="text-sm font-medium text-slate-900">API Atera</h3>
           </div>
-          <h3 className="text-sm font-medium text-slate-900">API Atera</h3>
-        </div>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.atera ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.atera && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
 
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1.5">
@@ -890,15 +915,20 @@ export default function SettingsPage() {
           )}
         </div>
       </div>}
+      </div>}
 
       {/* Configuration SMTP (admin only) */}
-      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg bg-primary-50 p-2">
-            <Mail className="h-4 w-4 text-primary-600" />
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("smtp")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary-50 p-2">
+              <Mail className="h-4 w-4 text-primary-600" />
+            </div>
+            <h3 className="text-sm font-medium text-slate-900">Configuration SMTP</h3>
           </div>
-          <h3 className="text-sm font-medium text-slate-900">Configuration SMTP</h3>
-        </div>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.smtp ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.smtp && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
@@ -1032,15 +1062,20 @@ export default function SettingsPage() {
           </div>
         )}
       </div>}
+      </div>}
 
       {/* Notifications par email */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg bg-primary-50 p-2">
-            <Bell className="h-4 w-4 text-primary-600" />
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("notifications")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary-50 p-2">
+              <Bell className="h-4 w-4 text-primary-600" />
+            </div>
+            <h3 className="text-sm font-medium text-slate-900">Notifications par email</h3>
           </div>
-          <h3 className="text-sm font-medium text-slate-900">Notifications par email</h3>
-        </div>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.notifications ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.notifications && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
 
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1.5">
@@ -1101,11 +1136,12 @@ export default function SettingsPage() {
             {notifResult}
           </div>
         )}
+      </div>}
       </div>
 
       {/* Planification des alertes email */}
-      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6 space-y-5">
-        <div className="flex items-center justify-between">
+      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("alerts")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary-50 p-2">
               <CalendarClock className="h-4 w-4 text-primary-600" />
@@ -1115,17 +1151,20 @@ export default function SettingsPage() {
               <p className="text-xs text-slate-400">Configurez l&apos;envoi automatique des alertes par email</p>
             </div>
           </div>
-          <button
-            onClick={() => setAlertEnabled(!alertEnabled)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              alertEnabled ? "bg-primary-600" : "bg-slate-300"
-            }`}
-          >
-            <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
-              alertEnabled ? "translate-x-6" : "translate-x-1"
-            }`} />
-          </button>
-        </div>
+          <div className="flex items-center gap-3">
+            <span onClick={(e) => { e.stopPropagation(); setAlertEnabled(!alertEnabled); }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                alertEnabled ? "bg-primary-600" : "bg-slate-300"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                alertEnabled ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </span>
+            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.alerts ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+        {openSections.alerts && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
 
         {alertEnabled && (
           <>
@@ -1277,19 +1316,24 @@ export default function SettingsPage() {
             <pre className="bg-white rounded p-2 border border-slate-100 overflow-x-auto max-h-40 overflow-y-auto">{JSON.stringify((cronDebug as Record<string, unknown>).recentLogs, null, 2)}</pre>
           </div>
         )}
+      </div>}
       </div>
 
       {/* Personnalisation du rapport */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="rounded-lg bg-primary-50 p-2">
-            <FileText className="h-4 w-4 text-primary-600" />
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("report")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary-50 p-2">
+              <FileText className="h-4 w-4 text-primary-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Personnalisation du rapport client</h3>
+              <p className="text-xs text-slate-400">Personnalisez la première page du rapport imprimable depuis la fiche client.</p>
+            </div>
           </div>
-          <h3 className="text-sm font-medium text-slate-900">Personnalisation du rapport client</h3>
-        </div>
-        <p className="text-xs text-slate-400">
-          Ces paramètres personnalisent la première page du rapport imprimable depuis la fiche client.
-        </p>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.report ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.report && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
 
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1.5">
@@ -1651,6 +1695,15 @@ export default function SettingsPage() {
               />
               <span className="text-sm text-slate-600">Colonne &quot;Com Parc&quot;</span>
             </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowContractRecap}
+                onChange={(e) => setReportShowContractRecap(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Récapitulatif du contrat (familles, fournisseurs, durée moyenne)</span>
+            </label>
           </div>
         </div>
 
@@ -1679,17 +1732,22 @@ export default function SettingsPage() {
           </button>
           {savedReport && <span className="text-xs text-emerald-600">Paramètres enregistrés</span>}
         </div>
+      </div>}
       </div>
 
       {/* Gestion des utilisateurs (admin only) */}
-      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex items-center justify-between mb-4">
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("users")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary-50 p-2">
               <Users className="h-4 w-4 text-primary-600" />
             </div>
             <h3 className="text-sm font-medium text-slate-900">Gestion des utilisateurs</h3>
           </div>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.users ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.users && <div className="px-6 pb-6 border-t border-slate-100 pt-5">
+        <div className="flex items-center justify-end mb-4">
           <button
             onClick={() => { setShowCreateForm(!showCreateForm); setUserError(""); }}
             className="flex items-center gap-2 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 transition-colors"
@@ -1909,10 +1967,11 @@ export default function SettingsPage() {
           </div>
         )}
       </div>}
+      </div>}
 
       {/* Message broadcast (admin only) */}
-      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex items-center justify-between mb-4">
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("broadcast")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-amber-50 p-2">
               <Megaphone className="h-4 w-4 text-amber-600" />
@@ -1922,16 +1981,20 @@ export default function SettingsPage() {
               <p className="text-xs text-slate-400">Affichez un message visible par tous les utilisateurs en haut de l&apos;application.</p>
             </div>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={broadcastEnabled}
-              onChange={(e) => setBroadcastEnabled(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-600"></div>
-          </label>
-        </div>
+          <div className="flex items-center gap-3">
+            <span onClick={(e) => { e.stopPropagation(); setBroadcastEnabled(!broadcastEnabled); }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                broadcastEnabled ? "bg-primary-600" : "bg-slate-300"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                broadcastEnabled ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </span>
+            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.broadcast ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+        {openSections.broadcast && <div className="px-6 pb-6 border-t border-slate-100 pt-5">
 
         <div className="space-y-3">
           {/* Toolbar */}
@@ -2047,18 +2110,23 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>}
+      </div>}
 
       {/* Fusion de clients */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="rounded-lg bg-primary-50 p-2">
-            <Merge className="h-4 w-4 text-primary-600" />
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("mergeClients")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary-50 p-2">
+              <Merge className="h-4 w-4 text-primary-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Fusionner des clients</h3>
+              <p className="text-xs text-slate-400">Fusionnez deux clients en un seul.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-slate-900">Fusionner des clients</h3>
-            <p className="text-xs text-slate-400">Fusionnez deux clients en un seul. Les factures et installations du client source seront transférées vers le client cible.</p>
-          </div>
-        </div>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.mergeClients ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.mergeClients && <div className="px-6 pb-6 border-t border-slate-100 pt-5">
 
         <div className="space-y-4">
           <div className="relative">
@@ -2134,19 +2202,24 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+      </div>}
       </div>
 
       {/* Fusion de produits */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="rounded-lg bg-violet-50 p-2">
-            <Merge className="h-4 w-4 text-violet-600" />
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("mergeProducts")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-violet-50 p-2">
+              <Merge className="h-4 w-4 text-violet-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Fusionner des produits</h3>
+              <p className="text-xs text-slate-400">Fusionnez deux produits en un seul.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-slate-900">Fusionner des produits</h3>
-            <p className="text-xs text-slate-400">Fusionnez deux produits en un seul. Les installations et lignes de facture du produit source seront transférées vers le produit cible.</p>
-          </div>
-        </div>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.mergeProducts ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.mergeProducts && <div className="px-6 pb-6 border-t border-slate-100 pt-5">
 
         <div className="space-y-4">
           <div className="relative">
@@ -2222,19 +2295,24 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+      </div>}
       </div>
 
       {/* Suppression de données (admin only) */}
-      {isAdmin && <div className="lg:col-span-2 rounded-xl border border-red-200 bg-white p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="rounded-lg bg-red-50 p-2">
-            <Trash2 className="h-4 w-4 text-red-600" />
+      {isAdmin && <div className="lg:col-span-2 rounded-xl border border-red-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("delete")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-red-50 p-2">
+              <Trash2 className="h-4 w-4 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Supprimer des données</h3>
+              <p className="text-xs text-slate-400">Supprimez en masse les données de l&apos;application. Cette action est irréversible.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-slate-900">Supprimer des données</h3>
-            <p className="text-xs text-slate-400">Supprimez en masse les données de l&apos;application. Cette action est irréversible.</p>
-          </div>
-        </div>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.delete ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.delete && <div className="px-6 pb-6 border-t border-slate-100 pt-5">
 
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -2333,6 +2411,7 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+      </div>}
       </div>}
 
     </div>
