@@ -15,6 +15,9 @@ import {
   Plus,
   Settings,
   ArrowLeft,
+  Cloud,
+  Server,
+  Plug,
 } from "lucide-react";
 
 interface BackupInfo {
@@ -23,6 +26,7 @@ interface BackupInfo {
   sizeFormatted: string;
   createdAt: string;
   type: "auto" | "manual";
+  location: "local" | "cloud" | "both";
 }
 
 interface BackupSettings {
@@ -34,6 +38,38 @@ interface BackupSettings {
   notifyOnFailure: boolean;
 }
 
+interface CloudConfig {
+  provider: "s3" | "ftp" | "none";
+  s3Endpoint: string;
+  s3Region: string;
+  s3Bucket: string;
+  s3AccessKey: string;
+  s3SecretKey: string;
+  s3Prefix: string;
+  ftpHost: string;
+  ftpPort: number;
+  ftpUser: string;
+  ftpPassword: string;
+  ftpSecure: boolean;
+  ftpPath: string;
+}
+
+const defaultCloud: CloudConfig = {
+  provider: "none",
+  s3Endpoint: "",
+  s3Region: "us-east-1",
+  s3Bucket: "",
+  s3AccessKey: "",
+  s3SecretKey: "",
+  s3Prefix: "backups/",
+  ftpHost: "",
+  ftpPort: 21,
+  ftpUser: "",
+  ftpPassword: "",
+  ftpSecure: false,
+  ftpPath: "/backups",
+};
+
 export default function BackupPage() {
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [settings, setSettings] = useState<BackupSettings>({
@@ -44,10 +80,15 @@ export default function BackupPage() {
     retention: 7,
     notifyOnFailure: true,
   });
+  const [cloud, setCloud] = useState<CloudConfig>(defaultCloud);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savingCloud, setSavingCloud] = useState(false);
+  const [savedCloud, setSavedCloud] = useState(false);
+  const [testingCloud, setTestingCloud] = useState(false);
+  const [cloudTestResult, setCloudTestResult] = useState<{ success: boolean; error?: string } | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmRestore, setConfirmRestore] = useState<string | null>(null);
@@ -73,6 +114,7 @@ export default function BackupPage() {
       const data = await res.json();
       setBackups(data.backups || []);
       if (data.settings) setSettings(data.settings);
+      if (data.cloud) setCloud({ ...defaultCloud, ...data.cloud });
     } catch {
       // will show empty state
     } finally {
@@ -165,6 +207,61 @@ export default function BackupPage() {
     }
   }
 
+  async function handleSaveCloud() {
+    setSavingCloud(true);
+    setSavedCloud(false);
+    try {
+      const res = await fetch("/api/backup", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cloud_provider: cloud.provider,
+          cloud_s3_endpoint: cloud.s3Endpoint,
+          cloud_s3_region: cloud.s3Region,
+          cloud_s3_bucket: cloud.s3Bucket,
+          cloud_s3_access_key: cloud.s3AccessKey,
+          cloud_s3_secret_key: cloud.s3SecretKey,
+          cloud_s3_prefix: cloud.s3Prefix,
+          cloud_ftp_host: cloud.ftpHost,
+          cloud_ftp_port: String(cloud.ftpPort),
+          cloud_ftp_user: cloud.ftpUser,
+          cloud_ftp_password: cloud.ftpPassword,
+          cloud_ftp_secure: cloud.ftpSecure ? "true" : "false",
+          cloud_ftp_path: cloud.ftpPath,
+        }),
+      });
+      if (res.ok) {
+        setSavedCloud(true);
+        setTimeout(() => setSavedCloud(false), 3000);
+      }
+    } catch {
+      // silent
+    } finally {
+      setSavingCloud(false);
+    }
+  }
+
+  async function handleTestCloud() {
+    setTestingCloud(true);
+    setCloudTestResult(null);
+    try {
+      const res = await fetch("/api/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "test_cloud",
+          config: cloud,
+        }),
+      });
+      const data = await res.json();
+      setCloudTestResult(data);
+    } catch {
+      setCloudTestResult({ success: false, error: "Erreur de connexion" });
+    } finally {
+      setTestingCloud(false);
+    }
+  }
+
   function handleDownload(filename: string) {
     window.open(`/api/backup/${encodeURIComponent(filename)}`, "_blank");
   }
@@ -180,6 +277,17 @@ export default function BackupPage() {
     });
   }
 
+  function locationBadge(location: string) {
+    switch (location) {
+      case "both":
+        return <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700"><Server className="h-3 w-3" /><Cloud className="h-3 w-3" /></span>;
+      case "cloud":
+        return <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700"><Cloud className="h-3 w-3" /> Cloud</span>;
+      default:
+        return <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"><Server className="h-3 w-3" /> Local</span>;
+    }
+  }
+
   if (!isAdmin && !loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -187,6 +295,8 @@ export default function BackupPage() {
       </div>
     );
   }
+
+  const inputClass = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -232,7 +342,6 @@ export default function BackupPage() {
         </div>
 
         <div className="space-y-4">
-          {/* Toggle */}
           <label className="flex items-center gap-3 cursor-pointer">
             <div
               className={`relative w-11 h-6 rounded-full transition-colors ${settings.enabled ? "bg-blue-600" : "bg-slate-300"}`}
@@ -245,13 +354,12 @@ export default function BackupPage() {
 
           {settings.enabled && (
             <>
-              {/* Fréquence */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Fréquence</label>
                 <select
                   value={settings.frequency}
                   onChange={(e) => setSettings({ ...settings, frequency: e.target.value as BackupSettings["frequency"] })}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={inputClass}
                 >
                   <option value="daily">Quotidien</option>
                   <option value="weekly">Hebdomadaire</option>
@@ -259,26 +367,15 @@ export default function BackupPage() {
                 </select>
               </div>
 
-              {/* Heure */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Heure (Europe/Paris)</label>
-                <input
-                  type="time"
-                  value={settings.time}
-                  onChange={(e) => setSettings({ ...settings, time: e.target.value })}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="time" value={settings.time} onChange={(e) => setSettings({ ...settings, time: e.target.value })} className={inputClass} />
               </div>
 
-              {/* Jour */}
               {settings.frequency === "weekly" && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Jour de la semaine</label>
-                  <select
-                    value={settings.day}
-                    onChange={(e) => setSettings({ ...settings, day: parseInt(e.target.value) })}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
+                  <select value={settings.day} onChange={(e) => setSettings({ ...settings, day: parseInt(e.target.value) })} className={inputClass}>
                     <option value={1}>Lundi</option>
                     <option value={2}>Mardi</option>
                     <option value={3}>Mercredi</option>
@@ -293,11 +390,7 @@ export default function BackupPage() {
               {settings.frequency === "monthly" && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Jour du mois</label>
-                  <select
-                    value={settings.day}
-                    onChange={(e) => setSettings({ ...settings, day: parseInt(e.target.value) })}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
+                  <select value={settings.day} onChange={(e) => setSettings({ ...settings, day: parseInt(e.target.value) })} className={inputClass}>
                     {Array.from({ length: 28 }, (_, i) => (
                       <option key={i + 1} value={i + 1}>{i + 1}</option>
                     ))}
@@ -305,39 +398,19 @@ export default function BackupPage() {
                 </div>
               )}
 
-              {/* Rétention */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Rétention (nombre de backups conservés)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={90}
-                  value={settings.retention}
-                  onChange={(e) => setSettings({ ...settings, retention: parseInt(e.target.value) || 7 })}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Rétention (nombre de backups conservés)</label>
+                <input type="number" min={1} max={90} value={settings.retention} onChange={(e) => setSettings({ ...settings, retention: parseInt(e.target.value) || 7 })} className={inputClass} />
               </div>
 
-              {/* Notification en cas d'échec */}
               <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.notifyOnFailure}
-                  onChange={(e) => setSettings({ ...settings, notifyOnFailure: e.target.checked })}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
+                <input type="checkbox" checked={settings.notifyOnFailure} onChange={(e) => setSettings({ ...settings, notifyOnFailure: e.target.checked })} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                 <span className="text-sm text-slate-700">Notification email en cas d&apos;échec</span>
               </label>
             </>
           )}
 
-          <button
-            onClick={handleSaveSettings}
-            disabled={saving}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
+          <button onClick={handleSaveSettings} disabled={saving} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {saved ? "Enregistré !" : "Enregistrer"}
           </button>
@@ -357,25 +430,14 @@ export default function BackupPage() {
         </div>
 
         <div className="space-y-4">
-          <button
-            onClick={handleCreate}
-            disabled={creating}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-          >
+          <button onClick={handleCreate} disabled={creating} className="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
             {creating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Backup en cours...
-              </>
+              <><Loader2 className="h-4 w-4 animate-spin" /> Backup en cours...</>
             ) : (
-              <>
-                <Plus className="h-4 w-4" />
-                Créer un backup maintenant
-              </>
+              <><Plus className="h-4 w-4" /> Créer un backup maintenant</>
             )}
           </button>
 
-          {/* Stats */}
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg bg-slate-50 p-3 text-center">
               <p className="text-2xl font-bold text-slate-900">{backups.length}</p>
@@ -399,6 +461,239 @@ export default function BackupPage() {
                 <Clock className="h-4 w-4" />
                 <span>Dernier backup: {formatDate(backups[0].createdAt)}</span>
               </div>
+            </div>
+          )}
+
+          {cloud.provider !== "none" && (
+            <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-3">
+              <div className="flex items-center gap-2 text-sm text-indigo-700">
+                <Cloud className="h-4 w-4" />
+                <span>Cloud actif: {cloud.provider === "s3" ? `S3 (${cloud.s3Bucket})` : `FTP (${cloud.ftpHost})`}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Cloud Storage Configuration */}
+      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="rounded-lg bg-sky-100 p-2">
+            <Cloud className="h-4 w-4 text-sky-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-slate-900">Stockage cloud</h3>
+            <p className="text-xs text-slate-400">Envoyer automatiquement les backups vers un stockage distant</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Provider selector */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Fournisseur</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: "none" as const, label: "Aucun (local uniquement)", icon: HardDrive },
+                { value: "s3" as const, label: "S3 / Compatible S3", icon: Cloud },
+                { value: "ftp" as const, label: "FTP / SFTP", icon: Server },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setCloud({ ...cloud, provider: opt.value })}
+                  className={`flex items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors ${
+                    cloud.provider === opt.value
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <opt.icon className="h-4 w-4 shrink-0" />
+                  <span className="font-medium">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* S3 Configuration */}
+          {cloud.provider === "s3" && (
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 space-y-3">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Configuration S3</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Endpoint (vide = AWS)</label>
+                  <input
+                    type="text"
+                    placeholder="https://s3.eu-west-1.amazonaws.com"
+                    value={cloud.s3Endpoint}
+                    onChange={(e) => setCloud({ ...cloud, s3Endpoint: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Région</label>
+                  <input
+                    type="text"
+                    placeholder="us-east-1"
+                    value={cloud.s3Region}
+                    onChange={(e) => setCloud({ ...cloud, s3Region: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Bucket *</label>
+                  <input
+                    type="text"
+                    placeholder="mon-bucket-backups"
+                    value={cloud.s3Bucket}
+                    onChange={(e) => setCloud({ ...cloud, s3Bucket: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Préfixe (dossier)</label>
+                  <input
+                    type="text"
+                    placeholder="backups/"
+                    value={cloud.s3Prefix}
+                    onChange={(e) => setCloud({ ...cloud, s3Prefix: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Access Key *</label>
+                  <input
+                    type="text"
+                    placeholder="AKIA..."
+                    value={cloud.s3AccessKey}
+                    onChange={(e) => setCloud({ ...cloud, s3AccessKey: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Secret Key *</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={cloud.s3SecretKey}
+                    onChange={(e) => setCloud({ ...cloud, s3SecretKey: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">
+                Compatible avec AWS S3, MinIO, OVH Object Storage, Scaleway, DigitalOcean Spaces, Backblaze B2, etc.
+              </p>
+            </div>
+          )}
+
+          {/* FTP Configuration */}
+          {cloud.provider === "ftp" && (
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 space-y-3">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Configuration FTP / SFTP</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Serveur *</label>
+                  <input
+                    type="text"
+                    placeholder="ftp.exemple.com"
+                    value={cloud.ftpHost}
+                    onChange={(e) => setCloud({ ...cloud, ftpHost: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Port</label>
+                  <input
+                    type="number"
+                    placeholder="21"
+                    value={cloud.ftpPort}
+                    onChange={(e) => setCloud({ ...cloud, ftpPort: parseInt(e.target.value) || 21 })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Utilisateur *</label>
+                  <input
+                    type="text"
+                    placeholder="backup_user"
+                    value={cloud.ftpUser}
+                    onChange={(e) => setCloud({ ...cloud, ftpUser: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Mot de passe *</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={cloud.ftpPassword}
+                    onChange={(e) => setCloud({ ...cloud, ftpPassword: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Dossier distant</label>
+                  <input
+                    type="text"
+                    placeholder="/backups"
+                    value={cloud.ftpPath}
+                    onChange={(e) => setCloud({ ...cloud, ftpPath: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 cursor-pointer pb-2">
+                    <input
+                      type="checkbox"
+                      checked={cloud.ftpSecure}
+                      onChange={(e) => setCloud({ ...cloud, ftpSecure: e.target.checked })}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">Connexion sécurisée (FTPS)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cloud actions */}
+          {cloud.provider !== "none" && (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleTestCloud}
+                disabled={testingCloud}
+                className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+              >
+                {testingCloud ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+                Tester la connexion
+              </button>
+              <button
+                onClick={handleSaveCloud}
+                disabled={savingCloud}
+                className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 transition-colors"
+              >
+                {savingCloud ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {savedCloud ? "Enregistré !" : "Enregistrer la config cloud"}
+              </button>
+            </div>
+          )}
+
+          {cloudTestResult && (
+            <div className={`rounded-lg border p-3 text-sm ${
+              cloudTestResult.success
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : "bg-red-50 border-red-200 text-red-700"
+            }`}>
+              {cloudTestResult.success ? (
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Connexion réussie !</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Échec: {cloudTestResult.error}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -433,6 +728,7 @@ export default function BackupPage() {
                 <tr className="border-b border-slate-100">
                   <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 uppercase">Fichier</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 uppercase">Type</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 uppercase">Stockage</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 uppercase">Taille</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 uppercase">Date</th>
                   <th className="text-right py-3 px-4 text-xs font-medium text-slate-500 uppercase">Actions</th>
@@ -453,80 +749,40 @@ export default function BackupPage() {
                           ? "bg-blue-50 text-blue-700"
                           : "bg-emerald-50 text-emerald-700"
                       }`}>
-                        {backup.type === "auto" ? "Automatique" : "Manuel"}
+                        {backup.type === "auto" ? "Auto" : "Manuel"}
                       </span>
                     </td>
+                    <td className="py-3 px-4">{locationBadge(backup.location)}</td>
                     <td className="py-3 px-4 text-slate-600">{backup.sizeFormatted}</td>
                     <td className="py-3 px-4 text-slate-600">{formatDate(backup.createdAt)}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-end gap-1">
-                        {/* Download */}
-                        <button
-                          onClick={() => handleDownload(backup.filename)}
-                          className="rounded-lg p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                          title="Télécharger"
-                        >
+                        <button onClick={() => handleDownload(backup.filename)} className="rounded-lg p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Télécharger">
                           <Download className="h-4 w-4" />
                         </button>
 
-                        {/* Restore */}
                         {confirmRestore === backup.filename ? (
                           <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleRestore(backup.filename)}
-                              disabled={restoring === backup.filename}
-                              className="rounded-lg px-2 py-1 text-xs bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
-                            >
-                              {restoring === backup.filename ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                "Confirmer"
-                              )}
+                            <button onClick={() => handleRestore(backup.filename)} disabled={restoring === backup.filename} className="rounded-lg px-2 py-1 text-xs bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50">
+                              {restoring === backup.filename ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirmer"}
                             </button>
-                            <button
-                              onClick={() => setConfirmRestore(null)}
-                              className="rounded-lg px-2 py-1 text-xs bg-slate-200 text-slate-600 hover:bg-slate-300"
-                            >
-                              Annuler
-                            </button>
+                            <button onClick={() => setConfirmRestore(null)} className="rounded-lg px-2 py-1 text-xs bg-slate-200 text-slate-600 hover:bg-slate-300">Annuler</button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => setConfirmRestore(backup.filename)}
-                            className="rounded-lg p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
-                            title="Restaurer"
-                          >
+                          <button onClick={() => setConfirmRestore(backup.filename)} className="rounded-lg p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors" title="Restaurer">
                             <RotateCcw className="h-4 w-4" />
                           </button>
                         )}
 
-                        {/* Delete */}
                         {confirmDelete === backup.filename ? (
                           <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleDelete(backup.filename)}
-                              disabled={deleting === backup.filename}
-                              className="rounded-lg px-2 py-1 text-xs bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                            >
-                              {deleting === backup.filename ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                "Supprimer"
-                              )}
+                            <button onClick={() => handleDelete(backup.filename)} disabled={deleting === backup.filename} className="rounded-lg px-2 py-1 text-xs bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                              {deleting === backup.filename ? <Loader2 className="h-3 w-3 animate-spin" /> : "Supprimer"}
                             </button>
-                            <button
-                              onClick={() => setConfirmDelete(null)}
-                              className="rounded-lg px-2 py-1 text-xs bg-slate-200 text-slate-600 hover:bg-slate-300"
-                            >
-                              Annuler
-                            </button>
+                            <button onClick={() => setConfirmDelete(null)} className="rounded-lg px-2 py-1 text-xs bg-slate-200 text-slate-600 hover:bg-slate-300">Annuler</button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => setConfirmDelete(backup.filename)}
-                            className="rounded-lg p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            title="Supprimer"
-                          >
+                          <button onClick={() => setConfirmDelete(backup.filename)} className="rounded-lg p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Supprimer">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
@@ -539,7 +795,6 @@ export default function BackupPage() {
           </div>
         )}
 
-        {/* Warning banner */}
         <div className="mt-4 rounded-lg bg-amber-50 border border-amber-100 p-3">
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />

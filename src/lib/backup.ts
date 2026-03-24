@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/db";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
+import { cloudUpload, cloudDelete, cloudList, getCloudConfig } from "@/lib/backup-cloud";
 
 const execAsync = promisify(exec);
 
@@ -92,12 +93,33 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
       throw new Error("Le fichier de backup est vide ou corrompu");
     }
 
+    // Upload to cloud if configured
+    let cloudUploaded = false;
+    try {
+      const cloudConfig = await getCloudConfig();
+      if (cloudConfig.provider !== "none") {
+        await cloudUpload(filepath, filename);
+        cloudUploaded = true;
+      }
+    } catch (cloudErr) {
+      const cloudMsg = cloudErr instanceof Error ? cloudErr.message : String(cloudErr);
+      // Log cloud upload failure but don't fail the entire backup
+      await prisma.activityLog.create({
+        data: {
+          action: "BACKUP",
+          entity: "system",
+          details: `Backup ${type} créé localement mais échec upload cloud: ${cloudMsg}`,
+        },
+      }).catch(() => {});
+    }
+
     // Log in activity
+    const cloudLabel = cloudUploaded ? " + cloud" : "";
     await prisma.activityLog.create({
       data: {
         action: "BACKUP",
         entity: "system",
-        details: `Backup ${type} créé: ${filename} (${formatSize(stat.size)})`,
+        details: `Backup ${type} créé: ${filename} (${formatSize(stat.size)})${cloudLabel}`,
       },
     }).catch(() => {});
 
@@ -115,32 +137,57 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
   }
 }
 
-export async function listBackups(): Promise<BackupInfo[]> {
+export async function listBackups(): Promise<(BackupInfo & { location: "local" | "cloud" | "both" })[]> {
   await ensureBackupDir();
 
+  // Local backups
+  const localMap = new Map<string, BackupInfo & { location: "local" | "cloud" | "both" }>();
   const files = await fs.readdir(BACKUP_DIR);
-  const backups: BackupInfo[] = [];
 
   for (const file of files) {
     if (!file.startsWith("backup_") || !file.endsWith(".sql.gz")) continue;
 
     const filepath = path.join(BACKUP_DIR, file);
     const stat = await fs.stat(filepath);
-
     const type = file.startsWith("backup_auto_") ? "auto" : "manual";
 
-    backups.push({
+    localMap.set(file, {
       filename: file,
       size: stat.size,
       sizeFormatted: formatSize(stat.size),
       createdAt: stat.mtime.toISOString(),
       type,
+      location: "local",
     });
   }
 
-  // Sort by date descending (newest first)
-  backups.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  // Merge cloud backups
+  try {
+    const cloudConfig = await getCloudConfig();
+    if (cloudConfig.provider !== "none") {
+      const cloudFiles = await cloudList();
+      for (const cf of cloudFiles) {
+        if (localMap.has(cf.name)) {
+          localMap.get(cf.name)!.location = "both";
+        } else {
+          const type = cf.name.startsWith("backup_auto_") ? "auto" : "manual";
+          localMap.set(cf.name, {
+            filename: cf.name,
+            size: cf.size,
+            sizeFormatted: formatSize(cf.size),
+            createdAt: cf.lastModified.toISOString(),
+            type: type as "auto" | "manual",
+            location: "cloud",
+          });
+        }
+      }
+    }
+  } catch {
+    // Cloud unavailable — return local only
+  }
 
+  const backups = Array.from(localMap.values());
+  backups.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return backups;
 }
 
@@ -151,8 +198,12 @@ export async function deleteBackup(filename: string): Promise<void> {
     throw new Error("Nom de fichier invalide");
   }
 
+  // Delete local file (may not exist if cloud-only)
   const filepath = path.join(BACKUP_DIR, safe);
-  await fs.unlink(filepath);
+  await fs.unlink(filepath).catch(() => {});
+
+  // Delete from cloud
+  await cloudDelete(safe).catch(() => {});
 
   await prisma.activityLog.create({
     data: {
@@ -169,9 +220,19 @@ export async function getBackupPath(filename: string): Promise<string> {
     throw new Error("Nom de fichier invalide");
   }
 
+  await ensureBackupDir();
   const filepath = path.join(BACKUP_DIR, safe);
-  await fs.access(filepath); // throws if not found
-  return filepath;
+
+  // Check if file exists locally
+  try {
+    await fs.access(filepath);
+    return filepath;
+  } catch {
+    // Not found locally — try to download from cloud
+    const { cloudDownload: dlFromCloud } = await import("@/lib/backup-cloud");
+    await dlFromCloud(safe, filepath);
+    return filepath;
+  }
 }
 
 export async function restoreBackup(filename: string): Promise<void> {
