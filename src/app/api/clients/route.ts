@@ -45,6 +45,11 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         _count: { select: { installations: true, invoices: true } },
+        contacts: {
+          take: 1,
+          orderBy: { createdAt: "asc" },
+          select: { firstName: true, lastName: true, email: true, phone: true, mobile: true },
+        },
       },
       orderBy: { name: "asc" },
       skip: (page - 1) * limit,

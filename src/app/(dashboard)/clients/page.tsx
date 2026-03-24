@@ -6,12 +6,21 @@ import { Search } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 
+interface Contact {
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  mobile: string | null;
+}
+
 interface Client {
   id: string;
   name: string;
   email: string | null;
   phone: string | null;
   city: string | null;
+  contacts: Contact[];
   _count: { installations: number };
 }
 
@@ -50,8 +59,25 @@ export default function ClientsPage() {
       width: "40%",
       render: (c: Client) => <span className="font-medium text-slate-900">{c.name}</span>,
     },
-    { key: "email", label: "Email" },
-    { key: "phone", label: "Téléphone" },
+    {
+      key: "contact",
+      label: "Contact",
+      render: (c: Client) => {
+        const contact = c.contacts?.[0];
+        if (!contact) return <span className="text-slate-400">—</span>;
+        const name = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
+        return (
+          <div className="text-sm">
+            {name && <div className="font-medium text-slate-900">{name}</div>}
+            {(contact.email || contact.phone || contact.mobile) && (
+              <div className="text-slate-500 text-xs">
+                {contact.email || contact.phone || contact.mobile}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
     { key: "city", label: "Ville" },
     {
       key: "installations",
