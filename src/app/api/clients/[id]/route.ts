@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { autoCorrectInstallationStatuses } from "@/lib/auto-status";
-
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -11,9 +9,6 @@ export async function GET(
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { id } = await params;
-
-  // Auto-correct: warranty valid → EN_PARC
-  await autoCorrectInstallationStatuses();
 
   const client = await prisma.client.findUnique({
     where: { id },

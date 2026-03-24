@@ -134,6 +134,7 @@ export async function sendExpiryNotifications() {
   const installations = await prisma.installation.findMany({
     where: {
       status: { not: "RENOUVELE" },
+      alwaysInFleet: { not: true },
       endDate: { gte: now, lte: future },
     },
     include: {

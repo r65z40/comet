@@ -99,11 +99,14 @@ export default function SettingsPage() {
   const [savedReport, setSavedReport] = useState(false);
   const companyLogoRef = useRef<HTMLInputElement>(null);
 
-  // Client merge
-  const [mergeSearch, setMergeSearch] = useState("");
-  const [mergeClients, setMergeClients] = useState<{ id: string; name: string; _count: { installations: number; invoices: number } }[]>([]);
-  const [mergeTarget, setMergeTarget] = useState<string | null>(null);
-  const [mergeSource, setMergeSource] = useState<string | null>(null);
+  // Client merge (two separate searches for target and source)
+  type MergeClient = { id: string; name: string; _count: { installations: number; invoices: number } };
+  const [mergeTargetSearch, setMergeTargetSearch] = useState("");
+  const [mergeTargetResults, setMergeTargetResults] = useState<MergeClient[]>([]);
+  const [mergeTarget, setMergeTarget] = useState<MergeClient | null>(null);
+  const [mergeSourceSearch, setMergeSourceSearch] = useState("");
+  const [mergeSourceResults, setMergeSourceResults] = useState<MergeClient[]>([]);
+  const [mergeSource, setMergeSource] = useState<MergeClient | null>(null);
   const [merging, setMerging] = useState(false);
   const [mergeResult, setMergeResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -202,12 +205,20 @@ export default function SettingsPage() {
     }
   }
 
-  async function searchMergeClients(q: string) {
-    setMergeSearch(q);
-    if (q.length < 2) { setMergeClients([]); return; }
+  async function searchMergeTarget(q: string) {
+    setMergeTargetSearch(q);
+    if (q.length < 2) { setMergeTargetResults([]); return; }
     const res = await fetch(`/api/clients?search=${encodeURIComponent(q)}&limit=20&showAll=true`);
     const data = await res.json();
-    setMergeClients(data.clients || []);
+    setMergeTargetResults(data.clients || []);
+  }
+
+  async function searchMergeSource(q: string) {
+    setMergeSourceSearch(q);
+    if (q.length < 2) { setMergeSourceResults([]); return; }
+    const res = await fetch(`/api/clients?search=${encodeURIComponent(q)}&limit=20&showAll=true`);
+    const data = await res.json();
+    setMergeSourceResults(data.clients || []);
   }
 
   async function handleMerge() {
@@ -218,15 +229,17 @@ export default function SettingsPage() {
       const res = await fetch("/api/clients/merge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetId: mergeTarget, sourceId: mergeSource }),
+        body: JSON.stringify({ targetId: mergeTarget.id, sourceId: mergeSource.id }),
       });
       const data = await res.json();
       if (res.ok) {
         setMergeResult({ success: true, message: data.message });
         setMergeTarget(null);
         setMergeSource(null);
-        setMergeClients([]);
-        setMergeSearch("");
+        setMergeTargetSearch("");
+        setMergeSourceSearch("");
+        setMergeTargetResults([]);
+        setMergeSourceResults([]);
       } else {
         setMergeResult({ success: false, message: data.error || "Erreur" });
       }
@@ -2113,7 +2126,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <h3 className="text-sm font-medium text-slate-900">Fusionner des clients</h3>
-              <p className="text-xs text-slate-400">Fusionnez deux clients en un seul.</p>
+              <p className="text-xs text-slate-400">Fusionnez deux clients en un seul, même avec des noms différents.</p>
             </div>
           </div>
           <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.mergeClients ? "rotate-180" : ""}`} />
@@ -2121,58 +2134,105 @@ export default function SettingsPage() {
         {openSections.mergeClients && <div className="px-6 pb-6 border-t border-slate-100 pt-5">
 
         <div className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Rechercher un client..."
-              value={mergeSearch}
-              onChange={(e) => searchMergeClients(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            />
-          </div>
-
-          {mergeClients.length > 0 && (
-            <div className="rounded-lg border border-slate-200 max-h-60 overflow-y-auto divide-y divide-slate-100">
-              {mergeClients.map((c) => {
-                const isTarget = mergeTarget === c.id;
-                const isSource = mergeSource === c.id;
-                return (
-                  <div key={c.id} className={`flex items-center justify-between px-4 py-2.5 text-sm ${isTarget ? "bg-emerald-50" : isSource ? "bg-red-50" : "hover:bg-slate-50"}`}>
-                    <div>
-                      <span className="font-medium text-slate-900">{c.name}</span>
-                      <span className="ml-2 text-xs text-slate-400">{c._count.installations} install. · {c._count.invoices} fact.</span>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => setMergeTarget(isTarget ? null : c.id)}
-                        className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                          isTarget ? "bg-emerald-600 text-white" : "border border-emerald-300 text-emerald-600 hover:bg-emerald-50"
-                        }`}
-                      >
-                        {isTarget ? "✓ Cible" : "Cible"}
-                      </button>
-                      <button
-                        onClick={() => setMergeSource(isSource ? null : c.id)}
-                        className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                          isSource ? "bg-red-600 text-white" : "border border-red-300 text-red-600 hover:bg-red-50"
-                        }`}
-                      >
-                        {isSource ? "✓ À supprimer" : "À supprimer"}
-                      </button>
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Target client (to keep) */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-emerald-700">Client cible (à conserver)</label>
+              {mergeTarget ? (
+                <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2">
+                  <div>
+                    <span className="text-sm font-medium text-slate-900">{mergeTarget.name}</span>
+                    <span className="ml-2 text-xs text-slate-400">{mergeTarget._count.installations} install. · {mergeTarget._count.invoices} fact.</span>
                   </div>
-                );
-              })}
+                  <button onClick={() => setMergeTarget(null)} className="text-slate-400 hover:text-slate-600">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher le client cible..."
+                      value={mergeTargetSearch}
+                      onChange={(e) => searchMergeTarget(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                  {mergeTargetResults.length > 0 && (
+                    <div className="rounded-lg border border-slate-200 max-h-48 overflow-y-auto divide-y divide-slate-100">
+                      {mergeTargetResults.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setMergeTarget(c); setMergeTargetResults([]); setMergeTargetSearch(""); }}
+                          className="w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-emerald-50 transition-colors"
+                        >
+                          <div>
+                            <span className="font-medium text-slate-900">{c.name}</span>
+                            <span className="ml-2 text-xs text-slate-400">{c._count.installations} install. · {c._count.invoices} fact.</span>
+                          </div>
+                          <Check className="h-3.5 w-3.5 text-emerald-500 opacity-0 group-hover:opacity-100" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          )}
+
+            {/* Source client (to delete) */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-red-700">Client source (sera supprimé)</label>
+              {mergeSource ? (
+                <div className="flex items-center justify-between rounded-lg border border-red-300 bg-red-50 px-3 py-2">
+                  <div>
+                    <span className="text-sm font-medium text-slate-900">{mergeSource.name}</span>
+                    <span className="ml-2 text-xs text-slate-400">{mergeSource._count.installations} install. · {mergeSource._count.invoices} fact.</span>
+                  </div>
+                  <button onClick={() => setMergeSource(null)} className="text-slate-400 hover:text-slate-600">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher le client à supprimer..."
+                      value={mergeSourceSearch}
+                      onChange={(e) => searchMergeSource(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                    />
+                  </div>
+                  {mergeSourceResults.length > 0 && (
+                    <div className="rounded-lg border border-slate-200 max-h-48 overflow-y-auto divide-y divide-slate-100">
+                      {mergeSourceResults.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setMergeSource(c); setMergeSourceResults([]); setMergeSourceSearch(""); }}
+                          className="w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-red-50 transition-colors"
+                        >
+                          <div>
+                            <span className="font-medium text-slate-900">{c.name}</span>
+                            <span className="ml-2 text-xs text-slate-400">{c._count.installations} install. · {c._count.invoices} fact.</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
 
           {mergeTarget && mergeSource && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
                 <p className="text-sm text-amber-700 font-medium">
-                  Le client &quot;{mergeClients.find((c) => c.id === mergeSource)?.name}&quot; sera supprimé et ses données transférées vers &quot;{mergeClients.find((c) => c.id === mergeTarget)?.name}&quot;.
+                  Le client &quot;{mergeSource.name}&quot; sera supprimé et ses données transférées vers &quot;{mergeTarget.name}&quot;.
                 </p>
               </div>
               <button

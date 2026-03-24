@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { autoCorrectInstallationStatuses } from "@/lib/auto-status";
 import { installationCreateSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-
-  // Auto-correct: warranty valid → EN_PARC
-  await autoCorrectInstallationStatuses();
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);

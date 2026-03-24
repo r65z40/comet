@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { autoCorrectInstallationStatuses } from "@/lib/auto-status";
-
 export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   try {
-    // Throttled auto-correct: warranty valid → EN_PARC
-    await autoCorrectInstallationStatuses();
 
     const now = new Date();
     const thirtyDays = new Date(now);
@@ -44,13 +40,13 @@ export async function GET() {
       prisma.installation.count({ where: { status: { in: ["HORS_PARC", "EN_PARC_HORS_GARANTIE"] } } }),
       prisma.installation.count({ where: { status: "RENOUVELE" } }),
       prisma.installation.count({
-        where: { endDate: { gte: now, lte: thirtyDays }, status: { not: "RENOUVELE" } },
+        where: { endDate: { gte: now, lte: thirtyDays }, status: { not: "RENOUVELE" }, alwaysInFleet: { not: true } },
       }),
       prisma.installation.count({
-        where: { endDate: { gte: now, lte: sixtyDays }, status: { not: "RENOUVELE" } },
+        where: { endDate: { gte: now, lte: sixtyDays }, status: { not: "RENOUVELE" }, alwaysInFleet: { not: true } },
       }),
       prisma.installation.count({
-        where: { endDate: { gte: now, lte: ninetyDays }, status: { not: "RENOUVELE" } },
+        where: { endDate: { gte: now, lte: ninetyDays }, status: { not: "RENOUVELE" }, alwaysInFleet: { not: true } },
       }),
       prisma.installation.groupBy({
         by: ["family"],
@@ -74,6 +70,7 @@ export async function GET() {
         WHERE "endDate" >= NOW() - INTERVAL '3 months'
           AND "endDate" <= NOW() + INTERVAL '12 months'
           AND status != 'RENOUVELE'
+          AND ("alwaysInFleet" IS NULL OR "alwaysInFleet" = false)
         GROUP BY TO_CHAR("endDate", 'YYYY-MM')
         ORDER BY month ASC
       `,
@@ -82,6 +79,7 @@ export async function GET() {
       prisma.installation.findMany({
         where: {
           status: { not: "RENOUVELE" },
+          alwaysInFleet: { not: true },
           endDate: { gte: now, lte: ninetyDays },
         },
         include: {
