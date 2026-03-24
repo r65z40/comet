@@ -105,7 +105,7 @@ export default function PortalReportPage() {
   table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: fixed; }
   th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
   td { padding: 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
-  th:first-child, td:first-child { white-space: normal; }
+  th:first-child, td:first-child { white-space: normal; width: 28%; }
   th:not(:first-child), td:not(:first-child) { text-align: center; }
   tr:nth-child(even) { background: #fafafa; }
   .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
