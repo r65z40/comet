@@ -89,7 +89,7 @@ export default function SettingsPage() {
   const [reportShowRenewedCount, setReportShowRenewedCount] = useState(false);
   const [reportShowQuantity, setReportShowQuantity] = useState(false);
   const [reportShowComParc, setReportShowComParc] = useState(false);
-  const [reportShowContractRecap, setReportShowContractRecap] = useState(false);
+
   const [reportFooterText, setReportFooterText] = useState("");
   const [reportOrientation, setReportOrientation] = useState("portrait");
   const [reportCoverBg, setReportCoverBg] = useState("");
@@ -300,7 +300,7 @@ export default function SettingsPage() {
         setReportShowRenewedCount(data.report_show_renewed_count === "true");
         setReportShowQuantity(data.report_show_quantity === "true");
         setReportShowComParc(data.report_show_com_parc === "true");
-        setReportShowContractRecap(data.report_show_contract_recap === "true");
+
         setReportFooterText(data.report_footer_text || "");
         setReportOrientation(data.report_orientation || "portrait");
         setReportCoverBg(data.report_cover_bg || "");
@@ -516,7 +516,7 @@ export default function SettingsPage() {
         report_show_renewed_count: reportShowRenewedCount ? "true" : "false",
         report_show_quantity: reportShowQuantity ? "true" : "false",
         report_show_com_parc: reportShowComParc ? "true" : "false",
-        report_show_contract_recap: reportShowContractRecap ? "true" : "false",
+
         report_footer_text: reportFooterText,
         report_orientation: reportOrientation,
         report_cover_bg: reportCoverBg,
@@ -1695,15 +1695,7 @@ export default function SettingsPage() {
               />
               <span className="text-sm text-slate-600">Colonne &quot;Com Parc&quot;</span>
             </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={reportShowContractRecap}
-                onChange={(e) => setReportShowContractRecap(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-              />
-              <span className="text-sm text-slate-600">Récapitulatif du contrat (familles, fournisseurs, durée moyenne)</span>
-            </label>
+
           </div>
         </div>
 
