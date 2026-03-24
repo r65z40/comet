@@ -240,7 +240,7 @@ export default function AteraReportPage() {
               <XAxis dataKey="month" tickFormatter={formatMonthFr} fontSize={11} tick={{ fill: "var(--chart-label, #64748b)" }} />
               <YAxis fontSize={11} tick={{ fill: "var(--chart-label, #64748b)" }} />
               <Tooltip
-                formatter={(v: number, name: string) => [name === "hours" ? formatHours(v) : v, name === "hours" ? "Heures" : "Tickets"]}
+                formatter={(v, name) => [name === "hours" ? formatHours(v as number) : v, name === "hours" ? "Heures" : "Tickets"]}
                 labelFormatter={formatMonthFr}
                 contentStyle={{ background: "var(--tooltip-bg, #fff)", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }}
               />
