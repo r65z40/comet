@@ -102,7 +102,7 @@ export default function PortalReportPage() {
   .stat-card .label { font-size: 11px; color: #64748b; margin-top: 4px; }
   .stat-green { border-color: #10b981; } .stat-green .value { color: #10b981; }
   .stat-red { border-color: #ef4444; } .stat-red .value { color: #ef4444; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: fixed; }
   th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
   td { padding: 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
   th:first-child, td:first-child { white-space: normal; }

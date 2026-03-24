@@ -379,6 +379,20 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       return true;
     });
 
+    function buildTableHead(includeFamily: boolean): string {
+      return `<thead><tr>
+        <th>Produit</th>
+        ${includeFamily ? `<th>Famille</th>` : ""}
+        ${showSupplier ? `<th>Fournisseur</th>` : ""}
+        ${showQuantity ? `<th>Qté</th>` : ""}
+        ${showComParc ? `<th>Com. Parc</th>` : ""}
+        <th>Début</th>
+        <th>Fin</th>
+        ${showDuration ? `<th>Durée</th>` : ""}
+        <th>Statut</th>
+      </tr></thead>`;
+    }
+
     let tableContent = "";
     if (groupByFamily) {
       const families = new Map<string, Installation[]>();
@@ -392,6 +406,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div style="margin-top: 20px;">
           <h3 style="font-size: 14px; font-weight: 700; color: ${primaryColor}; margin-bottom: 8px; padding: 6px 10px; background: ${primaryColor}11; border-radius: 4px;">${esc(family)} (${installs.length})</h3>
           <table>
+            ${buildTableHead(false)}
             <tbody>
               ${installs.map((inst) => `
                 <tr>
@@ -413,6 +428,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       const sorted = [...reportInstallations].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
       tableContent = `
         <table>
+          ${buildTableHead(showFamily)}
           <tbody>
             ${buildInstRows(sorted)}
           </tbody>
@@ -438,7 +454,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   <title>Rapport de suivi des garanties informatique - ${esc(client.name)}</title>
   <style>
     @media print {
-      @page { margin: 5mm; size: ${orientation === "landscape" ? "landscape" : "portrait"}; }
+      @page { margin: 10mm; size: ${orientation === "landscape" ? "landscape" : "portrait"}; }
       @page:first { margin: 0; }
       html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
@@ -448,7 +464,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page {
       position: relative;
       width: 100%;
-      height: ${orientation === "landscape" ? "190mm" : "277mm"};
+      height: ${orientation === "landscape" ? "210mm" : "297mm"};
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -482,7 +498,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page .vertical-text { position: absolute; right: 0; top: 0; bottom: 0; writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; padding-right: 5px; }
     @media print { .cover-page { page-break-after: always; } .cover-page .vertical-text { top: 50%; bottom: auto; transform: translateY(-50%); } }
 
-    .report-content { padding: 10px 5mm; }
+    .report-content { padding: 10mm; }
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
 
     .stats { display: flex; gap: 16px; margin-bottom: 30px; flex-wrap: wrap; }
@@ -494,7 +510,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .stat-blue { border-color: ${primaryColor}; } .stat-blue .value { color: ${primaryColor}; }
     .footer { text-align: center; font-size: 11px; color: #94a3b8; padding-top: 20px; margin-top: 40px; border-top: 1px solid #e2e8f0; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: fixed; }
     th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
     td { padding: 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
     th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
@@ -599,7 +615,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     document.body.appendChild(container);
     const fileName = `rapport-${client!.name.replace(/[^a-zA-Z0-9]/g, "_")}-${new Date().toISOString().split("T")[0]}`;
     await html2pdf().set({
-      margin: [10, 10, 10, 10],
+      margin: [0, 0, 0, 0],
       filename: `${fileName}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
