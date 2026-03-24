@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, Ticket } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -65,6 +65,20 @@ interface ClientDetail {
   contacts: Contact[];
 }
 
+interface AteraTicket {
+  TicketID: number;
+  TicketTitle: string;
+  TicketNumber: string;
+  TicketPriority: string;
+  TicketStatus: string;
+  TicketType: string;
+  TicketCreatedDate: string;
+  TicketResolvedDate: string | null;
+  EndUserFirstName: string;
+  EndUserLastName: string;
+  TechnicianFullName: string;
+}
+
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -97,6 +111,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [inviteLink, setInviteLink] = useState<{ userId: string; url: string; emailSent?: boolean } | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [inviteGenerating, setInviteGenerating] = useState<string | null>(null);
+
+  // Atera tickets state
+  const [ateraTickets, setAteraTickets] = useState<AteraTicket[]>([]);
+  const [ateraLoading, setAteraLoading] = useState(false);
+  const [ateraLoaded, setAteraLoaded] = useState(false);
+  const [ateraOpen, setAteraOpen] = useState(false);
+  const [ateraError, setAteraError] = useState<string | null>(null);
 
   async function loadPortal() {
     if (portalLoaded) return;
@@ -189,6 +210,26 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       body: JSON.stringify({ active }),
     });
     setPortalUsers((prev) => prev.map((u) => u.id === userId ? { ...u, active } : u));
+  }
+
+  async function loadAteraTickets() {
+    if (ateraLoaded) return;
+    setAteraLoading(true);
+    setAteraError(null);
+    try {
+      const res = await fetch(`/api/clients/${id}/tickets`);
+      const data = await res.json();
+      if (res.ok) {
+        setAteraTickets(data.tickets || []);
+        if (data.message) setAteraError(data.message);
+      } else {
+        setAteraError(data.error || "Erreur");
+      }
+    } catch {
+      setAteraError("Erreur de connexion");
+    }
+    setAteraLoading(false);
+    setAteraLoaded(true);
   }
 
   async function deletePortalUser(userId: string) {
@@ -1105,6 +1146,106 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           </table>
         </div>
       )}
+
+      {/* Tickets Atera */}
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button
+          onClick={() => { setAteraOpen(!ateraOpen); if (!ateraLoaded) loadAteraTickets(); }}
+          className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-orange-50 p-2">
+              <Ticket className="h-4 w-4 text-orange-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Tickets Atera</h3>
+              <p className="text-xs text-slate-400">Tickets de support associés à ce client</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {ateraLoaded && ateraTickets.length > 0 && (
+              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                {ateraTickets.length}
+              </span>
+            )}
+            <span className="text-slate-400 text-xs">{ateraOpen ? "▲" : "▼"}</span>
+          </div>
+        </button>
+
+        {ateraOpen && (
+          <div className="border-t border-slate-200">
+            {ateraLoading && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                <span className="ml-2 text-sm text-slate-400">Chargement des tickets...</span>
+              </div>
+            )}
+
+            {!ateraLoading && ateraError && ateraTickets.length === 0 && (
+              <div className="px-6 py-8 text-center text-sm text-slate-400">{ateraError}</div>
+            )}
+
+            {!ateraLoading && !ateraError && ateraTickets.length === 0 && ateraLoaded && (
+              <div className="px-6 py-8 text-center text-sm text-slate-400">Aucun ticket trouvé</div>
+            )}
+
+            {ateraTickets.length > 0 && (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">N°</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Titre</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Statut</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Priorité</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Demandeur</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Technicien</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {ateraTickets.map((t) => {
+                    const statusColors: Record<string, string> = {
+                      Open: "bg-blue-100 text-blue-700",
+                      Pending: "bg-amber-100 text-amber-700",
+                      Resolved: "bg-emerald-100 text-emerald-700",
+                      Closed: "bg-slate-100 text-slate-600",
+                    };
+                    const priorityColors: Record<string, string> = {
+                      Critical: "bg-red-100 text-red-700",
+                      High: "bg-orange-100 text-orange-700",
+                      Medium: "bg-amber-100 text-amber-700",
+                      Low: "bg-slate-100 text-slate-600",
+                    };
+                    return (
+                      <tr key={t.TicketID} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 text-sm text-slate-500 font-mono">{t.TicketNumber || t.TicketID}</td>
+                        <td className="px-4 py-3 text-sm text-slate-900 font-medium max-w-xs truncate">{t.TicketTitle}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[t.TicketStatus] || "bg-slate-100 text-slate-600"}`}>
+                            {t.TicketStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityColors[t.TicketPriority] || "bg-slate-100 text-slate-600"}`}>
+                            {t.TicketPriority}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">
+                          {[t.EndUserFirstName, t.EndUserLastName].filter(Boolean).join(" ") || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{t.TechnicianFullName || "—"}</td>
+                        <td className="px-4 py-3 text-sm text-slate-500">
+                          {t.TicketCreatedDate ? new Date(t.TicketCreatedDate).toLocaleDateString("fr-FR") : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Portail client */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
