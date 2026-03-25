@@ -35,11 +35,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     primaryColor: body.primaryColor || "#3b82f6",
     headerLogo: body.headerLogo || null,
     welcomeMessage: body.welcomeMessage || null,
+    welcomeTitle: body.welcomeTitle || null,
+    welcomeContent: body.welcomeContent || null,
+    showStats: body.showStats ?? true,
+    showExpiring: body.showExpiring ?? true,
     showFamily: body.showFamily ?? true,
     showSupplier: body.showSupplier ?? true,
     showDuration: body.showDuration ?? true,
     showQuantity: body.showQuantity ?? false,
     showComParc: body.showComParc ?? false,
+    showHeaderRow: body.showHeaderRow ?? true,
     footerText: body.footerText || null,
   };
 

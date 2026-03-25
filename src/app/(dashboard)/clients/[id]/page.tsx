@@ -98,7 +98,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     welcomeTitle: string | null; welcomeContent: string | null;
     showStats: boolean; showExpiring: boolean;
     showFamily: boolean; showSupplier: boolean; showDuration: boolean;
-    showQuantity: boolean; showComParc: boolean; footerText: string | null;
+    showQuantity: boolean; showComParc: boolean; showHeaderRow: boolean; footerText: string | null;
   } | null>(null);
   const [portalLoaded, setPortalLoaded] = useState(false);
   const [portalSaving, setPortalSaving] = useState(false);
@@ -118,7 +118,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       welcomeTitle: null, welcomeContent: null,
       showStats: true, showExpiring: true,
       showFamily: true, showSupplier: true, showDuration: true,
-      showQuantity: false, showComParc: false, footerText: null,
+      showQuantity: false, showComParc: false, showHeaderRow: true, footerText: null,
     });
     setPortalLoaded(true);
   }
@@ -360,6 +360,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const coverBgOpacity = parseInt(reportSettings.report_cover_bg_opacity || "15") / 100;
     const showQuantity = reportSettings.report_show_quantity === "true";
     const showComParc = reportSettings.report_show_com_parc === "true";
+    const showHeaderRow = reportSettings.report_show_header_row !== "false";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
     function getReportStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
@@ -409,6 +410,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     });
 
     function buildTableHead(includeFamily: boolean): string {
+      if (!showHeaderRow) return "";
       return `<thead><tr>
         <th>Produit</th>
         ${includeFamily ? `<th>Famille</th>` : ""}
@@ -1451,6 +1453,22 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         {label}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-2">Options du tableau</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setPortalSettings({ ...portalSettings, showHeaderRow: !portalSettings.showHeaderRow })}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        portalSettings.showHeaderRow
+                          ? "border-primary-300 bg-primary-50 text-primary-700"
+                          : "border-slate-200 text-slate-400"
+                      }`}
+                    >
+                      Ligne d&apos;en-têtes
+                    </button>
                   </div>
                 </div>
               </div>

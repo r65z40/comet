@@ -28,6 +28,7 @@ interface PortalContextType {
     showDuration: boolean;
     showQuantity: boolean;
     showComParc: boolean;
+    showHeaderRow: boolean;
     footerText: string | null;
   } | null;
   companyLogo: string | null;
@@ -56,6 +57,7 @@ const defaultSettings: PortalContextType["portalSettings"] = {
   showDuration: true,
   showQuantity: false,
   showComParc: false,
+  showHeaderRow: true,
   footerText: null,
 };
 

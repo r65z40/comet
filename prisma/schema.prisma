@@ -126,6 +126,7 @@ model ClientPortalSettings {
   showDuration    Boolean @default(true)
   showQuantity    Boolean @default(false)
   showComParc     Boolean @default(false)
+  showHeaderRow   Boolean @default(true)
   footerText      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

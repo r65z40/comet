@@ -127,7 +127,7 @@ export default function PortalReportPage() {
     <div class="stat-card stat-red"><div class="value">${horsParc.length}</div><div class="label">Hors parc</div></div>
   </div>
   <div class="section-title">Détail des installations</div>
-  <table><thead><tr>
+  <table>${portalSettings?.showHeaderRow !== false ? `<thead><tr>
     <th>Produit</th>
     ${portalSettings?.showFamily ? "<th>Famille</th>" : ""}
     ${portalSettings?.showSupplier ? "<th>Fournisseur</th>" : ""}
@@ -136,7 +136,7 @@ export default function PortalReportPage() {
     <th>Début</th><th>Fin</th>
     ${portalSettings?.showDuration ? "<th>Durée</th>" : ""}
     <th>Statut</th>
-  </tr></thead><tbody>${rows}</tbody></table>
+  </tr></thead>` : ""}<tbody>${rows}</tbody></table>
   ${portalSettings?.footerText ? `<div class="footer">${esc(portalSettings.footerText)}</div>` : ""}
 </body></html>`;
 
