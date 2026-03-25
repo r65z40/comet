@@ -1,0 +1,80 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+
+export async function GET() {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const columns = await prisma.boardColumn.findMany({
+    orderBy: { position: "asc" },
+    include: {
+      cards: {
+        orderBy: { position: "asc" },
+        include: {
+          client: { select: { id: true, name: true } },
+          tags: { include: { tag: true } },
+          _count: { select: { comments: true, attachments: true } },
+        },
+      },
+    },
+  });
+
+  return NextResponse.json(columns);
+}
+
+export async function POST(req: NextRequest) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const body = await req.json();
+  const { name, color } = body;
+
+  if (!name?.trim()) {
+    return NextResponse.json({ error: "Le nom est requis" }, { status: 400 });
+  }
+
+  const maxPos = await prisma.boardColumn.aggregate({ _max: { position: true } });
+  const position = (maxPos._max.position ?? -1) + 1;
+
+  const column = await prisma.boardColumn.create({
+    data: { name: name.trim(), color: color || "#3b82f6", position },
+  });
+
+  return NextResponse.json(column, { status: 201 });
+}
+
+export async function PUT(req: NextRequest) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const body = await req.json();
+  const { id, name, color, position } = body;
+
+  if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
+
+  const column = await prisma.boardColumn.update({
+    where: { id },
+    data: {
+      ...(name !== undefined && { name: name.trim() }),
+      ...(color !== undefined && { color }),
+      ...(position !== undefined && { position }),
+    },
+  });
+
+  return NextResponse.json(column);
+}
+
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+
+  if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
+
+  await prisma.boardColumn.delete({ where: { id } });
+
+  return NextResponse.json({ success: true });
+}

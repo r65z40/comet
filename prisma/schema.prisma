@@ -66,6 +66,7 @@ model Client {
   portalUsers       ClientUser[]
   portalSettings    ClientPortalSettings?
   contacts          Contact[]
+  boardCards        BoardCard[]
 
   @@index([deletedAt])
   @@map("clients")
@@ -267,4 +268,106 @@ model Setting {
   value String
 
   @@map("settings")
+}
+
+// ─── Tableau de communication (Board) ───────────────────────────
+
+model BoardColumn {
+  id        String      @id @default(cuid())
+  name      String
+  color     String      @default("#3b82f6")
+  position  Int         @default(0)
+  cards     BoardCard[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@map("board_columns")
+}
+
+model BoardCard {
+  id          String           @id @default(cuid())
+  columnId    String
+  column      BoardColumn      @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  priority    Int              @default(3) // 1=Urgent, 2=Normal, 3=Basse
+  position    Int              @default(0)
+  clientId    String?
+  client      Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  assigneeId  String?
+  createdById String?
+  dueDate     DateTime?
+  links       String?          // JSON array of links
+  comments    CardComment[]
+  attachments CardAttachment[]
+  tags        CardTagLink[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([columnId])
+  @@index([clientId])
+  @@index([assigneeId])
+  @@index([priority])
+  @@map("board_cards")
+}
+
+model CardComment {
+  id        String    @id @default(cuid())
+  cardId    String
+  card      BoardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userId    String?
+  userName  String
+  content   String
+  createdAt DateTime  @default(now())
+
+  @@index([cardId])
+  @@map("card_comments")
+}
+
+model CardAttachment {
+  id        String    @id @default(cuid())
+  cardId    String
+  card      BoardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  fileName  String
+  fileUrl   String
+  fileType  String?
+  fileSize  Int?
+  createdAt DateTime  @default(now())
+
+  @@index([cardId])
+  @@map("card_attachments")
+}
+
+model CardTag {
+  id    String        @id @default(cuid())
+  name  String        @unique
+  color String        @default("#6b7280")
+  cards CardTagLink[]
+
+  @@map("card_tags")
+}
+
+model CardTagLink {
+  id     String    @id @default(cuid())
+  cardId String
+  card   BoardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    CardTag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, tagId])
+  @@map("card_tag_links")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notifications")
 }

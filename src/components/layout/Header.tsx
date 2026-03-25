@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, Bell, AlertTriangle, X, CheckCheck } from "lucide-react";
 import Link from "next/link";
+import NotificationBell from "./NotificationBell";
 
 interface SearchResult {
   type: "client" | "product" | "installation";
@@ -160,7 +161,8 @@ export default function Header() {
         )}
       </div>
 
-      <div ref={notifRef} className="relative flex items-center gap-3">
+      <div ref={notifRef} className="relative flex items-center gap-2">
+        <NotificationBell />
         <button
           className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
           onClick={() => setNotifOpen(!notifOpen)}
