@@ -61,7 +61,7 @@ interface BoardCard {
   priority: number;
   position: number;
   clientId: string | null;
-  client: { id: string; name: string } | null;
+  client: { id: string; name: string; logoUrl?: string | null } | null;
   contactId: string | null;
   contact: { id: string; firstName: string | null; lastName: string | null } | null;
   assigneeId: string | null;
@@ -402,7 +402,7 @@ export default function BoardPage() {
             <ClipboardList className="h-5 w-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Tableau de bord</h1>
+            <h1 className="text-xl font-bold text-slate-900">Board</h1>
             <p className="text-sm text-slate-500">{totalCards} carte{totalCards > 1 ? "s" : ""}</p>
           </div>
         </div>

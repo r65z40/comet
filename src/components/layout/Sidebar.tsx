@@ -25,7 +25,7 @@ const navigation = [
   { name: "Clients", href: "/clients", icon: Users },
   { name: "Produits", href: "/products", icon: Package },
   { name: "Factures", href: "/invoices", icon: FileText },
-  { name: "Tableau", href: "/board", icon: ClipboardList },
+  { name: "Board", href: "/board", icon: ClipboardList },
   { name: "Paramètres", href: "/settings", icon: Settings },
 ];
 

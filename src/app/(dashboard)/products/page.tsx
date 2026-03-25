@@ -50,7 +50,7 @@ export default function ProductsPage() {
     {
       key: "name",
       label: "Produit",
-      width: "30%",
+      width: "60%",
       render: (p: Product) => (
         <span className="font-medium text-slate-900 block truncate max-w-[300px]" title={p.name}>
           {p.name}

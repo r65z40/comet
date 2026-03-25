@@ -26,7 +26,7 @@ interface BoardCard {
   priority: number;
   position: number;
   clientId: string | null;
-  client: { id: string; name: string } | null;
+  client: { id: string; name: string; logoUrl?: string | null } | null;
   contactId: string | null;
   contact: { id: string; firstName: string | null; lastName: string | null } | null;
   assigneeId: string | null;
@@ -103,15 +103,25 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
             {priority.label}
           </span>
         </div>
-        {/* Assignee avatar */}
-        {card.assigneeName && (
-          <div
-            className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center text-[9px] font-bold text-primary-700 flex-shrink-0"
-            title={card.assigneeName}
-          >
-            {card.assigneeName.charAt(0).toUpperCase()}
-          </div>
-        )}
+        {/* Assignee avatar + Client logo */}
+        <div className="flex items-center gap-1">
+          {card.client?.logoUrl && (
+            <img
+              src={card.client.logoUrl}
+              alt={card.client.name}
+              title={card.client.name}
+              className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+            />
+          )}
+          {card.assigneeName && (
+            <div
+              className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center text-[9px] font-bold text-primary-700 flex-shrink-0"
+              title={card.assigneeName}
+            >
+              {card.assigneeName.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Title */}
