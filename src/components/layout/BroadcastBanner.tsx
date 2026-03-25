@@ -3,6 +3,21 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
+function sanitizeHtml(html: string): string {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  // Remove script tags and event handlers
+  div.querySelectorAll("script, iframe, object, embed, form").forEach((el) => el.remove());
+  div.querySelectorAll("*").forEach((el) => {
+    for (const attr of Array.from(el.attributes)) {
+      if (attr.name.startsWith("on") || attr.name === "srcdoc" || (attr.name === "href" && attr.value.trimStart().startsWith("javascript:"))) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  });
+  return div.innerHTML;
+}
+
 export default function BroadcastBanner() {
   const [message, setMessage] = useState("");
   const [visible, setVisible] = useState(false);
@@ -33,7 +48,7 @@ export default function BroadcastBanner() {
       <div className="mx-auto max-w-7xl px-4 py-3 pr-12 sm:px-6">
         <div
           className="broadcast-content text-sm text-slate-700 [&_a]:text-primary-600 [&_a]:underline [&_img]:inline-block [&_img]:max-h-40 [&_img]:rounded [&_h1]:text-lg [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
-          dangerouslySetInnerHTML={{ __html: message }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(message) }}
         />
       </div>
       <button

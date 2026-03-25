@@ -21,11 +21,6 @@ export default function SettingsPage() {
   const [newApiKey, setNewApiKey] = useState("");
   const [apiUrl, setApiUrl] = useState("");
 
-  // Atera settings
-  const [newAteraKey, setNewAteraKey] = useState("");
-  const [savingAtera, setSavingAtera] = useState(false);
-  const [savedAtera, setSavedAtera] = useState(false);
-
   // SMTP settings
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState("587");
@@ -360,20 +355,6 @@ export default function SettingsPage() {
     setSaved(true);
     setNewApiKey("");
     setTimeout(() => setSaved(false), 3000);
-  }
-
-  async function handleSaveAtera() {
-    if (!newAteraKey) return;
-    setSavingAtera(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ atera_api_key: newAteraKey }),
-    });
-    setSavingAtera(false);
-    setSavedAtera(true);
-    setNewAteraKey("");
-    setTimeout(() => setSavedAtera(false), 3000);
   }
 
   async function handleSaveSmtp() {
@@ -869,62 +850,6 @@ export default function SettingsPage() {
           </button>
           {saved && (
             <span className="text-xs text-emerald-600">Paramètres enregistrés</span>
-          )}
-        </div>
-      </div>}
-      </div>}
-
-      {/* API Atera (admin only) */}
-      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <button onClick={() => toggleSection("atera")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary-50 p-2">
-              <Plug className="h-4 w-4 text-primary-600" />
-            </div>
-            <h3 className="text-sm font-medium text-slate-900">API Atera</h3>
-          </div>
-          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.atera ? "rotate-180" : ""}`} />
-        </button>
-        {openSections.atera && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
-
-        <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
-            Clé API actuelle
-          </label>
-          <p className="text-sm text-slate-400 font-mono">
-            {settings.atera_api_key || "Non configurée"}
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
-            Nouvelle clé API
-          </label>
-          <input
-            type="password"
-            value={newAteraKey}
-            onChange={(e) => setNewAteraKey(e.target.value)}
-            placeholder="Entrer la clé API Atera..."
-            className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          />
-          <p className="text-xs text-slate-400 mt-1">Disponible dans Atera &gt; Admin &gt; API</p>
-        </div>
-
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            onClick={handleSaveAtera}
-            disabled={savingAtera || !newAteraKey}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
-          >
-            {savingAtera ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            Enregistrer
-          </button>
-          {savedAtera && (
-            <span className="text-xs text-emerald-600">Clé API Atera enregistrée</span>
           )}
         </div>
       </div>}

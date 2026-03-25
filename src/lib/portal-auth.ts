@@ -4,7 +4,11 @@ import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
 const PORTAL_COOKIE = "portal_token";
-const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || "fallback-secret-change-me");
+function getSecret() {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) throw new Error("AUTH_SECRET environment variable is required");
+  return new TextEncoder().encode(secret);
+}
 
 interface PortalPayload {
   sub: string; // clientUser id
@@ -18,7 +22,7 @@ export async function createPortalToken(payload: PortalPayload): Promise<string>
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(SECRET);
+    .sign(getSecret());
 }
 
 export async function verifyPortalToken(): Promise<PortalPayload | null> {
@@ -26,7 +30,7 @@ export async function verifyPortalToken(): Promise<PortalPayload | null> {
     const cookieStore = await cookies();
     const token = cookieStore.get(PORTAL_COOKIE)?.value;
     if (!token) return null;
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSecret());
     return payload as unknown as PortalPayload;
   } catch {
     return null;
