@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE "client_portal_settings" ADD COLUMN "welcomeTitle" TEXT,
-ADD COLUMN "welcomeContent" TEXT,
-ADD COLUMN "showStats" BOOLEAN NOT NULL DEFAULT true,
-ADD COLUMN "showExpiring" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "client_portal_settings" ADD COLUMN IF NOT EXISTS "welcomeTitle" TEXT,
+ADD COLUMN IF NOT EXISTS "welcomeContent" TEXT,
+ADD COLUMN IF NOT EXISTS "showStats" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS "showExpiring" BOOLEAN NOT NULL DEFAULT true;

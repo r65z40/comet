@@ -1,13 +1,13 @@
 -- AlterTable
-ALTER TABLE "clients" ADD COLUMN "mobile" TEXT;
-ALTER TABLE "clients" ADD COLUMN "fax" TEXT;
-ALTER TABLE "clients" ADD COLUMN "website" TEXT;
-ALTER TABLE "clients" ADD COLUMN "siret" TEXT;
-ALTER TABLE "clients" ADD COLUMN "addressComplement" TEXT;
-ALTER TABLE "clients" ADD COLUMN "notes" TEXT;
+ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "mobile" TEXT;
+ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "fax" TEXT;
+ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "website" TEXT;
+ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "siret" TEXT;
+ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "addressComplement" TEXT;
+ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "notes" TEXT;
 
 -- CreateTable
-CREATE TABLE "contacts" (
+CREATE TABLE IF NOT EXISTS "contacts" (
     "id" TEXT NOT NULL,
     "axonautId" INTEGER,
     "clientId" TEXT NOT NULL,
@@ -25,10 +25,14 @@ CREATE TABLE "contacts" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "contacts_axonautId_key" ON "contacts"("axonautId");
+CREATE UNIQUE INDEX IF NOT EXISTS "contacts_axonautId_key" ON "contacts"("axonautId");
 
 -- CreateIndex
-CREATE INDEX "contacts_clientId_idx" ON "contacts"("clientId");
+CREATE INDEX IF NOT EXISTS "contacts_clientId_idx" ON "contacts"("clientId");
 
 -- AddForeignKey
-ALTER TABLE "contacts" ADD CONSTRAINT "contacts_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "clients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'contacts_clientId_fkey') THEN
+    ALTER TABLE "contacts" ADD CONSTRAINT "contacts_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "clients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
