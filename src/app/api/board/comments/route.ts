@@ -25,6 +25,17 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Log history
+  await prisma.cardHistory.create({
+    data: {
+      cardId,
+      userId: session.user?.id || null,
+      userName: session.user?.name || null,
+      action: "COMMENT",
+      newValue: content.trim().substring(0, 100),
+    },
+  });
+
   // Notify card assignee if they didn't write the comment
   if (card.assigneeId && card.assigneeId !== session.user?.id) {
     await prisma.notification.create({

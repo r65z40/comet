@@ -304,6 +304,7 @@ model BoardCard {
   comments    CardComment[]
   attachments CardAttachment[]
   tags        CardTagLink[]
+  history     CardHistory[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -360,6 +361,23 @@ model CardTagLink {
 
   @@unique([cardId, tagId])
   @@map("card_tag_links")
+}
+
+model CardHistory {
+  id        String    @id @default(cuid())
+  cardId    String
+  card      BoardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userId    String?
+  userName  String?
+  action    String    // CREATE, UPDATE, DELETE, MOVE, COMMENT, ATTACHMENT, ASSIGN
+  field     String?   // field name that changed (e.g. "title", "priority", "column")
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime  @default(now())
+
+  @@index([cardId])
+  @@index([createdAt])
+  @@map("card_history")
 }
 
 model BoardNote {

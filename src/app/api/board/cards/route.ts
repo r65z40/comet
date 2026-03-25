@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       where: { id },
       include: {
         column: { select: { id: true, name: true } },
-        client: { select: { id: true, name: true } },
+        client: { select: { id: true, name: true, logoUrl: true } },
         contact: { select: { id: true, firstName: true, lastName: true } },
         tags: { include: { tag: true } },
         comments: { orderBy: { createdAt: "desc" } },
@@ -73,6 +73,17 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Log history
+  await prisma.cardHistory.create({
+    data: {
+      cardId: card.id,
+      userId: session.user?.id || null,
+      userName: session.user?.name || null,
+      action: "CREATE",
+      newValue: title.trim(),
+    },
+  });
+
   // Notify assignee if different from creator
   if (assigneeId && assigneeId !== session.user?.id) {
     await prisma.notification.create({
@@ -100,6 +111,38 @@ export async function PUT(req: NextRequest) {
   const existingCard = await prisma.boardCard.findUnique({ where: { id } });
   if (!existingCard) return NextResponse.json({ error: "Carte non trouvée" }, { status: 404 });
 
+  // Track field changes for history
+  const changes: { field: string; oldValue: string | null; newValue: string | null }[] = [];
+  const priorityLabels: Record<number, string> = { 1: "Urgente", 2: "Normale", 3: "Basse" };
+
+  if (title !== undefined && title.trim() !== existingCard.title) {
+    changes.push({ field: "title", oldValue: existingCard.title, newValue: title.trim() });
+  }
+  if (description !== undefined && description !== existingCard.description) {
+    changes.push({ field: "description", oldValue: existingCard.description, newValue: description });
+  }
+  if (priority !== undefined && priority !== existingCard.priority) {
+    changes.push({ field: "priority", oldValue: priorityLabels[existingCard.priority] || String(existingCard.priority), newValue: priorityLabels[priority] || String(priority) });
+  }
+  if (assigneeId !== undefined && assigneeId !== existingCard.assigneeId) {
+    // Resolve user names for history
+    const oldUser = existingCard.assigneeId ? await prisma.user.findUnique({ where: { id: existingCard.assigneeId }, select: { name: true } }) : null;
+    const newUser = assigneeId ? await prisma.user.findUnique({ where: { id: assigneeId }, select: { name: true } }) : null;
+    changes.push({ field: "assignee", oldValue: oldUser?.name || null, newValue: newUser?.name || null });
+  }
+  if (clientId !== undefined && clientId !== existingCard.clientId) {
+    const oldClient = existingCard.clientId ? await prisma.client.findUnique({ where: { id: existingCard.clientId }, select: { name: true } }) : null;
+    const newClient = clientId ? await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } }) : null;
+    changes.push({ field: "client", oldValue: oldClient?.name || null, newValue: newClient?.name || null });
+  }
+  if (dueDate !== undefined) {
+    const oldDate = existingCard.dueDate ? existingCard.dueDate.toISOString().split("T")[0] : null;
+    const newDate = dueDate || null;
+    if (oldDate !== newDate) {
+      changes.push({ field: "dueDate", oldValue: oldDate, newValue: newDate });
+    }
+  }
+
   const card = await prisma.boardCard.update({
     where: { id },
     data: {
@@ -119,6 +162,21 @@ export async function PUT(req: NextRequest) {
       _count: { select: { comments: true, attachments: true } },
     },
   });
+
+  // Log history for each changed field
+  if (changes.length > 0) {
+    await prisma.cardHistory.createMany({
+      data: changes.map((change) => ({
+        cardId: id,
+        userId: session.user?.id || null,
+        userName: session.user?.name || null,
+        action: "UPDATE",
+        field: change.field,
+        oldValue: change.oldValue,
+        newValue: change.newValue,
+      })),
+    });
+  }
 
   // Update tags if provided
   if (tagIds !== undefined) {
@@ -154,6 +212,9 @@ export async function DELETE(req: NextRequest) {
 
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
+  const cardToDelete = await prisma.boardCard.findUnique({ where: { id }, select: { title: true } });
+
+  // History is cascade-deleted with the card, so we just log to activity
   await prisma.boardCard.delete({ where: { id } });
 
   return NextResponse.json({ success: true });

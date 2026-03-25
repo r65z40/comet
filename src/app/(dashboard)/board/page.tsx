@@ -128,10 +128,10 @@ export default function BoardPage() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch("/api/users");
+      const res = await fetch("/api/board/users");
       if (res.ok) {
         const data = await res.json();
-        setUsers(data.map((u: { id: string; name: string }) => ({ id: u.id, name: u.name })));
+        setUsers(data);
       }
     } catch {
       // ignore
@@ -731,13 +731,13 @@ export default function BoardPage() {
           }}
         />
 
-        <style jsx>{`
+        <style dangerouslySetInnerHTML={{ __html: `
           [contenteditable]:empty:before {
             content: attr(data-placeholder);
             color: #94a3b8;
             pointer-events: none;
           }
-        `}</style>
+        `}} />
       </div>
 
       {/* Card Detail Modal */}

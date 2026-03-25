@@ -21,6 +21,7 @@ import {
   FileText,
   Clock,
   Check,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +62,7 @@ interface CardDetail {
   priority: number;
   position: number;
   clientId: string | null;
-  client: { id: string; name: string } | null;
+  client: { id: string; name: string; logoUrl: string | null } | null;
   contactId: string | null;
   contact: { id: string; firstName: string | null; lastName: string | null } | null;
   assigneeId: string | null;
@@ -73,6 +74,17 @@ interface CardDetail {
   attachments: CardAttachment[];
   createdAt: string;
   updatedAt: string;
+}
+
+interface HistoryEntry {
+  id: string;
+  userId: string | null;
+  userName: string | null;
+  action: string;
+  field: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  createdAt: string;
 }
 
 interface Props {
@@ -122,6 +134,9 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
   const [clientSearch, setClientSearch] = useState("");
   const [showClientSearch, setShowClientSearch] = useState(false);
 
+  // History state
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+
   // File upload
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -163,6 +178,15 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
     }
   }, []);
 
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/board/history?cardId=${cardId}`);
+      if (res.ok) setHistory(await res.json());
+    } catch {
+      // ignore
+    }
+  }, [cardId]);
+
   const searchClients = useCallback(async (q: string) => {
     try {
       const res = await fetch(`/api/clients?search=${encodeURIComponent(q)}&limit=10`);
@@ -188,7 +212,8 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
   useEffect(() => {
     fetchCard();
     fetchTags();
-  }, [fetchCard, fetchTags]);
+    fetchHistory();
+  }, [fetchCard, fetchTags, fetchHistory]);
 
   useEffect(() => {
     if (clientSearch.length >= 2) {
@@ -216,6 +241,7 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
     });
     setEditing(false);
     fetchCard();
+    fetchHistory();
   }
 
   async function deleteCard() {
@@ -235,6 +261,7 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
     setCommentText("");
     setSendingComment(false);
     fetchCard();
+    fetchHistory();
   }
 
   async function deleteComment(id: string) {
@@ -332,6 +359,13 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4">
         {/* Header */}
         <div className="flex items-start justify-between p-4 border-b border-slate-200">
+          {card.client?.logoUrl && (
+            <img
+              src={card.client.logoUrl}
+              alt={card.client.name}
+              className="h-8 w-8 object-contain rounded border border-slate-200 mr-3 flex-shrink-0"
+            />
+          )}
           <div className="flex-1 min-w-0">
             {editing ? (
               <input
@@ -423,22 +457,32 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                 <Users className="h-3 w-3" />
                 Assigné à
               </label>
-              {editing ? (
-                <select
-                  value={editAssigneeId}
-                  onChange={(e) => setEditAssigneeId(e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
-                >
-                  <option value="">Non assigné</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="text-sm text-slate-700">{assignee?.name || "Non assigné"}</p>
-              )}
+              <select
+                value={editing ? editAssigneeId : (card.assigneeId || "")}
+                onChange={async (e) => {
+                  const newAssigneeId = e.target.value;
+                  if (editing) {
+                    setEditAssigneeId(newAssigneeId);
+                  } else {
+                    // Quick update without full edit mode
+                    await fetch("/api/board/cards", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id: cardId, assigneeId: newAssigneeId || null }),
+                    });
+                    fetchCard();
+                    fetchHistory();
+                  }
+                }}
+                className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                <option value="">Non assigné</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Due date */}
@@ -815,6 +859,56 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
               ))}
             </div>
           </div>
+
+          {/* History */}
+          {history.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1">
+                <History className="h-3 w-3" />
+                Historique ({history.length})
+              </label>
+              <div className="max-h-48 overflow-y-auto space-y-1.5">
+                {history.map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-2 text-xs text-slate-500">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-slate-600">{entry.userName || "Système"}</span>
+                      {" "}
+                      {entry.action === "CREATE" && "a créé la carte"}
+                      {entry.action === "UPDATE" && entry.field === "title" && (
+                        <>a renommé la carte de &quot;{entry.oldValue}&quot; en &quot;{entry.newValue}&quot;</>
+                      )}
+                      {entry.action === "UPDATE" && entry.field === "priority" && (
+                        <>a changé la priorité de &quot;{entry.oldValue}&quot; à &quot;{entry.newValue}&quot;</>
+                      )}
+                      {entry.action === "UPDATE" && entry.field === "assignee" && (
+                        <>a changé l&apos;assignation{entry.oldValue ? ` de "${entry.oldValue}"` : ""} {entry.newValue ? `à "${entry.newValue}"` : "à non assigné"}</>
+                      )}
+                      {entry.action === "UPDATE" && entry.field === "client" && (
+                        <>a changé le client{entry.oldValue ? ` de "${entry.oldValue}"` : ""} {entry.newValue ? `à "${entry.newValue}"` : ""}</>
+                      )}
+                      {entry.action === "UPDATE" && entry.field === "dueDate" && (
+                        <>a modifié la date limite{entry.newValue ? ` au ${new Date(entry.newValue).toLocaleDateString("fr-FR")}` : " (retirée)"}</>
+                      )}
+                      {entry.action === "UPDATE" && entry.field === "description" && "a modifié la description"}
+                      {entry.action === "MOVE" && (
+                        <>a déplacé la carte de &quot;{entry.oldValue}&quot; vers &quot;{entry.newValue}&quot;</>
+                      )}
+                      {entry.action === "COMMENT" && (
+                        <>a ajouté un commentaire</>
+                      )}
+                      {entry.action === "ASSIGN" && (
+                        <>a assigné la carte à &quot;{entry.newValue}&quot;</>
+                      )}
+                      <span className="text-slate-400 ml-1">
+                        · {formatRelativeTime(entry.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Footer info */}
           <div className="flex items-center gap-4 text-xs text-slate-400 pt-2 border-t border-slate-100">

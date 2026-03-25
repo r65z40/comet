@@ -70,10 +70,26 @@ export async function POST(req: NextRequest) {
     });
   });
 
-  // If column changed, get the new column name for notification
-  if (sourceColumnId !== targetColumnId && card.assigneeId && card.assigneeId !== session.user?.id) {
-    const targetColumn = await prisma.boardColumn.findUnique({ where: { id: targetColumnId } });
-    if (targetColumn) {
+  // If column changed, log history and notify
+  if (sourceColumnId !== targetColumnId) {
+    const [sourceColumn, targetColumn] = await Promise.all([
+      prisma.boardColumn.findUnique({ where: { id: sourceColumnId }, select: { name: true } }),
+      prisma.boardColumn.findUnique({ where: { id: targetColumnId }, select: { name: true } }),
+    ]);
+
+    await prisma.cardHistory.create({
+      data: {
+        cardId,
+        userId: session.user?.id || null,
+        userName: session.user?.name || null,
+        action: "MOVE",
+        field: "column",
+        oldValue: sourceColumn?.name || null,
+        newValue: targetColumn?.name || null,
+      },
+    });
+
+    if (card.assigneeId && card.assigneeId !== session.user?.id && targetColumn) {
       await prisma.notification.create({
         data: {
           userId: card.assigneeId,
