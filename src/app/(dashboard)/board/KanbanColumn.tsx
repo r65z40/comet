@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Plus, MoreHorizontal, Pencil, Trash2, X, Check } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, X, Check, Search, Building2, User, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
 
@@ -21,6 +21,8 @@ interface BoardCard {
   position: number;
   clientId: string | null;
   client: { id: string; name: string } | null;
+  contactId: string | null;
+  contact: { id: string; firstName: string | null; lastName: string | null } | null;
   assigneeId: string | null;
   dueDate: string | null;
   links: string | null;
@@ -62,7 +64,62 @@ export default function KanbanColumn({
   const [newCardTitle, setNewCardTitle] = useState("");
   const [newCardPriority, setNewCardPriority] = useState(3);
 
+  // Client search for new card
+  const [newCardClientId, setNewCardClientId] = useState("");
+  const [newCardClientName, setNewCardClientName] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientResults, setClientResults] = useState<{ id: string; name: string }[]>([]);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+
+  // Contact search for new card
+  const [newCardContactId, setNewCardContactId] = useState("");
+  const [newCardContactName, setNewCardContactName] = useState("");
+  const [contacts, setContacts] = useState<{ id: string; firstName: string | null; lastName: string | null }[]>([]);
+
+  // Assignee for new card
+  const [newCardAssigneeId, setNewCardAssigneeId] = useState("");
+
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
+
+  const searchClients = useCallback(async (q: string) => {
+    if (q.length < 2) { setClientResults([]); return; }
+    try {
+      const res = await fetch(`/api/clients?search=${encodeURIComponent(q)}&limit=8`);
+      if (res.ok) {
+        const data = await res.json();
+        setClientResults(data.clients.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const fetchContacts = useCallback(async (clientId: string) => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setContacts(data.contacts || []);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (clientSearch.length >= 2) {
+      const timeout = setTimeout(() => searchClients(clientSearch), 300);
+      return () => clearTimeout(timeout);
+    } else {
+      setClientResults([]);
+    }
+  }, [clientSearch, searchClients]);
+
+  useEffect(() => {
+    if (newCardClientId) {
+      fetchContacts(newCardClientId);
+    } else {
+      setContacts([]);
+      setNewCardContactId("");
+      setNewCardContactName("");
+    }
+  }, [newCardClientId, fetchContacts]);
 
   async function addCard() {
     if (!newCardTitle.trim()) return;
@@ -73,10 +130,19 @@ export default function KanbanColumn({
         columnId: column.id,
         title: newCardTitle.trim(),
         priority: newCardPriority,
+        clientId: newCardClientId || null,
+        contactId: newCardContactId || null,
+        assigneeId: newCardAssigneeId || null,
       }),
     });
     setNewCardTitle("");
     setNewCardPriority(3);
+    setNewCardClientId("");
+    setNewCardClientName("");
+    setNewCardContactId("");
+    setNewCardContactName("");
+    setNewCardAssigneeId("");
+    setClientSearch("");
     setShowAddCard(false);
     onCardCreated();
   }
@@ -84,6 +150,21 @@ export default function KanbanColumn({
   function saveColumnEdit() {
     onUpdateColumn(column.id, { name: editName.trim(), color: editColor });
     setEditing(false);
+  }
+
+  function selectClient(client: { id: string; name: string }) {
+    setNewCardClientId(client.id);
+    setNewCardClientName(client.name);
+    setClientSearch(client.name);
+    setShowClientDropdown(false);
+  }
+
+  function clearClient() {
+    setNewCardClientId("");
+    setNewCardClientName("");
+    setClientSearch("");
+    setNewCardContactId("");
+    setNewCardContactName("");
   }
 
   return (
@@ -193,6 +274,92 @@ export default function KanbanColumn({
               className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
               autoFocus
             />
+
+            {/* Client selection */}
+            <div className="relative">
+              <div className="flex items-center gap-1">
+                <Building2 className="h-3 w-3 text-slate-400" />
+                <span className="text-[10px] text-slate-500 font-medium">Client</span>
+              </div>
+              {newCardClientId ? (
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="text-xs text-slate-700 truncate flex-1">{newCardClientName}</span>
+                  <button onClick={clearClient} className="text-slate-400 hover:text-slate-600">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative mt-0.5">
+                  <input
+                    type="text"
+                    placeholder="Rechercher un client..."
+                    value={clientSearch}
+                    onChange={(e) => { setClientSearch(e.target.value); setShowClientDropdown(true); }}
+                    onFocus={() => setShowClientDropdown(true)}
+                    className="w-full px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  {showClientDropdown && clientResults.length > 0 && (
+                    <div className="absolute z-20 top-full mt-0.5 w-full bg-white border border-slate-200 rounded shadow-lg max-h-28 overflow-y-auto">
+                      {clientResults.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => selectClient(c)}
+                          className="w-full text-left px-2 py-1 text-xs hover:bg-slate-50 truncate"
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Contact selection (only when client is selected) */}
+            {newCardClientId && contacts.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1">
+                  <User className="h-3 w-3 text-slate-400" />
+                  <span className="text-[10px] text-slate-500 font-medium">Personne</span>
+                </div>
+                <select
+                  value={newCardContactId}
+                  onChange={(e) => {
+                    setNewCardContactId(e.target.value);
+                    const c = contacts.find(ct => ct.id === e.target.value);
+                    setNewCardContactName(c ? [c.firstName, c.lastName].filter(Boolean).join(" ") : "");
+                  }}
+                  className="w-full mt-0.5 px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="">Sélectionner...</option>
+                  {contacts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {[c.firstName, c.lastName].filter(Boolean).join(" ") || "Sans nom"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Assignee selection */}
+            <div>
+              <div className="flex items-center gap-1">
+                <UserCheck className="h-3 w-3 text-slate-400" />
+                <span className="text-[10px] text-slate-500 font-medium">Assigné à</span>
+              </div>
+              <select
+                value={newCardAssigneeId}
+                onChange={(e) => setNewCardAssigneeId(e.target.value)}
+                className="w-full mt-0.5 px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                <option value="">Non assigné</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Priority */}
             <div className="flex items-center gap-1">
               <span className="text-xs text-slate-500">Priorité :</span>
               {[
@@ -212,6 +379,7 @@ export default function KanbanColumn({
                 </button>
               ))}
             </div>
+
             <div className="flex gap-1.5">
               <button
                 onClick={addCard}
@@ -220,7 +388,7 @@ export default function KanbanColumn({
                 Ajouter
               </button>
               <button
-                onClick={() => { setShowAddCard(false); setNewCardTitle(""); }}
+                onClick={() => { setShowAddCard(false); setNewCardTitle(""); clearClient(); setNewCardAssigneeId(""); }}
                 className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
               >
                 Annuler

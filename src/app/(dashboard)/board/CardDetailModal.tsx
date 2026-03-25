@@ -62,6 +62,8 @@ interface CardDetail {
   position: number;
   clientId: string | null;
   client: { id: string; name: string } | null;
+  contactId: string | null;
+  contact: { id: string; firstName: string | null; lastName: string | null } | null;
   assigneeId: string | null;
   createdById: string | null;
   dueDate: string | null;
@@ -100,6 +102,10 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
   const [editLinks, setEditLinks] = useState<string[]>([]);
   const [newLink, setNewLink] = useState("");
 
+  // Contact state
+  const [editContactId, setEditContactId] = useState("");
+  const [clientContacts, setClientContacts] = useState<{ id: string; firstName: string | null; lastName: string | null }[]>([]);
+
   // Comment state
   const [commentText, setCommentText] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
@@ -131,10 +137,15 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
         setEditDescription(data.description || "");
         setEditPriority(data.priority);
         setEditClientId(data.clientId || "");
+        setEditContactId(data.contactId || "");
         setEditAssigneeId(data.assigneeId || "");
         setEditDueDate(data.dueDate ? data.dueDate.split("T")[0] : "");
         setEditLinks(data.links ? JSON.parse(data.links) : []);
         setSelectedTagIds(data.tags.map((t: CardTag) => t.tag.id));
+        // Fetch contacts for client
+        if (data.clientId) {
+          fetchClientContacts(data.clientId);
+        }
       }
     } catch {
       console.error("Erreur chargement carte");
@@ -164,6 +175,16 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
     }
   }, []);
 
+  const fetchClientContacts = useCallback(async (clientId: string) => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setClientContacts(data.contacts || []);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     fetchCard();
     fetchTags();
@@ -186,6 +207,7 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
         description: editDescription || null,
         priority: editPriority,
         clientId: editClientId || null,
+        contactId: editContactId || null,
         assigneeId: editAssigneeId || null,
         dueDate: editDueDate || null,
         links: editLinks.length > 0 ? editLinks : null,
@@ -462,7 +484,7 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                   />
                   {editClientId && (
                     <button
-                      onClick={() => { setEditClientId(""); setClientSearch(""); }}
+                      onClick={() => { setEditClientId(""); setClientSearch(""); setEditContactId(""); setClientContacts([]); }}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -477,6 +499,8 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                             setEditClientId(c.id);
                             setClientSearch(c.name);
                             setShowClientSearch(false);
+                            setEditContactId("");
+                            fetchClientContacts(c.id);
                           }}
                           className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50"
                         >
@@ -495,6 +519,40 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                 </Link>
               ) : (
                 <p className="text-sm text-slate-400">Aucun</p>
+              )}
+            </div>
+
+            {/* Contact / Personne */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                Personne
+              </label>
+              {editing ? (
+                editClientId && clientContacts.length > 0 ? (
+                  <select
+                    value={editContactId}
+                    onChange={(e) => setEditContactId(e.target.value)}
+                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="">Aucune</option>
+                    {clientContacts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {[c.firstName, c.lastName].filter(Boolean).join(" ") || "Sans nom"}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-sm text-slate-400 italic">
+                    {editClientId ? "Aucun contact" : "Sélectionnez un client"}
+                  </p>
+                )
+              ) : card.contact ? (
+                <p className="text-sm text-slate-700">
+                  {[card.contact.firstName, card.contact.lastName].filter(Boolean).join(" ") || "Sans nom"}
+                </p>
+              ) : (
+                <p className="text-sm text-slate-400">Aucune</p>
               )}
             </div>
           </div>

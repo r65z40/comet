@@ -104,6 +104,7 @@ model Contact {
   isBillingContact   Boolean  @default(false)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  boardCards         BoardCard[]
 
   @@index([clientId])
   @@map("contacts")
@@ -294,6 +295,8 @@ model BoardCard {
   position    Int              @default(0)
   clientId    String?
   client      Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  contactId   String?
+  contact     Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
   assigneeId  String?
   createdById String?
   dueDate     DateTime?
@@ -306,6 +309,7 @@ model BoardCard {
 
   @@index([columnId])
   @@index([clientId])
+  @@index([contactId])
   @@index([assigneeId])
   @@index([priority])
   @@map("board_cards")

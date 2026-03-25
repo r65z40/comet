@@ -7,7 +7,9 @@ import {
   MessageSquare,
   Paperclip,
   Calendar,
-  Users,
+  Building2,
+  User,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +27,10 @@ interface BoardCard {
   position: number;
   clientId: string | null;
   client: { id: string; name: string } | null;
+  contactId: string | null;
+  contact: { id: string; firstName: string | null; lastName: string | null } | null;
   assigneeId: string | null;
+  assigneeName?: string;
   dueDate: string | null;
   links: string | null;
   tags: CardTag[];
@@ -62,6 +67,9 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
 
   const priority = PRIORITY_CONFIG[card.priority] || PRIORITY_CONFIG[3];
   const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+  const contactName = card.contact
+    ? [card.contact.firstName, card.contact.lastName].filter(Boolean).join(" ") || null
+    : null;
 
   return (
     <div
@@ -95,6 +103,15 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
             {priority.label}
           </span>
         </div>
+        {/* Assignee avatar */}
+        {card.assigneeName && (
+          <div
+            className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center text-[9px] font-bold text-primary-700 flex-shrink-0"
+            title={card.assigneeName}
+          >
+            {card.assigneeName.charAt(0).toUpperCase()}
+          </div>
+        )}
       </div>
 
       {/* Title */}
@@ -103,6 +120,24 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
       {/* Description preview */}
       {card.description && (
         <p className="text-xs text-slate-500 mb-2 line-clamp-2">{card.description}</p>
+      )}
+
+      {/* Client & Contact */}
+      {(card.client || contactName) && (
+        <div className="flex flex-col gap-0.5 mb-2">
+          {card.client && (
+            <span className="flex items-center gap-1 text-xs text-slate-600">
+              <Building2 className="h-3 w-3 text-slate-400 flex-shrink-0" />
+              <span className="truncate">{card.client.name}</span>
+            </span>
+          )}
+          {contactName && (
+            <span className="flex items-center gap-1 text-xs text-slate-500">
+              <User className="h-3 w-3 text-slate-400 flex-shrink-0" />
+              <span className="truncate">{contactName}</span>
+            </span>
+          )}
+        </div>
       )}
 
       {/* Tags */}
@@ -126,14 +161,6 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-slate-400">
         <div className="flex items-center gap-2">
-          {/* Client */}
-          {card.client && (
-            <span className="flex items-center gap-1 text-slate-500">
-              <Users className="h-3 w-3" />
-              <span className="truncate max-w-[80px]">{card.client.name}</span>
-            </span>
-          )}
-
           {/* Due date */}
           {card.dueDate && (
             <span

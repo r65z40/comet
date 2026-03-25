@@ -6,7 +6,7 @@ import {
   Monitor, ShieldCheck, ShieldX, RefreshCw, Users, Package, Clock,
   AlertTriangle, Calendar, GripVertical, Plus, X, Settings2,
   TrendingUp, Activity, FileText, BarChart3, PieChart as PieChartIcon,
-  DollarSign, Star, History,
+  DollarSign, Star, History, ClipboardList, Building2, User, MessageSquare, Paperclip,
 } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -54,6 +54,19 @@ interface DashboardData {
   recentActivity: { id: string; type: string; description: string; date: string }[];
   financialSummary: { totalValue: number; avgDuration: number; renewalRate: number };
   statusBreakdown: { status: string; count: number }[];
+  boardCards: {
+    id: string;
+    title: string;
+    priority: number;
+    assigneeId: string | null;
+    dueDate: string | null;
+    column: { id: string; name: string; color: string };
+    client: { id: string; name: string } | null;
+    contact: { id: string; firstName: string | null; lastName: string | null } | null;
+    tags: { id: string; tag: { id: string; name: string; color: string } }[];
+    _count: { comments: number; attachments: number };
+    updatedAt: string;
+  }[];
 }
 
 interface PanelConfig {
@@ -78,6 +91,7 @@ const PANEL_REGISTRY: Record<string, { label: string; icon: typeof Monitor; defa
   chart_trend: { label: "Tendance expirations", icon: TrendingUp, defaultSize: "medium", description: "Courbe d'évolution des expirations" },
   financial_summary: { label: "Résumé financier", icon: DollarSign, defaultSize: "full", description: "Valeur totale, durée moyenne, taux de renouvellement" },
   recent_activity: { label: "Activité récente", icon: History, defaultSize: "medium", description: "Dernières synchronisations et modifications" },
+  board_cards: { label: "Cartes du tableau", icon: ClipboardList, defaultSize: "full", description: "Dernières cartes du tableau de communication" },
 };
 
 const DEFAULT_PANELS: PanelConfig[] = [
@@ -89,6 +103,7 @@ const DEFAULT_PANELS: PanelConfig[] = [
   { id: "p6", type: "chart_supplier", size: "medium" },
   { id: "p7", type: "list_renewals", size: "medium" },
   { id: "p8", type: "list_expired", size: "full" },
+  { id: "p9", type: "board_cards", size: "full" },
 ];
 
 // ─── Chart helpers ───────────────────────────────────────────────────────────
@@ -477,6 +492,122 @@ function RecentActivityPanel({ data }: { data: DashboardData }) {
   );
 }
 
+function BoardCardsPanel({ data }: { data: DashboardData }) {
+  const cards = data.boardCards || [];
+  const PRIORITY_CONFIG: Record<number, { label: string; color: string; dot: string }> = {
+    1: { label: "Urgente", color: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-500" },
+    2: { label: "Normale", color: "bg-orange-50 text-orange-700 border-orange-200", dot: "bg-orange-500" },
+    3: { label: "Basse", color: "bg-slate-50 text-slate-600 border-slate-200", dot: "bg-slate-400" },
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-4 w-4 text-blue-600" />
+          <h3 className="text-sm font-medium text-slate-500">Cartes du tableau</h3>
+        </div>
+        <Link href="/board" className="text-xs text-primary-600 hover:text-primary-700">Voir le tableau</Link>
+      </div>
+      {cards.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-8">Aucune carte</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {cards.map((card) => {
+            const p = PRIORITY_CONFIG[card.priority] || PRIORITY_CONFIG[3];
+            const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+            const contactName = card.contact
+              ? [card.contact.firstName, card.contact.lastName].filter(Boolean).join(" ")
+              : null;
+            return (
+              <Link
+                key={card.id}
+                href={`/board?card=${card.id}`}
+                className="rounded-lg border border-slate-200 p-3 hover:bg-slate-50 hover:border-slate-300 transition-colors block"
+              >
+                {/* Column + Priority */}
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: card.column.color }}
+                  />
+                  <span className="text-[10px] text-slate-400 truncate">{card.column.name}</span>
+                  <span className={`ml-auto inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border ${p.color}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
+                    {p.label}
+                  </span>
+                </div>
+
+                {/* Title */}
+                <p className="text-sm font-medium text-slate-800 line-clamp-2 mb-1.5">{card.title}</p>
+
+                {/* Client & Contact */}
+                {(card.client || contactName) && (
+                  <div className="flex flex-col gap-0.5 mb-1.5">
+                    {card.client && (
+                      <span className="flex items-center gap-1 text-xs text-slate-600">
+                        <Building2 className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                        <span className="truncate">{card.client.name}</span>
+                      </span>
+                    )}
+                    {contactName && (
+                      <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <User className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                        <span className="truncate">{contactName}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Tags */}
+                {card.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1.5">
+                    {card.tags.slice(0, 3).map((t) => (
+                      <span
+                        key={t.id}
+                        className="px-1.5 py-0.5 text-[10px] font-medium rounded"
+                        style={{ backgroundColor: t.tag.color + "20", color: t.tag.color }}
+                      >
+                        {t.tag.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <div className="flex items-center gap-2">
+                    {card.dueDate && (
+                      <span className={`flex items-center gap-1 ${isOverdue ? "text-red-500" : "text-slate-400"}`}>
+                        <Calendar className="h-3 w-3" />
+                        {new Date(card.dueDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {card._count.comments > 0 && (
+                      <span className="flex items-center gap-0.5">
+                        <MessageSquare className="h-3 w-3" />
+                        {card._count.comments}
+                      </span>
+                    )}
+                    {card._count.attachments > 0 && (
+                      <span className="flex items-center gap-0.5">
+                        <Paperclip className="h-3 w-3" />
+                        {card._count.attachments}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Panel renderer ──────────────────────────────────────────────────────────
 
 function renderPanel(panel: PanelConfig, data: DashboardData) {
@@ -494,6 +625,7 @@ function renderPanel(panel: PanelConfig, data: DashboardData) {
     case "chart_trend": return <ChartTrendPanel data={data} />;
     case "financial_summary": return <FinancialSummaryPanel data={data} />;
     case "recent_activity": return <RecentActivityPanel data={data} />;
+    case "board_cards": return <BoardCardsPanel data={data} />;
     default: return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-400">Panneau inconnu</div>;
   }
 }

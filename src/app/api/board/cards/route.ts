@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
       include: {
         column: { select: { id: true, name: true } },
         client: { select: { id: true, name: true } },
+        contact: { select: { id: true, firstName: true, lastName: true } },
         tags: { include: { tag: true } },
         comments: { orderBy: { createdAt: "desc" } },
         attachments: { orderBy: { createdAt: "desc" } },
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const { columnId, title, description, priority, clientId, assigneeId, dueDate, links, tagIds } = body;
+  const { columnId, title, description, priority, clientId, contactId, assigneeId, dueDate, links, tagIds } = body;
 
   if (!columnId || !title?.trim()) {
     return NextResponse.json({ error: "Colonne et titre requis" }, { status: 400 });
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
       priority: priority || 3,
       position,
       clientId: clientId || null,
+      contactId: contactId || null,
       assigneeId: assigneeId || null,
       createdById: session.user?.id || null,
       dueDate: dueDate ? new Date(dueDate) : null,
@@ -65,6 +67,7 @@ export async function POST(req: NextRequest) {
     },
     include: {
       client: { select: { id: true, name: true } },
+      contact: { select: { id: true, firstName: true, lastName: true } },
       tags: { include: { tag: true } },
       _count: { select: { comments: true, attachments: true } },
     },
@@ -90,7 +93,7 @@ export async function PUT(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const { id, title, description, priority, clientId, assigneeId, dueDate, links, tagIds } = body;
+  const { id, title, description, priority, clientId, contactId, assigneeId, dueDate, links, tagIds } = body;
 
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
@@ -104,12 +107,14 @@ export async function PUT(req: NextRequest) {
       ...(description !== undefined && { description }),
       ...(priority !== undefined && { priority }),
       ...(clientId !== undefined && { clientId: clientId || null }),
+      ...(contactId !== undefined && { contactId: contactId || null }),
       ...(assigneeId !== undefined && { assigneeId: assigneeId || null }),
       ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
       ...(links !== undefined && { links: links ? JSON.stringify(links) : null }),
     },
     include: {
       client: { select: { id: true, name: true } },
+      contact: { select: { id: true, firstName: true, lastName: true } },
       tags: { include: { tag: true } },
       _count: { select: { comments: true, attachments: true } },
     },

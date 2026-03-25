@@ -148,6 +148,19 @@ export async function GET() {
     const totalValueResult = await prisma.invoiceLine.aggregate({ _sum: { totalPrice: true } });
     const totalValue = totalValueResult._sum.totalPrice || 0;
 
+    // Board cards for dashboard
+    const boardCards = await prisma.boardCard.findMany({
+      include: {
+        column: { select: { id: true, name: true, color: true } },
+        client: { select: { id: true, name: true } },
+        contact: { select: { id: true, firstName: true, lastName: true } },
+        tags: { include: { tag: true } },
+        _count: { select: { comments: true, attachments: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 12,
+    });
+
     // Recent activity from sync logs
     const recentActivity = recentSyncLogs.map((log) => ({
       id: log.id,
@@ -190,6 +203,7 @@ export async function GET() {
         renewalRate,
       },
       recentActivity,
+      boardCards,
     });
   } catch (error) {
     console.error("Dashboard stats error:", error);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, FileText, ChevronDown, Calendar } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, FileText, ChevronDown, Calendar, ClipboardList } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -62,6 +62,17 @@ interface ClientDetail {
     status: string | null;
   }[];
   contacts: Contact[];
+  boardCards: {
+    id: string;
+    title: string;
+    priority: number;
+    assigneeId: string | null;
+    dueDate: string | null;
+    column: { id: string; name: string; color: string };
+    contact: { id: string; firstName: string | null; lastName: string | null } | null;
+    tags: { id: string; tag: { id: string; name: string; color: string } }[];
+    updatedAt: string;
+  }[];
 }
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -922,6 +933,81 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Cartes du tableau de bord */}
+      {client.boardCards && client.boardCards.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-slate-400" />
+              Cartes assignées ({client.boardCards.length})
+            </h3>
+            <Link href="/board" className="text-xs text-primary-600 hover:text-primary-700">
+              Voir le tableau
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {client.boardCards.map((card) => {
+              const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+              const priorityConfig: Record<number, { label: string; color: string }> = {
+                1: { label: "Urgente", color: "bg-red-50 text-red-700 border-red-200" },
+                2: { label: "Normale", color: "bg-orange-50 text-orange-700 border-orange-200" },
+                3: { label: "Basse", color: "bg-slate-50 text-slate-600 border-slate-200" },
+              };
+              const p = priorityConfig[card.priority] || priorityConfig[3];
+              const contactName = card.contact
+                ? [card.contact.firstName, card.contact.lastName].filter(Boolean).join(" ")
+                : null;
+              return (
+                <Link
+                  key={card.id}
+                  href={`/board?card=${card.id}`}
+                  className="rounded-lg border border-slate-200 p-3 hover:bg-slate-50 hover:border-slate-300 transition-colors block"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: card.column.color }}
+                    />
+                    <span className="text-[10px] text-slate-400 truncate">{card.column.name}</span>
+                    <span className={`ml-auto px-1.5 py-0.5 text-[10px] font-medium rounded border ${p.color}`}>
+                      {p.label}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-slate-800 line-clamp-1 mb-1">{card.title}</p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                    {contactName && (
+                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {contactName}
+                      </span>
+                    )}
+                    {card.dueDate && (
+                      <span className={`text-xs flex items-center gap-1 ${isOverdue ? "text-red-500" : "text-slate-400"}`}>
+                        <Calendar className="h-3 w-3" />
+                        {new Date(card.dueDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                      </span>
+                    )}
+                    {card.tags.length > 0 && (
+                      <div className="flex gap-1">
+                        {card.tags.slice(0, 2).map((t) => (
+                          <span
+                            key={t.id}
+                            className="px-1 py-0.5 text-[9px] rounded"
+                            style={{ backgroundColor: t.tag.color + "20", color: t.tag.color }}
+                          >
+                            {t.tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
 

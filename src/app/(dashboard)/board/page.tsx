@@ -53,7 +53,10 @@ interface BoardCard {
   position: number;
   clientId: string | null;
   client: { id: string; name: string } | null;
+  contactId: string | null;
+  contact: { id: string; firstName: string | null; lastName: string | null } | null;
   assigneeId: string | null;
+  assigneeName?: string;
   dueDate: string | null;
   links: string | null;
   tags: CardTag[];
@@ -96,14 +99,24 @@ export default function BoardPage() {
       const res = await fetch("/api/board/columns");
       if (res.ok) {
         const data = await res.json();
-        setColumns(data);
+        // Enrich cards with assignee names from users list
+        const enriched = data.map((col: BoardColumn) => ({
+          ...col,
+          cards: col.cards.map((card: BoardCard) => ({
+            ...card,
+            assigneeName: card.assigneeId
+              ? users.find((u) => u.id === card.assigneeId)?.name || undefined
+              : undefined,
+          })),
+        }));
+        setColumns(enriched);
       }
     } catch {
       console.error("Erreur chargement tableau");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [users]);
 
   const fetchUsers = useCallback(async () => {
     try {

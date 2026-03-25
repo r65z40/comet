@@ -13,6 +13,7 @@ export async function GET() {
         orderBy: { position: "asc" },
         include: {
           client: { select: { id: true, name: true } },
+          contact: { select: { id: true, firstName: true, lastName: true } },
           tags: { include: { tag: true } },
           _count: { select: { comments: true, attachments: true } },
         },

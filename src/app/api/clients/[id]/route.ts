@@ -27,6 +27,14 @@ export async function GET(
       contacts: {
         orderBy: { lastName: "asc" },
       },
+      boardCards: {
+        include: {
+          column: { select: { id: true, name: true, color: true } },
+          contact: { select: { id: true, firstName: true, lastName: true } },
+          tags: { include: { tag: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+      },
     },
   });
 
