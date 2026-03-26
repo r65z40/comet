@@ -63,6 +63,15 @@ export default function PortalReportPage() {
     return "color: #16a34a; font-weight: 700;";
   }
 
+  function getEndDateBgStyle(status: string, endDate: string, alwaysInFleet?: boolean): string {
+    if (alwaysInFleet) return "background-color: #f3f4f6;";
+    const expired = new Date(endDate).getTime() < Date.now();
+    if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE" || expired) return "background-color: #fef2f2;";
+    const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (days <= 90) return "background-color: #fff7ed;";
+    return "background-color: #dcfce7;";
+  }
+
   async function downloadPdf() {
     if (!client) return;
     setDownloading(true);
@@ -82,7 +91,7 @@ export default function PortalReportPage() {
         ${portalSettings?.showQuantity ? `<td>${inst.quantity}</td>` : ""}
         ${portalSettings?.showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
         <td>${formatDate(inst.startDate)}</td>
-        <td>${formatDate(inst.endDate)}</td>
+        <td style="${getEndDateBgStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${formatDate(inst.endDate)}</td>
         ${portalSettings?.showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
         <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getStatusLabel(inst.status, inst.endDate, inst.alwaysInFleet)}</td>
       </tr>
@@ -103,10 +112,10 @@ export default function PortalReportPage() {
   .stat-green { border-color: #10b981; } .stat-green .value { color: #10b981; }
   .stat-red { border-color: #ef4444; } .stat-red .value { color: #ef4444; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
-  th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
-  td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+  th { background: #f1f5f9; padding: 4px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 2px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
   th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
-  th:not(:first-child), td:not(:first-child) { text-align: center; padding: 8px 6px; }
+  th:not(:first-child), td:not(:first-child) { text-align: center; padding: 2px 6px; }
   tr:nth-child(even) { background: #fafafa; }
   .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
   .footer { text-align: center; font-size: 11px; color: #94a3b8; padding-top: 20px; margin-top: 40px; border-top: 1px solid #e2e8f0; }

@@ -361,6 +361,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const showQuantity = reportSettings.report_show_quantity === "true";
     const showComParc = reportSettings.report_show_com_parc === "true";
     const showHeaderRow = reportSettings.report_show_header_row !== "false";
+    const showStatus = reportSettings.report_show_status !== "false";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
     function getReportStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
@@ -386,6 +387,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       return "color: #16a34a; font-weight: 700;";
     }
 
+    function getEndDateBgStyle(status: string, endDate: string, alwaysInFleet?: boolean): string {
+      if (alwaysInFleet) return "background-color: #f3f4f6;";
+      const expired = new Date(endDate).getTime() < Date.now();
+      if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE" || expired) return "background-color: #fef2f2;";
+      const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      if (days <= 90) return "background-color: #fff7ed;";
+      return "background-color: #dcfce7;";
+    }
+
     function buildInstRows(installations: Installation[]): string {
       return installations.map((inst) => {
         const name = inst.product.name.length > 50 ? inst.product.name.slice(0, 50) + "…" : inst.product.name;
@@ -397,9 +407,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
           ${showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
           <td>${formatDate(inst.startDate)}</td>
-          <td>${formatDate(inst.endDate)}</td>
+          <td style="${getEndDateBgStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${formatDate(inst.endDate)}</td>
           ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
-          <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.endDate, inst.alwaysInFleet)}</td>
+          ${showStatus ? `<td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.endDate, inst.alwaysInFleet)}</td>` : ""}
         </tr>
       `;}).join("");
     }
@@ -414,14 +424,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     function buildColgroup(includeFamily: boolean): string {
       const colW = 75;
       const narrow = 45;
-      let fixedCols = 3; // Début, Fin, Statut
+      let fixedCols = 2; // Début, Fin
       if (includeFamily) fixedCols++;
       if (showSupplier) fixedCols++;
       if (showQuantity) fixedCols++;
       if (showComParc) fixedCols++;
       if (showDuration) fixedCols++;
+      if (showStatus) fixedCols++;
       const fixedWidth = fixedCols * colW + (showQuantity ? narrow - colW : 0);
-      return `<colgroup><col style="width: calc(100% - ${fixedWidth}px);" />${includeFamily ? `<col style="width: ${colW}px;" />` : ""}${showSupplier ? `<col style="width: ${colW}px;" />` : ""}${showQuantity ? `<col style="width: ${narrow}px;" />` : ""}${showComParc ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /><col style="width: ${colW}px;" />${showDuration ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /></colgroup>`;
+      return `<colgroup><col style="width: calc(100% - ${fixedWidth}px);" />${includeFamily ? `<col style="width: ${colW}px;" />` : ""}${showSupplier ? `<col style="width: ${colW}px;" />` : ""}${showQuantity ? `<col style="width: ${narrow}px;" />` : ""}${showComParc ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /><col style="width: ${colW}px;" />${showDuration ? `<col style="width: ${colW}px;" />` : ""}${showStatus ? `<col style="width: ${colW}px;" />` : ""}</colgroup>`;
     }
 
     function buildTableHead(includeFamily: boolean): string {
@@ -435,7 +446,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <th>Début</th>
         <th>Fin</th>
         ${showDuration ? `<th>Durée</th>` : ""}
-        <th>Statut</th>
+        ${showStatus ? `<th>Statut</th>` : ""}
       </tr></thead>`;
     }
 
@@ -462,9 +473,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
                   ${showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
                   <td>${formatDate(inst.startDate)}</td>
-                  <td>${formatDate(inst.endDate)}</td>
+                  <td style="${getEndDateBgStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${formatDate(inst.endDate)}</td>
                   ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
-                  <td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.endDate, inst.alwaysInFleet)}</td>
+                  ${showStatus ? `<td style="${getStatusStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${getReportStatusLabel(inst.status, inst.endDate, inst.alwaysInFleet)}</td>` : ""}
                 </tr>
               `;}).join("")}
             </tbody>
@@ -559,10 +570,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .footer { text-align: center; font-size: 11px; color: #94a3b8; padding-top: 20px; margin-top: 40px; border-top: 1px solid #e2e8f0; }
 
     table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
-    th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
-    td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+    th { background: #f1f5f9; padding: 4px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 2px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
     th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
-    th:not(:first-child), td:not(:first-child) { text-align: center; padding: 8px 6px; }
+    th:not(:first-child), td:not(:first-child) { text-align: center; padding: 2px 6px; }
     tr:nth-child(even) { background: #fafafa; }
 
     .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }

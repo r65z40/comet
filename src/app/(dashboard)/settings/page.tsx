@@ -85,6 +85,7 @@ export default function SettingsPage() {
   const [reportShowQuantity, setReportShowQuantity] = useState(false);
   const [reportShowComParc, setReportShowComParc] = useState(false);
   const [reportShowHeaderRow, setReportShowHeaderRow] = useState(true);
+  const [reportShowStatus, setReportShowStatus] = useState(true);
 
   const [reportFooterText, setReportFooterText] = useState("");
   const [reportOrientation, setReportOrientation] = useState("portrait");
@@ -310,6 +311,7 @@ export default function SettingsPage() {
         setReportShowQuantity(data.report_show_quantity === "true");
         setReportShowComParc(data.report_show_com_parc === "true");
         setReportShowHeaderRow(data.report_show_header_row !== "false");
+        setReportShowStatus(data.report_show_status !== "false");
 
         setReportFooterText(data.report_footer_text || "");
         setReportOrientation(data.report_orientation || "portrait");
@@ -513,6 +515,7 @@ export default function SettingsPage() {
         report_show_quantity: reportShowQuantity ? "true" : "false",
         report_show_com_parc: reportShowComParc ? "true" : "false",
         report_show_header_row: reportShowHeaderRow ? "true" : "false",
+        report_show_status: reportShowStatus ? "true" : "false",
 
         report_footer_text: reportFooterText,
         report_orientation: reportOrientation,
@@ -1644,6 +1647,15 @@ export default function SettingsPage() {
                 className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-slate-600">Ligne d&apos;en-têtes de colonnes (Produit, Qté, Com., Parc, etc.)</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowStatus}
+                onChange={(e) => setReportShowStatus(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Colonne &quot;Statut&quot; (En parc, Toujours en parc, Hors parc)</span>
             </label>
 
           </div>
