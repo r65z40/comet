@@ -53,7 +53,7 @@ export default function PortalReportPage() {
   }
 
   function getStatusStyle(status: string, endDate: string, alwaysInFleet?: boolean): string {
-    if (alwaysInFleet) return "color: #d97706; font-weight: 700;";
+    if (alwaysInFleet) return "color: #6b7280; font-weight: 700;";
     if (status === "RENOUVELE") return "color: #2563eb; font-weight: 700;";
     if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE") return "color: #dc2626; font-weight: 700;";
     const expired = new Date(endDate).getTime() < Date.now();
@@ -76,7 +76,7 @@ export default function PortalReportPage() {
 
     const rows = reportInstallations.map(inst => `
       <tr>
-        <td>${esc(inst.product.name)}</td>
+        <td>${esc(inst.product.name.length > 50 ? inst.product.name.slice(0, 50) + "…" : inst.product.name)}</td>
         ${portalSettings?.showFamily ? `<td>${esc(inst.family || "—")}</td>` : ""}
         ${portalSettings?.showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
         ${portalSettings?.showQuantity ? `<td>${inst.quantity}</td>` : ""}
@@ -103,8 +103,8 @@ export default function PortalReportPage() {
   .stat-green { border-color: #10b981; } .stat-green .value { color: #10b981; }
   .stat-red { border-color: #ef4444; } .stat-red .value { color: #ef4444; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
-  th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
-  td { padding: 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+  th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
   th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
   th:not(:first-child), td:not(:first-child) { text-align: center; padding: 8px 6px; }
   tr:nth-child(even) { background: #fafafa; }
