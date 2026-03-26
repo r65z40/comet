@@ -102,10 +102,10 @@ export default function PortalReportPage() {
   .stat-card .label { font-size: 11px; color: #64748b; margin-top: 4px; }
   .stat-green { border-color: #10b981; } .stat-green .value { color: #10b981; }
   .stat-red { border-color: #ef4444; } .stat-red .value { color: #ef4444; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
   th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
   td { padding: 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
-  th:first-child, td:first-child { white-space: normal; width: 100%; }
+  th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
   th:not(:first-child), td:not(:first-child) { text-align: center; padding: 8px 6px; }
   tr:nth-child(even) { background: #fafafa; }
   .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
@@ -127,7 +127,18 @@ export default function PortalReportPage() {
     <div class="stat-card stat-red"><div class="value">${horsParc.length}</div><div class="label">Hors parc</div></div>
   </div>
   <div class="section-title">Détail des installations</div>
-  <table>${portalSettings?.showHeaderRow !== false ? `<thead><tr>
+  <table>${(() => {
+    const colW = 75;
+    const narrow = 45;
+    let fixedCols = 3;
+    if (portalSettings?.showFamily) fixedCols++;
+    if (portalSettings?.showSupplier) fixedCols++;
+    if (portalSettings?.showQuantity) fixedCols++;
+    if (portalSettings?.showComParc) fixedCols++;
+    if (portalSettings?.showDuration) fixedCols++;
+    const fixedWidth = fixedCols * colW + (portalSettings?.showQuantity ? narrow - colW : 0);
+    return `<colgroup><col style="width: calc(100% - ${fixedWidth}px);" />${portalSettings?.showFamily ? `<col style="width: ${colW}px;" />` : ""}${portalSettings?.showSupplier ? `<col style="width: ${colW}px;" />` : ""}${portalSettings?.showQuantity ? `<col style="width: ${narrow}px;" />` : ""}${portalSettings?.showComParc ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /><col style="width: ${colW}px;" />${portalSettings?.showDuration ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /></colgroup>`;
+  })()}${portalSettings?.showHeaderRow !== false ? `<thead><tr>
     <th>Produit</th>
     ${portalSettings?.showFamily ? "<th>Famille</th>" : ""}
     ${portalSettings?.showSupplier ? "<th>Fournisseur</th>" : ""}

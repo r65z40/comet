@@ -409,6 +409,19 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       return true;
     });
 
+    function buildColgroup(includeFamily: boolean): string {
+      const colW = 75;
+      const narrow = 45;
+      let fixedCols = 3; // Début, Fin, Statut
+      if (includeFamily) fixedCols++;
+      if (showSupplier) fixedCols++;
+      if (showQuantity) fixedCols++;
+      if (showComParc) fixedCols++;
+      if (showDuration) fixedCols++;
+      const fixedWidth = fixedCols * colW + (showQuantity ? narrow - colW : 0);
+      return `<colgroup><col style="width: calc(100% - ${fixedWidth}px);" />${includeFamily ? `<col style="width: ${colW}px;" />` : ""}${showSupplier ? `<col style="width: ${colW}px;" />` : ""}${showQuantity ? `<col style="width: ${narrow}px;" />` : ""}${showComParc ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /><col style="width: ${colW}px;" />${showDuration ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /></colgroup>`;
+    }
+
     function buildTableHead(includeFamily: boolean): string {
       if (!showHeaderRow) return "";
       return `<thead><tr>
@@ -437,6 +450,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div style="margin-top: 20px;">
           <h3 style="font-size: 14px; font-weight: 700; color: ${primaryColor}; margin-bottom: 8px; padding: 6px 10px; background: ${primaryColor}11; border-radius: 4px;">${esc(family)} (${installs.length})</h3>
           <table>
+            ${buildColgroup(false)}
             ${buildTableHead(false)}
             <tbody>
               ${installs.map((inst) => `
@@ -459,6 +473,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       const sorted = [...reportInstallations].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
       tableContent = `
         <table>
+          ${buildColgroup(showFamily)}
           ${buildTableHead(showFamily)}
           <tbody>
             ${buildInstRows(sorted)}
@@ -541,10 +556,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .stat-blue { border-color: ${primaryColor}; } .stat-blue .value { color: ${primaryColor}; }
     .footer { text-align: center; font-size: 11px; color: #94a3b8; padding-top: 20px; margin-top: 40px; border-top: 1px solid #e2e8f0; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
     th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
     td { padding: 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
-    th:first-child, td:first-child { white-space: normal; width: 100%; }
+    th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
     th:not(:first-child), td:not(:first-child) { text-align: center; padding: 8px 6px; }
     tr:nth-child(even) { background: #fafafa; }
 
