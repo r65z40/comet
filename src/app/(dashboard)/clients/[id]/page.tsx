@@ -362,6 +362,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const showComParc = reportSettings.report_show_com_parc === "true";
     const showHeaderRow = reportSettings.report_show_header_row !== "false";
     const showStatus = reportSettings.report_show_status !== "false";
+    const includeRenewed = reportSettings.report_include_renewed === "true";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
     function getReportStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
@@ -388,12 +389,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
 
     function getEndDateBgStyle(status: string, endDate: string, alwaysInFleet?: boolean): string {
-      if (alwaysInFleet) return "background-color: #f3f4f6;";
+      if (alwaysInFleet) return "background-color: #e5e7eb;";
       const expired = new Date(endDate).getTime() < Date.now();
-      if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE" || expired) return "background-color: #fef2f2;";
+      if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE" || expired) return "background-color: #fecaca;";
       const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-      if (days <= 90) return "background-color: #fff7ed;";
-      return "background-color: #dcfce7;";
+      if (days <= 90) return "background-color: #fed7aa;";
+      return "background-color: #bbf7d0;";
     }
 
     function buildInstRows(installations: Installation[]): string {
@@ -416,7 +417,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
     // Exclude renewed installations from report, and optionally hors parc
     const reportInstallations = client.installations.filter(i => {
-      if (i.status === "RENOUVELE") return false;
+      if (i.status === "RENOUVELE" && !includeRenewed) return false;
       if (!includeHorsParc && (i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE")) return false;
       return true;
     });

@@ -18,6 +18,7 @@ import {
   Cloud,
   Server,
   Plug,
+  Upload,
 } from "lucide-react";
 
 interface BackupInfo {
@@ -93,6 +94,7 @@ export default function BackupPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmRestore, setConfirmRestore] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -266,6 +268,30 @@ export default function BackupPage() {
     window.open(`/api/backup/${encodeURIComponent(filename)}`, "_blank");
   }
 
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/backup/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage({ type: "success", text: `Backup importé: ${data.backup.filename} (${data.backup.sizeFormatted})` });
+        await loadBackups();
+      } else {
+        setMessage({ type: "error", text: data.error || "Erreur lors de l'import" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Erreur de connexion" });
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
   function formatDate(iso: string) {
     return new Date(iso).toLocaleString("fr-FR", {
       timeZone: "Europe/Paris",
@@ -417,7 +443,7 @@ export default function BackupPage() {
         </div>
       </div>
 
-      {/* Backup manuel + stats */}
+      {/* Backup manuel + liste + upload */}
       <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="rounded-lg bg-emerald-100 p-2">
@@ -425,20 +451,30 @@ export default function BackupPage() {
           </div>
           <div>
             <h3 className="text-sm font-medium text-slate-900">Backup manuel</h3>
-            <p className="text-xs text-slate-400">Créer un backup immédiat de la base</p>
+            <p className="text-xs text-slate-400">Créer, importer ou gérer les backups</p>
           </div>
         </div>
 
         <div className="space-y-4">
-          <button onClick={handleCreate} disabled={creating} className="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
-            {creating ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Backup en cours...</>
-            ) : (
-              <><Plus className="h-4 w-4" /> Créer un backup maintenant</>
-            )}
-          </button>
+          <div className="flex gap-3">
+            <button onClick={handleCreate} disabled={creating} className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+              {creating ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Backup en cours...</>
+              ) : (
+                <><Plus className="h-4 w-4" /> Créer un backup</>
+              )}
+            </button>
+            <label className="flex-1 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 px-4 py-3 text-sm font-medium text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors">
+              {uploading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Import en cours...</>
+              ) : (
+                <><Upload className="h-4 w-4" /> Importer un backup</>
+              )}
+              <input type="file" accept=".sql,.gz,.dump" onChange={handleUpload} disabled={uploading} className="hidden" />
+            </label>
+          </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="rounded-lg bg-slate-50 p-3 text-center">
               <p className="text-2xl font-bold text-slate-900">{backups.length}</p>
               <p className="text-xs text-slate-500">Backups stockés</p>
@@ -453,16 +489,13 @@ export default function BackupPage() {
               </p>
               <p className="text-xs text-slate-500">Espace total</p>
             </div>
-          </div>
-
-          {backups.length > 0 && (
-            <div className="rounded-lg bg-blue-50 border border-blue-100 p-3">
-              <div className="flex items-center gap-2 text-sm text-blue-700">
-                <Clock className="h-4 w-4" />
-                <span>Dernier backup: {formatDate(backups[0].createdAt)}</span>
-              </div>
+            <div className="rounded-lg bg-slate-50 p-3 text-center">
+              <p className="text-2xl font-bold text-slate-900 truncate text-sm">
+                {backups.length > 0 ? formatDate(backups[0].createdAt) : "—"}
+              </p>
+              <p className="text-xs text-slate-500">Dernier backup</p>
             </div>
-          )}
+          </div>
 
           {cloud.provider !== "none" && (
             <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-3">
@@ -472,6 +505,103 @@ export default function BackupPage() {
               </div>
             </div>
           )}
+
+          {/* Backup list */}
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            </div>
+          ) : backups.length === 0 ? (
+            <div className="text-center py-8 text-slate-400">
+              <Database className="h-10 w-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Aucun backup disponible</p>
+              <p className="text-xs mt-1">Créez votre premier backup ou importez-en un</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto -mx-6 px-6">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase">Fichier</th>
+                    <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase">Type</th>
+                    <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase">Stockage</th>
+                    <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase">Taille</th>
+                    <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase">Date</th>
+                    <th className="text-right py-2 px-3 text-xs font-medium text-slate-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backups.map((backup) => (
+                    <tr key={backup.filename} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                      <td className="py-2 px-3">
+                        <div className="flex items-center gap-2">
+                          <Database className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span className="font-mono text-xs text-slate-700 truncate max-w-[250px]">{backup.filename}</span>
+                        </div>
+                      </td>
+                      <td className="py-2 px-3">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          backup.type === "auto"
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-emerald-50 text-emerald-700"
+                        }`}>
+                          {backup.type === "auto" ? "Auto" : "Manuel"}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3">{locationBadge(backup.location)}</td>
+                      <td className="py-2 px-3 text-slate-600 text-xs">{backup.sizeFormatted}</td>
+                      <td className="py-2 px-3 text-slate-600 text-xs">{formatDate(backup.createdAt)}</td>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => handleDownload(backup.filename)} className="rounded-lg p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Télécharger">
+                            <Download className="h-3.5 w-3.5" />
+                          </button>
+
+                          {confirmRestore === backup.filename ? (
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => handleRestore(backup.filename)} disabled={restoring === backup.filename} className="rounded-lg px-2 py-1 text-xs bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50">
+                                {restoring === backup.filename ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirmer"}
+                              </button>
+                              <button onClick={() => setConfirmRestore(null)} className="rounded-lg px-2 py-1 text-xs bg-slate-200 text-slate-600 hover:bg-slate-300">Annuler</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setConfirmRestore(backup.filename)} className="rounded-lg p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors" title="Restaurer">
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+
+                          {confirmDelete === backup.filename ? (
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => handleDelete(backup.filename)} disabled={deleting === backup.filename} className="rounded-lg px-2 py-1 text-xs bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                                {deleting === backup.filename ? <Loader2 className="h-3 w-3 animate-spin" /> : "Supprimer"}
+                              </button>
+                              <button onClick={() => setConfirmDelete(null)} className="rounded-lg px-2 py-1 text-xs bg-slate-200 text-slate-600 hover:bg-slate-300">Annuler</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setConfirmDelete(backup.filename)} className="rounded-lg p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Supprimer">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="text-xs text-amber-700">
+                <p className="font-medium">Attention lors de la restauration</p>
+                <p className="mt-1">
+                  La restauration remplace les données actuelles. Créez un backup avant de restaurer.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -699,115 +829,6 @@ export default function BackupPage() {
         </div>
       </div>
 
-      {/* Liste des backups */}
-      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="rounded-lg bg-purple-100 p-2">
-            <HardDrive className="h-4 w-4 text-purple-600" />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-slate-900">Historique des backups</h3>
-            <p className="text-xs text-slate-400">{backups.length} backup(s) disponible(s)</p>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-          </div>
-        ) : backups.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <Database className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Aucun backup disponible</p>
-            <p className="text-xs mt-1">Créez votre premier backup ou activez les backups automatiques</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 uppercase">Fichier</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 uppercase">Type</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 uppercase">Stockage</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 uppercase">Taille</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 uppercase">Date</th>
-                  <th className="text-right py-3 px-4 text-xs font-medium text-slate-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {backups.map((backup) => (
-                  <tr key={backup.filename} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <Database className="h-4 w-4 text-slate-400" />
-                        <span className="font-mono text-xs text-slate-700 truncate max-w-[300px]">{backup.filename}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        backup.type === "auto"
-                          ? "bg-blue-50 text-blue-700"
-                          : "bg-emerald-50 text-emerald-700"
-                      }`}>
-                        {backup.type === "auto" ? "Auto" : "Manuel"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">{locationBadge(backup.location)}</td>
-                    <td className="py-3 px-4 text-slate-600">{backup.sizeFormatted}</td>
-                    <td className="py-3 px-4 text-slate-600">{formatDate(backup.createdAt)}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => handleDownload(backup.filename)} className="rounded-lg p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Télécharger">
-                          <Download className="h-4 w-4" />
-                        </button>
-
-                        {confirmRestore === backup.filename ? (
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => handleRestore(backup.filename)} disabled={restoring === backup.filename} className="rounded-lg px-2 py-1 text-xs bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50">
-                              {restoring === backup.filename ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirmer"}
-                            </button>
-                            <button onClick={() => setConfirmRestore(null)} className="rounded-lg px-2 py-1 text-xs bg-slate-200 text-slate-600 hover:bg-slate-300">Annuler</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setConfirmRestore(backup.filename)} className="rounded-lg p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors" title="Restaurer">
-                            <RotateCcw className="h-4 w-4" />
-                          </button>
-                        )}
-
-                        {confirmDelete === backup.filename ? (
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => handleDelete(backup.filename)} disabled={deleting === backup.filename} className="rounded-lg px-2 py-1 text-xs bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
-                              {deleting === backup.filename ? <Loader2 className="h-3 w-3 animate-spin" /> : "Supprimer"}
-                            </button>
-                            <button onClick={() => setConfirmDelete(null)} className="rounded-lg px-2 py-1 text-xs bg-slate-200 text-slate-600 hover:bg-slate-300">Annuler</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setConfirmDelete(backup.filename)} className="rounded-lg p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Supprimer">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <div className="mt-4 rounded-lg bg-amber-50 border border-amber-100 p-3">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-            <div className="text-xs text-amber-700">
-              <p className="font-medium">Attention lors de la restauration</p>
-              <p className="mt-1">
-                La restauration remplace les données actuelles par celles du backup.
-                Créez un backup manuel avant de restaurer pour pouvoir revenir en arrière si nécessaire.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

@@ -82,6 +82,7 @@ export default function SettingsPage() {
   const [reportShowVerticalName, setReportShowVerticalName] = useState(true);
   const [reportIncludeHorsParc, setReportIncludeHorsParc] = useState(true);
   const [reportShowRenewedCount, setReportShowRenewedCount] = useState(false);
+  const [reportIncludeRenewed, setReportIncludeRenewed] = useState(false);
   const [reportShowQuantity, setReportShowQuantity] = useState(false);
   const [reportShowComParc, setReportShowComParc] = useState(false);
   const [reportShowHeaderRow, setReportShowHeaderRow] = useState(true);
@@ -312,6 +313,7 @@ export default function SettingsPage() {
         setReportShowComParc(data.report_show_com_parc === "true");
         setReportShowHeaderRow(data.report_show_header_row !== "false");
         setReportShowStatus(data.report_show_status !== "false");
+        setReportIncludeRenewed(data.report_include_renewed === "true");
 
         setReportFooterText(data.report_footer_text || "");
         setReportOrientation(data.report_orientation || "portrait");
@@ -516,6 +518,7 @@ export default function SettingsPage() {
         report_show_com_parc: reportShowComParc ? "true" : "false",
         report_show_header_row: reportShowHeaderRow ? "true" : "false",
         report_show_status: reportShowStatus ? "true" : "false",
+        report_include_renewed: reportIncludeRenewed ? "true" : "false",
 
         report_footer_text: reportFooterText,
         report_orientation: reportOrientation,
@@ -1656,6 +1659,15 @@ export default function SettingsPage() {
                 className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-slate-600">Colonne &quot;Statut&quot; (En parc, Toujours en parc, Hors parc)</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportIncludeRenewed}
+                onChange={(e) => setReportIncludeRenewed(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Inclure les produits renouvelés</span>
             </label>
 
           </div>

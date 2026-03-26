@@ -64,12 +64,12 @@ export default function PortalReportPage() {
   }
 
   function getEndDateBgStyle(status: string, endDate: string, alwaysInFleet?: boolean): string {
-    if (alwaysInFleet) return "background-color: #f3f4f6;";
+    if (alwaysInFleet) return "background-color: #e5e7eb;";
     const expired = new Date(endDate).getTime() < Date.now();
-    if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE" || expired) return "background-color: #fef2f2;";
+    if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE" || expired) return "background-color: #fecaca;";
     const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    if (days <= 90) return "background-color: #fff7ed;";
-    return "background-color: #dcfce7;";
+    if (days <= 90) return "background-color: #fed7aa;";
+    return "background-color: #bbf7d0;";
   }
 
   async function downloadPdf() {
