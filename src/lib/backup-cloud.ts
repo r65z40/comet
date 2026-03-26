@@ -188,8 +188,18 @@ async function withFtpClient<T>(config: CloudConfig, fn: (client: FtpClient) => 
 }
 
 async function ftpUpload(config: CloudConfig, filepath: string, filename: string): Promise<void> {
+  // Vérifier que le fichier local existe et n'est pas vide
+  const stat = await fs.stat(filepath);
+  if (stat.size === 0) throw new Error("Le fichier backup est vide, upload FTP annulé");
+
   await withFtpClient(config, async (client) => {
     await client.uploadFrom(filepath, filename);
+    // Vérifier que le fichier est bien présent sur le serveur
+    const list = await client.list();
+    const uploaded = list.find(f => f.name === filename);
+    if (!uploaded) {
+      throw new Error(`Fichier ${filename} non trouvé sur le serveur FTP après upload`);
+    }
   });
 }
 

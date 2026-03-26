@@ -88,8 +88,8 @@ export default function PortalReportPage() {
         <td>${esc(inst.product.name.length > 50 ? inst.product.name.slice(0, 50) + "…" : inst.product.name)}</td>
         ${portalSettings?.showFamily ? `<td>${esc(inst.family || "—")}</td>` : ""}
         ${portalSettings?.showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
-        ${portalSettings?.showQuantity ? `<td>${inst.quantity}</td>` : ""}
         ${portalSettings?.showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
+        ${portalSettings?.showQuantity ? `<td>${inst.quantity}</td>` : ""}
         <td>${formatDate(inst.startDate)}</td>
         <td style="${getEndDateBgStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${formatDate(inst.endDate)}</td>
         ${portalSettings?.showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
@@ -113,7 +113,7 @@ export default function PortalReportPage() {
   .stat-red { border-color: #ef4444; } .stat-red .value { color: #ef4444; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
   th { background: #f1f5f9; padding: 4px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
-  td { padding: 2px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+  td { padding: 2px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
   th:not(:first-child), td:not(:first-child) { text-align: center; padding: 2px 6px; }
   tr:nth-child(even) { background: #fafafa; }
@@ -137,7 +137,7 @@ export default function PortalReportPage() {
   </div>
   <div class="section-title">Détail des installations</div>
   <table>${(() => {
-    const colW = 75;
+    const colW = 80;
     const narrow = 45;
     let fixedCols = 3;
     if (portalSettings?.showFamily) fixedCols++;
@@ -146,13 +146,13 @@ export default function PortalReportPage() {
     if (portalSettings?.showComParc) fixedCols++;
     if (portalSettings?.showDuration) fixedCols++;
     const fixedWidth = fixedCols * colW + (portalSettings?.showQuantity ? narrow - colW : 0);
-    return `<colgroup><col style="width: calc(100% - ${fixedWidth}px);" />${portalSettings?.showFamily ? `<col style="width: ${colW}px;" />` : ""}${portalSettings?.showSupplier ? `<col style="width: ${colW}px;" />` : ""}${portalSettings?.showQuantity ? `<col style="width: ${narrow}px;" />` : ""}${portalSettings?.showComParc ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /><col style="width: ${colW}px;" />${portalSettings?.showDuration ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /></colgroup>`;
+    return `<colgroup><col style="width: calc(100% - ${fixedWidth}px);" />${portalSettings?.showFamily ? `<col style="width: ${colW}px;" />` : ""}${portalSettings?.showSupplier ? `<col style="width: ${colW}px;" />` : ""}${portalSettings?.showComParc ? `<col style="width: ${colW}px;" />` : ""}${portalSettings?.showQuantity ? `<col style="width: ${narrow}px;" />` : ""}<col style="width: ${colW}px;" /><col style="width: ${colW}px;" />${portalSettings?.showDuration ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /></colgroup>`;
   })()}${portalSettings?.showHeaderRow !== false ? `<thead><tr>
     <th>Produit</th>
     ${portalSettings?.showFamily ? "<th>Famille</th>" : ""}
     ${portalSettings?.showSupplier ? "<th>Fournisseur</th>" : ""}
-    ${portalSettings?.showQuantity ? "<th>Qté</th>" : ""}
     ${portalSettings?.showComParc ? "<th>Com. Parc</th>" : ""}
+    ${portalSettings?.showQuantity ? "<th>Qté</th>" : ""}
     <th>Début</th><th>Fin</th>
     ${portalSettings?.showDuration ? "<th>Durée</th>" : ""}
     <th>Statut</th>
