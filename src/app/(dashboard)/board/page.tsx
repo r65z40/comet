@@ -42,6 +42,9 @@ import {
   StickyNote,
   Strikethrough,
   Highlighter,
+  Archive,
+  Bookmark,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -51,6 +54,11 @@ import CardDetailModal from "./CardDetailModal";
 interface CardTag {
   id: string;
   tag: { id: string; name: string; color: string };
+}
+
+interface ChecklistItem {
+  id: string;
+  checked: boolean;
 }
 
 interface BoardCard {
@@ -65,11 +73,15 @@ interface BoardCard {
   contactId: string | null;
   contact: { id: string; firstName: string | null; lastName: string | null } | null;
   assigneeId: string | null;
-  assigneeName?: string;
+  assigneeIds?: string | null;
+  assigneeNames?: string[];
   dueDate: string | null;
   links: string | null;
   tags: CardTag[];
-  _count: { comments: number; attachments: number };
+  checklist?: ChecklistItem[];
+  archived?: boolean;
+  movedToColumnAt?: string;
+  _count: { comments: number; attachments: number; checklist?: number };
   createdAt: string;
 }
 
@@ -80,6 +92,31 @@ interface BoardColumn {
   position: number;
   cards: BoardCard[];
 }
+
+interface SavedView {
+  id: string;
+  name: string;
+  filters: string;
+  createdAt: string;
+}
+
+interface FilterState {
+  search: string;
+  priority: number | null;
+  clientId: string | null;
+  assigneeId: string | null;
+  tagIds: string[];
+  showArchived: boolean;
+}
+
+const defaultFilters: FilterState = {
+  search: "",
+  priority: null,
+  clientId: null,
+  assigneeId: null,
+  tagIds: [],
+  showArchived: false,
+};
 
 export default function BoardPage() {
   const router = useRouter();
@@ -93,10 +130,23 @@ export default function BoardPage() {
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnColor, setNewColumnColor] = useState("#3b82f6");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterPriority, setFilterPriority] = useState<number | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+
+  // Filters
+  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Saved views
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [showViewMenu, setShowViewMenu] = useState(false);
+  const [newViewName, setNewViewName] = useState("");
+  const [showSaveView, setShowSaveView] = useState(false);
+
+  // Available tags for filter
+  const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
+
+  // Available clients for filter
+  const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
 
   // Notes state
   const [noteContent, setNoteContent] = useState("");
@@ -114,7 +164,9 @@ export default function BoardPage() {
 
   const fetchBoard = useCallback(async () => {
     try {
-      const res = await fetch("/api/board/columns");
+      const params = new URLSearchParams();
+      if (filters.showArchived) params.set("archived", "true");
+      const res = await fetch(`/api/board/columns?${params}`);
       if (res.ok) {
         const data = await res.json();
         setColumns(data);
@@ -124,7 +176,7 @@ export default function BoardPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filters.showArchived]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -154,12 +206,44 @@ export default function BoardPage() {
     }
   }, []);
 
+  const fetchTags = useCallback(async () => {
+    try {
+      const res = await fetch("/api/board/tags");
+      if (res.ok) setAllTags(await res.json());
+    } catch {}
+  }, []);
+
+  const fetchViews = useCallback(async () => {
+    try {
+      const res = await fetch("/api/board/views");
+      if (res.ok) setSavedViews(await res.json());
+    } catch {}
+  }, []);
+
   // Load data once on mount
   useEffect(() => {
     fetchBoard();
     fetchUsers();
     fetchNote();
-  }, [fetchBoard, fetchUsers, fetchNote]);
+    fetchTags();
+    fetchViews();
+  }, [fetchBoard, fetchUsers, fetchNote, fetchTags, fetchViews]);
+
+  // Refetch board when archive filter changes
+  useEffect(() => {
+    fetchBoard();
+  }, [filters.showArchived, fetchBoard]);
+
+  // Collect unique clients from cards for filter dropdown
+  useEffect(() => {
+    const clientMap = new Map<string, string>();
+    columns.forEach((col) =>
+      col.cards.forEach((card) => {
+        if (card.client) clientMap.set(card.client.id, card.client.name);
+      })
+    );
+    setAllClients(Array.from(clientMap.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
+  }, [columns]);
 
   // Initialize default columns if board is empty (with guard against double call)
   useEffect(() => {
@@ -170,16 +254,27 @@ export default function BoardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, columns.length]);
 
-  // Enrich columns with assignee names
+  // Enrich columns with assignee names (multi-assignee support)
   const enrichedColumns = useMemo(() => {
     return columns.map((col) => ({
       ...col,
-      cards: col.cards.map((card) => ({
-        ...card,
-        assigneeName: card.assigneeId
-          ? users.find((u) => u.id === card.assigneeId)?.name || undefined
-          : undefined,
-      })),
+      cards: col.cards.map((card) => {
+        // Parse multiple assignee IDs
+        let ids: string[] = [];
+        if (card.assigneeIds) {
+          try { ids = JSON.parse(card.assigneeIds); } catch {}
+        } else if (card.assigneeId) {
+          ids = [card.assigneeId];
+        }
+        const names = ids
+          .map((uid) => users.find((u) => u.id === uid)?.name)
+          .filter(Boolean) as string[];
+
+        return {
+          ...card,
+          assigneeNames: names,
+        };
+      }),
     }));
   }, [columns, users]);
 
@@ -364,21 +459,67 @@ export default function BoardPage() {
     }
   }
 
+  // Saved views
+  async function saveCurrentView() {
+    if (!newViewName.trim()) return;
+    await fetch("/api/board/views", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newViewName.trim(), filters }),
+    });
+    setNewViewName("");
+    setShowSaveView(false);
+    fetchViews();
+  }
+
+  function loadView(view: SavedView) {
+    try {
+      const parsed = JSON.parse(view.filters);
+      setFilters({ ...defaultFilters, ...parsed });
+    } catch {}
+    setShowViewMenu(false);
+  }
+
+  async function deleteView(id: string) {
+    await fetch(`/api/board/views?id=${id}`, { method: "DELETE" });
+    fetchViews();
+  }
+
+  // Check if any filter is active
+  const hasActiveFilters = filters.search || filters.priority !== null || filters.clientId || filters.assigneeId || filters.tagIds.length > 0;
+
   // Filter cards
   const filteredColumns = enrichedColumns.map((col) => ({
     ...col,
     cards: col.cards.filter((card) => {
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
         const matchTitle = card.title.toLowerCase().includes(q);
         const matchClient = card.client?.name.toLowerCase().includes(q);
         const matchDesc = card.description?.toLowerCase().includes(q);
         const matchTags = card.tags.some((t) =>
           t.tag.name.toLowerCase().includes(q)
         );
-        if (!matchTitle && !matchClient && !matchDesc && !matchTags) return false;
+        const matchAssignee = card.assigneeNames?.some((n) =>
+          n.toLowerCase().includes(q)
+        );
+        if (!matchTitle && !matchClient && !matchDesc && !matchTags && !matchAssignee) return false;
       }
-      if (filterPriority !== null && card.priority !== filterPriority) return false;
+      if (filters.priority !== null && card.priority !== filters.priority) return false;
+      if (filters.clientId && card.clientId !== filters.clientId) return false;
+      if (filters.assigneeId) {
+        let ids: string[] = [];
+        if (card.assigneeIds) {
+          try { ids = JSON.parse(card.assigneeIds); } catch {}
+        } else if (card.assigneeId) {
+          ids = [card.assigneeId];
+        }
+        if (!ids.includes(filters.assigneeId)) return false;
+      }
+      if (filters.tagIds.length > 0) {
+        const cardTagIds = card.tags.map((t) => t.tag.id);
+        if (!filters.tagIds.some((tid) => cardTagIds.includes(tid))) return false;
+      }
       return true;
     }),
   }));
@@ -403,7 +544,10 @@ export default function BoardPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900">Board</h1>
-            <p className="text-sm text-slate-500">{totalCards} carte{totalCards > 1 ? "s" : ""}</p>
+            <p className="text-sm text-slate-500">
+              {totalCards} carte{totalCards > 1 ? "s" : ""}
+              {filters.showArchived && " (archivées)"}
+            </p>
           </div>
         </div>
 
@@ -414,13 +558,13 @@ export default function BoardPage() {
             <input
               type="text"
               placeholder="Rechercher..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={filters.search}
+              onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
               className="pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 w-48"
             />
-            {searchQuery && (
+            {filters.search && (
               <button
-                onClick={() => setSearchQuery("")}
+                onClick={() => setFilters((f) => ({ ...f, search: "" }))}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
                 <X className="h-3.5 w-3.5" />
@@ -434,38 +578,197 @@ export default function BoardPage() {
               onClick={() => setShowFilters(!showFilters)}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg transition-colors",
-                filterPriority !== null
+                hasActiveFilters
                   ? "border-primary-300 bg-primary-50 text-primary-700"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
               )}
             >
               <Filter className="h-4 w-4" />
               Filtres
+              {hasActiveFilters && (
+                <span className="w-4 h-4 rounded-full bg-primary-600 text-white text-[10px] flex items-center justify-center">
+                  {[filters.priority !== null, filters.clientId, filters.assigneeId, filters.tagIds.length > 0].filter(Boolean).length}
+                </span>
+              )}
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
             {showFilters && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-3 z-50 w-48">
-                <p className="text-xs font-medium text-slate-500 mb-2">Priorité</p>
-                {[
-                  { value: null, label: "Toutes" },
-                  { value: 1, label: "Urgente", color: "text-red-600" },
-                  { value: 2, label: "Normale", color: "text-orange-600" },
-                  { value: 3, label: "Basse", color: "text-slate-600" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value ?? "all"}
-                    onClick={() => {
-                      setFilterPriority(opt.value);
-                      setShowFilters(false);
-                    }}
-                    className={cn(
-                      "w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-50",
-                      filterPriority === opt.value && "bg-primary-50 text-primary-700"
-                    )}
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-3 z-50 w-64 space-y-3">
+                {/* Priority filter */}
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1.5">Priorité</p>
+                  {[
+                    { value: null, label: "Toutes" },
+                    { value: 1, label: "Urgente", color: "text-red-600" },
+                    { value: 2, label: "Normale", color: "text-orange-600" },
+                    { value: 3, label: "Basse", color: "text-slate-600" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value ?? "all"}
+                      onClick={() => setFilters((f) => ({ ...f, priority: opt.value }))}
+                      className={cn(
+                        "w-full text-left px-2 py-1 text-sm rounded hover:bg-slate-50",
+                        filters.priority === opt.value && "bg-primary-50 text-primary-700"
+                      )}
+                    >
+                      <span className={opt.color}>{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Client filter */}
+                {allClients.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 mb-1.5">Client</p>
+                    <select
+                      value={filters.clientId || ""}
+                      onChange={(e) => setFilters((f) => ({ ...f, clientId: e.target.value || null }))}
+                      className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    >
+                      <option value="">Tous les clients</option>
+                      {allClients.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Assignee filter */}
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1.5">Assigné à</p>
+                  <select
+                    value={filters.assigneeId || ""}
+                    onChange={(e) => setFilters((f) => ({ ...f, assigneeId: e.target.value || null }))}
+                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
                   >
-                    <span className={opt.color}>{opt.label}</span>
+                    <option value="">Tous</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Tag filter */}
+                {allTags.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 mb-1.5">Tags</p>
+                    <div className="flex flex-wrap gap-1">
+                      {allTags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          onClick={() => {
+                            setFilters((f) => ({
+                              ...f,
+                              tagIds: f.tagIds.includes(tag.id)
+                                ? f.tagIds.filter((id) => id !== tag.id)
+                                : [...f.tagIds, tag.id],
+                            }));
+                          }}
+                          className={cn(
+                            "px-2 py-0.5 text-xs rounded border transition-colors",
+                            filters.tagIds.includes(tag.id)
+                              ? "border-current font-medium"
+                              : "border-slate-200 opacity-60 hover:opacity-100"
+                          )}
+                          style={{ color: tag.color, backgroundColor: filters.tagIds.includes(tag.id) ? tag.color + "20" : undefined }}
+                        >
+                          {tag.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Archive toggle */}
+                <div className="pt-2 border-t border-slate-100">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.showArchived}
+                      onChange={(e) => setFilters((f) => ({ ...f, showArchived: e.target.checked }))}
+                      className="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <Archive className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="text-sm text-slate-600">Voir les archivées</span>
+                  </label>
+                </div>
+
+                {/* Reset filters */}
+                {hasActiveFilters && (
+                  <button
+                    onClick={() => { setFilters(defaultFilters); setShowFilters(false); }}
+                    className="w-full text-center px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded"
+                  >
+                    Réinitialiser les filtres
                   </button>
-                ))}
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Saved views */}
+          <div className="relative">
+            <button
+              onClick={() => setShowViewMenu(!showViewMenu)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <Bookmark className="h-4 w-4" />
+              Vues
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+            {showViewMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 w-56">
+                <div className="p-2 border-b border-slate-100">
+                  <p className="text-xs font-medium text-slate-500 px-1 mb-1">Vues sauvegardées</p>
+                  {savedViews.length === 0 && (
+                    <p className="text-xs text-slate-400 px-1 py-2">Aucune vue sauvegardée</p>
+                  )}
+                  {savedViews.map((v) => (
+                    <div key={v.id} className="flex items-center gap-1 group">
+                      <button
+                        onClick={() => loadView(v)}
+                        className="flex-1 text-left px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50 rounded truncate"
+                      >
+                        {v.name}
+                      </button>
+                      <button
+                        onClick={() => deleteView(v.id)}
+                        className="p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-2">
+                  {showSaveView ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Nom de la vue..."
+                        value={newViewName}
+                        onChange={(e) => setNewViewName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && saveCurrentView()}
+                        className="flex-1 px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        autoFocus
+                      />
+                      <button
+                        onClick={saveCurrentView}
+                        className="px-2 py-1 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowSaveView(true)}
+                      className="w-full flex items-center gap-1.5 px-2 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Sauvegarder la vue actuelle
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>

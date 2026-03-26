@@ -287,33 +287,39 @@ model BoardColumn {
 }
 
 model BoardCard {
-  id          String           @id @default(cuid())
-  columnId    String
-  column      BoardColumn      @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  title       String
-  description String?
-  priority    Int              @default(3) // 1=Urgent, 2=Normal, 3=Basse
-  position    Int              @default(0)
-  clientId    String?
-  client      Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  contactId   String?
-  contact     Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  assigneeId  String?
-  createdById String?
-  dueDate     DateTime?
-  links       String?          // JSON array of links
-  comments    CardComment[]
-  attachments CardAttachment[]
-  tags        CardTagLink[]
-  history     CardHistory[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id              String           @id @default(cuid())
+  columnId        String
+  column          BoardColumn      @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  priority        Int              @default(3) // 1=Urgent, 2=Normal, 3=Basse
+  position        Int              @default(0)
+  clientId        String?
+  client          Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  contactId       String?
+  contact         Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assigneeId      String?
+  assigneeIds     String?          // JSON array of user IDs for multiple assignees
+  createdById     String?
+  dueDate         DateTime?
+  links           String?          // JSON array of links
+  archived        Boolean          @default(false)
+  archivedAt      DateTime?
+  movedToColumnAt DateTime         @default(now())
+  comments        CardComment[]
+  attachments     CardAttachment[]
+  tags            CardTagLink[]
+  history         CardHistory[]
+  checklist       CardChecklistItem[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([columnId])
   @@index([clientId])
   @@index([contactId])
   @@index([assigneeId])
   @@index([priority])
+  @@index([archived])
   @@map("board_cards")
 }
 
@@ -379,6 +385,31 @@ model CardHistory {
   @@index([cardId])
   @@index([createdAt])
   @@map("card_history")
+}
+
+model CardChecklistItem {
+  id        String    @id @default(cuid())
+  cardId    String
+  card      BoardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  text      String
+  checked   Boolean   @default(false)
+  position  Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@index([cardId])
+  @@map("card_checklist_items")
+}
+
+model BoardView {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  filters   String   // JSON: { search, priority, clientId, assigneeId, tagIds, showArchived }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("board_views")
 }
 
 model BoardNote {

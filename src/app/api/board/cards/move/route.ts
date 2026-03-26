@@ -66,7 +66,11 @@ export async function POST(req: NextRequest) {
     // Move the card
     await tx.boardCard.update({
       where: { id: cardId },
-      data: { columnId: targetColumnId, position: targetPosition },
+      data: {
+        columnId: targetColumnId,
+        position: targetPosition,
+        ...(sourceColumnId !== targetColumnId && { movedToColumnAt: new Date() }),
+      },
     });
   });
 
@@ -89,15 +93,26 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (card.assigneeId && card.assigneeId !== session.user?.id && targetColumn) {
-      await prisma.notification.create({
-        data: {
-          userId: card.assigneeId,
-          title: "Carte déplacée",
-          message: `${session.user?.name || "Un collaborateur"} a déplacé "${card.title}" vers "${targetColumn.name}"`,
-          link: `/board?card=${cardId}`,
-        },
-      });
+    // Notify all assignees
+    const allAssigneeIds: string[] = [];
+    if (card.assigneeId) allAssigneeIds.push(card.assigneeId);
+    if ((card as Record<string, unknown>).assigneeIds) {
+      try {
+        const extra = JSON.parse((card as Record<string, unknown>).assigneeIds as string) as string[];
+        extra.forEach((aid: string) => { if (!allAssigneeIds.includes(aid)) allAssigneeIds.push(aid); });
+      } catch {}
+    }
+    for (const uid of allAssigneeIds) {
+      if (uid !== session.user?.id && targetColumn) {
+        await prisma.notification.create({
+          data: {
+            userId: uid,
+            title: "Carte déplacée",
+            message: `${session.user?.name || "Un collaborateur"} a déplacé "${card.title}" vers "${targetColumn.name}"`,
+            link: `/board?card=${cardId}`,
+          },
+        });
+      }
     }
   }
 

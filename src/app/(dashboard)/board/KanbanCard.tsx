@@ -9,13 +9,20 @@ import {
   Calendar,
   Building2,
   User,
-  UserCheck,
+  CheckSquare,
+  Clock,
+  Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CardTag {
   id: string;
   tag: { id: string; name: string; color: string };
+}
+
+interface ChecklistItem {
+  id: string;
+  checked: boolean;
 }
 
 interface BoardCard {
@@ -30,11 +37,15 @@ interface BoardCard {
   contactId: string | null;
   contact: { id: string; firstName: string | null; lastName: string | null } | null;
   assigneeId: string | null;
-  assigneeName?: string;
+  assigneeIds?: string | null;
+  assigneeNames?: string[];
   dueDate: string | null;
   links: string | null;
   tags: CardTag[];
-  _count: { comments: number; attachments: number };
+  checklist?: ChecklistItem[];
+  archived?: boolean;
+  movedToColumnAt?: string;
+  _count: { comments: number; attachments: number; checklist?: number };
   createdAt: string;
 }
 
@@ -43,6 +54,32 @@ const PRIORITY_CONFIG: Record<number, { label: string; color: string; dot: strin
   2: { label: "Normale", color: "bg-orange-50 text-orange-700 border-orange-200", dot: "bg-orange-500" },
   3: { label: "Basse", color: "bg-slate-50 text-slate-600 border-slate-200", dot: "bg-slate-400" },
 };
+
+function getTimeInColumn(movedToColumnAt?: string): string | null {
+  if (!movedToColumnAt) return null;
+  const moved = new Date(movedToColumnAt);
+  const now = new Date();
+  const diffMs = now.getTime() - moved.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 60) return `${diffMin}m`;
+  const diffHours = Math.floor(diffMs / 3600000);
+  if (diffHours < 24) return `${diffHours}h`;
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays < 7) return `${diffDays}j`;
+  const diffWeeks = Math.floor(diffDays / 7);
+  return `${diffWeeks}sem`;
+}
+
+function getTimeInColumnColor(movedToColumnAt?: string): string {
+  if (!movedToColumnAt) return "text-slate-400";
+  const moved = new Date(movedToColumnAt);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - moved.getTime()) / 86400000);
+  if (diffDays >= 14) return "text-red-500";
+  if (diffDays >= 7) return "text-orange-500";
+  if (diffDays >= 3) return "text-amber-500";
+  return "text-slate-400";
+}
 
 interface Props {
   card: BoardCard;
@@ -71,6 +108,18 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
     ? [card.contact.firstName, card.contact.lastName].filter(Boolean).join(" ") || null
     : null;
 
+  // Checklist progress
+  const checklistTotal = card.checklist?.length || card._count?.checklist || 0;
+  const checklistDone = card.checklist?.filter((c) => c.checked).length || 0;
+  const checklistPercent = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
+
+  // Time in column
+  const timeInCol = getTimeInColumn(card.movedToColumnAt);
+  const timeColor = getTimeInColumnColor(card.movedToColumnAt);
+
+  // Multiple assignees
+  const assigneeNames = card.assigneeNames || [];
+
   return (
     <div
       ref={setNodeRef}
@@ -78,7 +127,8 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
       className={cn(
         "bg-white rounded-lg border border-slate-200 p-3 cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all group",
         (isSortableDragging || isDragging) && "opacity-50 shadow-lg",
-        card.priority === 1 && "border-l-2 border-l-red-500"
+        card.priority === 1 && "border-l-2 border-l-red-500",
+        card.archived && "opacity-60"
       )}
       onClick={onClick}
     >
@@ -102,8 +152,11 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
             <span className={cn("w-1.5 h-1.5 rounded-full", priority.dot)} />
             {priority.label}
           </span>
+          {card.archived && (
+            <Archive className="h-3 w-3 text-slate-400" />
+          )}
         </div>
-        {/* Assignee avatar + Client logo */}
+        {/* Assignee avatars + Client logo */}
         <div className="flex items-center gap-1">
           {card.client?.logoUrl && (
             <img
@@ -113,14 +166,32 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
               className="w-5 h-5 rounded-full object-cover flex-shrink-0"
             />
           )}
-          {card.assigneeName && (
-            <div
-              className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center text-[9px] font-bold text-primary-700 flex-shrink-0"
-              title={card.assigneeName}
-            >
-              {card.assigneeName.charAt(0).toUpperCase()}
+          {assigneeNames.length > 0 ? (
+            <div className="flex -space-x-1">
+              {assigneeNames.slice(0, 3).map((name, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 border border-white",
+                    i === 0 ? "bg-primary-100 text-primary-700" :
+                    i === 1 ? "bg-emerald-100 text-emerald-700" :
+                    "bg-amber-100 text-amber-700"
+                  )}
+                  title={name}
+                >
+                  {name.charAt(0).toUpperCase()}
+                </div>
+              ))}
+              {assigneeNames.length > 3 && (
+                <div
+                  className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-600 border border-white flex-shrink-0"
+                  title={assigneeNames.slice(3).join(", ")}
+                >
+                  +{assigneeNames.length - 3}
+                </div>
+              )}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -147,6 +218,27 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
               <span className="truncate">{contactName}</span>
             </span>
           )}
+        </div>
+      )}
+
+      {/* Checklist progress bar */}
+      {checklistTotal > 0 && (
+        <div className="mb-2">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <CheckSquare className={cn("h-3 w-3", checklistPercent === 100 ? "text-emerald-500" : "text-slate-400")} />
+            <span className={cn("text-[10px] font-medium", checklistPercent === 100 ? "text-emerald-600" : "text-slate-500")}>
+              {checklistDone}/{checklistTotal}
+            </span>
+          </div>
+          <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                checklistPercent === 100 ? "bg-emerald-500" : checklistPercent > 50 ? "bg-primary-500" : "bg-slate-300"
+              )}
+              style={{ width: `${checklistPercent}%` }}
+            />
+          </div>
         </div>
       )}
 
@@ -184,6 +276,13 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
                 day: "2-digit",
                 month: "short",
               })}
+            </span>
+          )}
+          {/* Time in column */}
+          {timeInCol && (
+            <span className={cn("flex items-center gap-0.5", timeColor)} title="Temps dans cette colonne">
+              <Clock className="h-3 w-3" />
+              {timeInCol}
             </span>
           )}
         </div>

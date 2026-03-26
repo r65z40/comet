@@ -2,20 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const showArchived = searchParams.get("archived") === "true";
 
   const columns = await prisma.boardColumn.findMany({
     orderBy: { position: "asc" },
     include: {
       cards: {
+        where: { archived: showArchived },
         orderBy: { position: "asc" },
         include: {
           client: { select: { id: true, name: true, logoUrl: true } },
           contact: { select: { id: true, firstName: true, lastName: true } },
           tags: { include: { tag: true } },
-          _count: { select: { comments: true, attachments: true } },
+          checklist: { select: { id: true, checked: true } },
+          _count: { select: { comments: true, attachments: true, checklist: true } },
         },
       },
     },

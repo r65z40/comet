@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
         tags: { include: { tag: true } },
         comments: { orderBy: { createdAt: "desc" } },
         attachments: { orderBy: { createdAt: "desc" } },
+        checklist: { orderBy: { position: "asc" } },
       },
     });
 
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const { columnId, title, description, priority, clientId, contactId, assigneeId, dueDate, links, tagIds } = body;
+  const { columnId, title, description, priority, clientId, contactId, assigneeId, assigneeIds, dueDate, links, tagIds } = body;
 
   if (!columnId || !title?.trim()) {
     return NextResponse.json({ error: "Colonne et titre requis" }, { status: 400 });
@@ -46,6 +47,10 @@ export async function POST(req: NextRequest) {
   });
   const position = (maxPos._max.position ?? -1) + 1;
 
+  // Determine primary assignee and all assignees
+  const allAssigneeIds: string[] = assigneeIds || (assigneeId ? [assigneeId] : []);
+  const primaryAssigneeId = allAssigneeIds[0] || null;
+
   const card = await prisma.boardCard.create({
     data: {
       columnId,
@@ -55,10 +60,12 @@ export async function POST(req: NextRequest) {
       position,
       clientId: clientId || null,
       contactId: contactId || null,
-      assigneeId: assigneeId || null,
+      assigneeId: primaryAssigneeId,
+      assigneeIds: allAssigneeIds.length > 0 ? JSON.stringify(allAssigneeIds) : null,
       createdById: session.user?.id || null,
       dueDate: dueDate ? new Date(dueDate) : null,
       links: links ? JSON.stringify(links) : null,
+      movedToColumnAt: new Date(),
       ...(tagIds?.length && {
         tags: {
           create: tagIds.map((tagId: string) => ({ tagId })),
@@ -66,10 +73,11 @@ export async function POST(req: NextRequest) {
       }),
     },
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, logoUrl: true } },
       contact: { select: { id: true, firstName: true, lastName: true } },
       tags: { include: { tag: true } },
-      _count: { select: { comments: true, attachments: true } },
+      checklist: { select: { id: true, checked: true } },
+      _count: { select: { comments: true, attachments: true, checklist: true } },
     },
   });
 
@@ -84,16 +92,18 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Notify assignee if different from creator
-  if (assigneeId && assigneeId !== session.user?.id) {
-    await prisma.notification.create({
-      data: {
-        userId: assigneeId,
-        title: "Nouvelle carte assignée",
-        message: `${session.user?.name || "Un collaborateur"} vous a assigné la carte "${title.trim()}"`,
-        link: `/board?card=${card.id}`,
-      },
-    });
+  // Notify all assignees (except creator)
+  for (const uid of allAssigneeIds) {
+    if (uid !== session.user?.id) {
+      await prisma.notification.create({
+        data: {
+          userId: uid,
+          title: "Nouvelle carte assignée",
+          message: `${session.user?.name || "Un collaborateur"} vous a assigné la carte "${title.trim()}"`,
+          link: `/board?card=${card.id}`,
+        },
+      });
+    }
   }
 
   return NextResponse.json(card, { status: 201 });
@@ -104,7 +114,7 @@ export async function PUT(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const { id, title, description, priority, clientId, contactId, assigneeId, dueDate, links, tagIds } = body;
+  const { id, title, description, priority, clientId, contactId, assigneeId, assigneeIds, dueDate, links, tagIds } = body;
 
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
@@ -124,12 +134,35 @@ export async function PUT(req: NextRequest) {
   if (priority !== undefined && priority !== existingCard.priority) {
     changes.push({ field: "priority", oldValue: priorityLabels[existingCard.priority] || String(existingCard.priority), newValue: priorityLabels[priority] || String(priority) });
   }
-  if (assigneeId !== undefined && assigneeId !== existingCard.assigneeId) {
-    // Resolve user names for history
+
+  // Handle multiple assignees
+  let newAssigneeIds: string[] | undefined;
+  let primaryAssigneeId: string | undefined;
+
+  if (assigneeIds !== undefined) {
+    newAssigneeIds = assigneeIds as string[];
+    primaryAssigneeId = newAssigneeIds[0] ?? undefined;
+
+    const oldIds: string[] = existingCard.assigneeIds ? JSON.parse(existingCard.assigneeIds) : (existingCard.assigneeId ? [existingCard.assigneeId] : []);
+    if (JSON.stringify(oldIds.sort()) !== JSON.stringify([...newAssigneeIds].sort())) {
+      const oldNames = await Promise.all(oldIds.map(async (uid) => {
+        const u = await prisma.user.findUnique({ where: { id: uid }, select: { name: true } });
+        return u?.name || uid;
+      }));
+      const newNames = await Promise.all(newAssigneeIds.map(async (uid) => {
+        const u = await prisma.user.findUnique({ where: { id: uid }, select: { name: true } });
+        return u?.name || uid;
+      }));
+      changes.push({ field: "assignee", oldValue: oldNames.join(", ") || null, newValue: newNames.join(", ") || null });
+    }
+  } else if (assigneeId !== undefined && assigneeId !== existingCard.assigneeId) {
+    primaryAssigneeId = assigneeId;
+    newAssigneeIds = assigneeId ? [assigneeId] : [];
     const oldUser = existingCard.assigneeId ? await prisma.user.findUnique({ where: { id: existingCard.assigneeId }, select: { name: true } }) : null;
     const newUser = assigneeId ? await prisma.user.findUnique({ where: { id: assigneeId }, select: { name: true } }) : null;
     changes.push({ field: "assignee", oldValue: oldUser?.name || null, newValue: newUser?.name || null });
   }
+
   if (clientId !== undefined && clientId !== existingCard.clientId) {
     const oldClient = existingCard.clientId ? await prisma.client.findUnique({ where: { id: existingCard.clientId }, select: { name: true } }) : null;
     const newClient = clientId ? await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } }) : null;
@@ -151,15 +184,17 @@ export async function PUT(req: NextRequest) {
       ...(priority !== undefined && { priority }),
       ...(clientId !== undefined && { clientId: clientId || null }),
       ...(contactId !== undefined && { contactId: contactId || null }),
-      ...(assigneeId !== undefined && { assigneeId: assigneeId || null }),
+      ...(primaryAssigneeId !== undefined && { assigneeId: primaryAssigneeId || null }),
+      ...(newAssigneeIds !== undefined && { assigneeIds: newAssigneeIds.length > 0 ? JSON.stringify(newAssigneeIds) : null }),
       ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
       ...(links !== undefined && { links: links ? JSON.stringify(links) : null }),
     },
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, logoUrl: true } },
       contact: { select: { id: true, firstName: true, lastName: true } },
       tags: { include: { tag: true } },
-      _count: { select: { comments: true, attachments: true } },
+      checklist: { select: { id: true, checked: true } },
+      _count: { select: { comments: true, attachments: true, checklist: true } },
     },
   });
 
@@ -188,16 +223,39 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  // Notify if assignee changed
-  if (assigneeId && assigneeId !== existingCard.assigneeId && assigneeId !== session.user?.id) {
-    await prisma.notification.create({
-      data: {
-        userId: assigneeId,
-        title: "Carte assignée",
-        message: `${session.user?.name || "Un collaborateur"} vous a assigné la carte "${card.title}"`,
-        link: `/board?card=${card.id}`,
-      },
-    });
+  // Notify new assignees
+  if (newAssigneeIds !== undefined) {
+    const oldIds: string[] = existingCard.assigneeIds ? JSON.parse(existingCard.assigneeIds) : (existingCard.assigneeId ? [existingCard.assigneeId] : []);
+    const addedIds = newAssigneeIds.filter((uid) => !oldIds.includes(uid));
+    for (const uid of addedIds) {
+      if (uid !== session.user?.id) {
+        await prisma.notification.create({
+          data: {
+            userId: uid,
+            title: "Carte assignée",
+            message: `${session.user?.name || "Un collaborateur"} vous a assigné la carte "${card.title}"`,
+            link: `/board?card=${card.id}`,
+          },
+        });
+      }
+    }
+  }
+
+  // Notify if due date is set and card has assignees
+  if (dueDate !== undefined && dueDate && !existingCard.dueDate) {
+    const allIds: string[] = newAssigneeIds || (existingCard.assigneeIds ? JSON.parse(existingCard.assigneeIds) : (existingCard.assigneeId ? [existingCard.assigneeId] : []));
+    for (const uid of allIds) {
+      if (uid !== session.user?.id) {
+        await prisma.notification.create({
+          data: {
+            userId: uid,
+            title: "Date limite ajoutée",
+            message: `${session.user?.name || "Un collaborateur"} a ajouté une date limite au ${new Date(dueDate).toLocaleDateString("fr-FR")} sur "${card.title}"`,
+            link: `/board?card=${card.id}`,
+          },
+        });
+      }
+    }
   }
 
   return NextResponse.json(card);
@@ -212,9 +270,6 @@ export async function DELETE(req: NextRequest) {
 
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
-  const cardToDelete = await prisma.boardCard.findUnique({ where: { id }, select: { title: true } });
-
-  // History is cascade-deleted with the card, so we just log to activity
   await prisma.boardCard.delete({ where: { id } });
 
   return NextResponse.json({ success: true });
