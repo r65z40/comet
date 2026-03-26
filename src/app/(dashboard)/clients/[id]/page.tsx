@@ -87,6 +87,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [sortKey, setSortKey] = useState<SortKey>("endDate");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [statusFilter, setStatusFilter] = useState<"all" | "en_parc" | "hors_parc" | "renouvele">("all");
+  const [hideRenewed, setHideRenewed] = useState(false);
   const [installSearch, setInstallSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -405,8 +406,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <td>${esc(name)}</td>
           ${showFamily ? `<td>${esc(inst.family || "—")}</td>` : ""}
           ${showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
-          ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
           ${showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
+          ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
           <td>${formatDate(inst.startDate)}</td>
           <td style="${getEndDateBgStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${formatDate(inst.endDate)}</td>
           ${showDuration ? `<td>${inst.durationMonths} mois</td>` : ""}
@@ -433,7 +434,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       if (showDuration) fixedCols++;
       if (showStatus) fixedCols++;
       const fixedWidth = fixedCols * colW + (showQuantity ? narrow - colW : 0);
-      return `<colgroup><col style="width: calc(100% - ${fixedWidth}px);" />${includeFamily ? `<col style="width: ${colW}px;" />` : ""}${showSupplier ? `<col style="width: ${colW}px;" />` : ""}${showQuantity ? `<col style="width: ${narrow}px;" />` : ""}${showComParc ? `<col style="width: ${colW}px;" />` : ""}<col style="width: ${colW}px;" /><col style="width: ${colW}px;" />${showDuration ? `<col style="width: ${colW}px;" />` : ""}${showStatus ? `<col style="width: ${colW}px;" />` : ""}</colgroup>`;
+      return `<colgroup><col style="width: calc(100% - ${fixedWidth}px);" />${includeFamily ? `<col style="width: ${colW}px;" />` : ""}${showSupplier ? `<col style="width: ${colW}px;" />` : ""}${showComParc ? `<col style="width: ${colW}px;" />` : ""}${showQuantity ? `<col style="width: ${narrow}px;" />` : ""}<col style="width: ${colW}px;" /><col style="width: ${colW}px;" />${showDuration ? `<col style="width: ${colW}px;" />` : ""}${showStatus ? `<col style="width: ${colW}px;" />` : ""}</colgroup>`;
     }
 
     function buildTableHead(includeFamily: boolean): string {
@@ -442,8 +443,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <th>Produit</th>
         ${includeFamily ? `<th>Famille</th>` : ""}
         ${showSupplier ? `<th>Fournisseur</th>` : ""}
-        ${showQuantity ? `<th>Qté</th>` : ""}
         ${showComParc ? `<th>Com. Parc</th>` : ""}
+        ${showQuantity ? `<th>Qté</th>` : ""}
         <th>Début</th>
         <th>Fin</th>
         ${showDuration ? `<th>Durée</th>` : ""}
@@ -836,10 +837,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </button>
         <button
           onClick={() => setStatusFilter(statusFilter === "renouvele" ? "all" : "renouvele")}
-          className={`rounded-xl border p-4 text-center transition-all cursor-pointer ${statusFilter === "renouvele" ? "border-blue-400 ring-2 ring-blue-300 bg-blue-50" : "border-blue-200 bg-blue-50 hover:border-blue-300"}`}
+          className={`rounded-xl border p-4 text-center transition-all cursor-pointer relative ${statusFilter === "renouvele" ? "border-blue-400 ring-2 ring-blue-300 bg-blue-50" : "border-blue-200 bg-blue-50 hover:border-blue-300"}`}
         >
           <p className="text-2xl font-bold text-blue-600">{renouvele.length}</p>
           <p className="text-xs text-slate-500 mt-1">Renouvelés</p>
+          <span
+            onClick={(e) => { e.stopPropagation(); setHideRenewed(!hideRenewed); }}
+            className={`absolute top-2 right-2 p-1 rounded-full transition-colors ${hideRenewed ? "bg-blue-200 text-blue-700" : "hover:bg-blue-100 text-blue-400 hover:text-blue-600"}`}
+            title={hideRenewed ? "Afficher les renouvelés" : "Masquer les renouvelés"}
+          >
+            {hideRenewed ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          </span>
         </button>
       </div>
 
@@ -1065,6 +1073,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   { key: "product" as SortKey, label: "Produit" },
                   { key: "family" as SortKey, label: "Famille" },
                   { key: "supplier" as SortKey, label: "Fournisseur" },
+                  { key: null, label: "Com. Parc" },
                   { key: null, label: "Qté" },
                   { key: null, label: "Facture" },
                   { key: "startDate" as SortKey, label: "Début" },
@@ -1091,6 +1100,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             </thead>
             <tbody className="divide-y divide-slate-200">
               {sortedInstallations(client.installations.filter((inst) => {
+                if (hideRenewed && inst.status === "RENOUVELE") return false;
                 if (statusFilter === "en_parc") return inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE";
                 if (statusFilter === "hors_parc") return inst.status === "HORS_PARC" || inst.status === "EN_PARC_HORS_GARANTIE";
                 if (statusFilter === "renouvele") return inst.status === "RENOUVELE";
@@ -1115,6 +1125,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-600">{inst.family || "—"}</td>
                   <td className="px-4 py-3 text-sm text-slate-600">{inst.supplier || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{inst.comParc || "—"}</td>
                   <td className="px-4 py-3 text-sm text-slate-600 text-center">{inst.quantity}</td>
                   <td className="px-4 py-3 text-sm text-slate-500">
                     {inst.invoice ? (
