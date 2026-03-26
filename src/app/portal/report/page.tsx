@@ -113,7 +113,7 @@ export default function PortalReportPage() {
   .stat-red { border-color: #ef4444; } .stat-red .value { color: #ef4444; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
   th { background: #f1f5f9; padding: 4px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
-  td { padding: 2px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  td { padding: 3px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
   th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
   th:not(:first-child), td:not(:first-child) { text-align: center; padding: 2px 6px; }
   tr:nth-child(even) { background: #fafafa; }

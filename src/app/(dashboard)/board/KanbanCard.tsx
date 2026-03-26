@@ -138,7 +138,7 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
           <button
             {...attributes}
             {...listeners}
-            className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+            className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
             <GripVertical className="h-4 w-4" />

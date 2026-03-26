@@ -66,6 +66,7 @@ interface CardDetail {
   contactId: string | null;
   contact: { id: string; firstName: string | null; lastName: string | null } | null;
   assigneeId: string | null;
+  assigneeIds: string | null;
   createdById: string | null;
   dueDate: string | null;
   links: string | null;
@@ -109,7 +110,7 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
   const [editDescription, setEditDescription] = useState("");
   const [editPriority, setEditPriority] = useState(3);
   const [editClientId, setEditClientId] = useState("");
-  const [editAssigneeId, setEditAssigneeId] = useState("");
+  const [editAssigneeIds, setEditAssigneeIds] = useState<string[]>([]);
   const [editDueDate, setEditDueDate] = useState("");
   const [editLinks, setEditLinks] = useState<string[]>([]);
   const [newLink, setNewLink] = useState("");
@@ -153,7 +154,7 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
         setEditPriority(data.priority);
         setEditClientId(data.clientId || "");
         setEditContactId(data.contactId || "");
-        setEditAssigneeId(data.assigneeId || "");
+        setEditAssigneeIds(data.assigneeIds ? JSON.parse(data.assigneeIds) : data.assigneeId ? [data.assigneeId] : []);
         setEditDueDate(data.dueDate ? data.dueDate.split("T")[0] : "");
         setEditLinks(data.links ? JSON.parse(data.links) : []);
         setSelectedTagIds(data.tags.map((t: CardTag) => t.tag.id));
@@ -233,7 +234,8 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
         priority: editPriority,
         clientId: editClientId || null,
         contactId: editContactId || null,
-        assigneeId: editAssigneeId || null,
+        assigneeIds: editAssigneeIds.length > 0 ? editAssigneeIds : [],
+        assigneeId: editAssigneeIds[0] || null,
         dueDate: editDueDate || null,
         links: editLinks.length > 0 ? editLinks : null,
         tagIds: selectedTagIds,
@@ -451,38 +453,48 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
               </div>
             )}
 
-            {/* Assignee */}
+            {/* Assignees (multi-select) */}
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
                 <Users className="h-3 w-3" />
                 Assigné à
               </label>
-              <select
-                value={editing ? editAssigneeId : (card.assigneeId || "")}
-                onChange={async (e) => {
-                  const newAssigneeId = e.target.value;
+              {(() => {
+                const currentIds = editing
+                  ? editAssigneeIds
+                  : (card.assigneeIds ? JSON.parse(card.assigneeIds) : card.assigneeId ? [card.assigneeId] : []) as string[];
+
+                const toggleAssignee = async (uid: string, checked: boolean) => {
+                  const newIds = checked ? [...currentIds, uid] : currentIds.filter((id: string) => id !== uid);
                   if (editing) {
-                    setEditAssigneeId(newAssigneeId);
+                    setEditAssigneeIds(newIds);
                   } else {
-                    // Quick update without full edit mode
                     await fetch("/api/board/cards", {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ id: cardId, assigneeId: newAssigneeId || null }),
+                      body: JSON.stringify({ id: cardId, assigneeIds: newIds, assigneeId: newIds[0] || null }),
                     });
                     fetchCard();
                     fetchHistory();
                   }
-                }}
-                className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
-              >
-                <option value="">Non assigné</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
+                };
+
+                return (
+                  <div className="max-h-32 overflow-y-auto border border-slate-200 rounded-lg p-1.5 space-y-0.5">
+                    {users.map((u) => (
+                      <label key={u.id} className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={currentIds.includes(u.id)}
+                          onChange={(e) => toggleAssignee(u.id, e.target.checked)}
+                          className="h-3.5 w-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className="text-sm text-slate-700">{u.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Due date */}

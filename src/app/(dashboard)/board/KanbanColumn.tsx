@@ -76,8 +76,8 @@ export default function KanbanColumn({
   const [newCardContactName, setNewCardContactName] = useState("");
   const [contacts, setContacts] = useState<{ id: string; firstName: string | null; lastName: string | null }[]>([]);
 
-  // Assignee for new card
-  const [newCardAssigneeId, setNewCardAssigneeId] = useState("");
+  // Assignees for new card (multi-select)
+  const [newCardAssigneeIds, setNewCardAssigneeIds] = useState<string[]>([]);
 
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
@@ -132,7 +132,8 @@ export default function KanbanColumn({
         priority: newCardPriority,
         clientId: newCardClientId || null,
         contactId: newCardContactId || null,
-        assigneeId: newCardAssigneeId || null,
+        assigneeIds: newCardAssigneeIds.length > 0 ? newCardAssigneeIds : undefined,
+        assigneeId: newCardAssigneeIds[0] || null,
       }),
     });
     setNewCardTitle("");
@@ -141,7 +142,7 @@ export default function KanbanColumn({
     setNewCardClientName("");
     setNewCardContactId("");
     setNewCardContactName("");
-    setNewCardAssigneeId("");
+    setNewCardAssigneeIds([]);
     setClientSearch("");
     setShowAddCard(false);
     onCardCreated();
@@ -341,22 +342,31 @@ export default function KanbanColumn({
               </div>
             )}
 
-            {/* Assignee selection */}
+            {/* Assignee selection (multi) */}
             <div>
               <div className="flex items-center gap-1">
                 <UserCheck className="h-3 w-3 text-slate-400" />
                 <span className="text-[10px] text-slate-500 font-medium">Assigné à</span>
               </div>
-              <select
-                value={newCardAssigneeId}
-                onChange={(e) => setNewCardAssigneeId(e.target.value)}
-                className="w-full mt-0.5 px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-              >
-                <option value="">Non assigné</option>
+              <div className="mt-0.5 max-h-24 overflow-y-auto border border-slate-200 rounded p-1 space-y-0.5">
                 {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
+                  <label key={u.id} className="flex items-center gap-1.5 px-1 py-0.5 rounded hover:bg-slate-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newCardAssigneeIds.includes(u.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setNewCardAssigneeIds([...newCardAssigneeIds, u.id]);
+                        } else {
+                          setNewCardAssigneeIds(newCardAssigneeIds.filter(id => id !== u.id));
+                        }
+                      }}
+                      className="h-3 w-3 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-xs text-slate-700">{u.name}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
             {/* Priority */}
@@ -388,7 +398,7 @@ export default function KanbanColumn({
                 Ajouter
               </button>
               <button
-                onClick={() => { setShowAddCard(false); setNewCardTitle(""); clearClient(); setNewCardAssigneeId(""); }}
+                onClick={() => { setShowAddCard(false); setNewCardTitle(""); clearClient(); setNewCardAssigneeIds([]); }}
                 className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
               >
                 Annuler
