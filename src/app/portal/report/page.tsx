@@ -92,7 +92,7 @@ export default function PortalReportPage() {
 <title>Rapport - ${esc(client.name)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Tahoma, sans-serif; color: #1a1a2e; padding: 10mm; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; color: #1a1a2e; padding: 5mm; }
   .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 16px; border-bottom: 2px solid ${primaryColor}; }
   .header h2 { font-size: 22px; font-weight: 700; }
   .header p { font-size: 12px; color: #64748b; }
