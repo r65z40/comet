@@ -435,3 +435,55 @@ model Notification {
   @@index([createdAt])
   @@map("notifications")
 }
+
+// ─── Knowledge Base ─────────────────────────────────
+
+model KbCategory {
+  id       String   @id @default(cuid())
+  name     String
+  slug     String   @unique
+  position Int      @default(0)
+  articles KbArticle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("kb_categories")
+}
+
+model KbArticle {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String   @default("")
+  categoryId  String?
+  category    KbCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  authorId    String?
+  visibility  String   @default("public") // public | internal | client
+  published   Boolean  @default(false)
+  clientIds   String?  // JSON array of client IDs for visibility="client"
+  attachments KbAttachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([published])
+  @@index([visibility])
+  @@map("kb_articles")
+}
+
+model KbAttachment {
+  id        String   @id @default(cuid())
+  articleId String
+  article   KbArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  fileName  String
+  fileUrl   String
+  fileType  String
+  fileSize  Int
+
+  createdAt DateTime @default(now())
+
+  @@index([articleId])
+  @@map("kb_attachments")
+}
