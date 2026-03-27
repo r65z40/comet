@@ -118,7 +118,7 @@ export default function PortalKnowledgePage() {
   // Article detail view
   if (selectedArticle) {
     return (
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         <button
           onClick={() => setSelectedArticle(null)}
           className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"

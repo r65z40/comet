@@ -9,6 +9,7 @@ import { cloudUpload, cloudDelete, cloudList, getCloudConfig } from "@/lib/backu
 const execAsync = promisify(exec);
 
 const BACKUP_DIR = path.join(process.cwd(), "backups");
+const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 
 export interface BackupInfo {
   filename: string;
@@ -69,6 +70,15 @@ export async function getBackupSettings(): Promise<BackupSettings> {
   };
 }
 
+async function uploadsExist(): Promise<boolean> {
+  try {
+    const entries = await fs.readdir(UPLOADS_DIR, { recursive: true });
+    return entries.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function createBackup(type: "auto" | "manual" = "manual"): Promise<BackupInfo> {
   await ensureBackupDir();
 
@@ -77,21 +87,41 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
 
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const filename = `backup_${type}_${timestamp}.sql.gz`;
-  const filepath = path.join(BACKUP_DIR, filename);
+
+  // Create a temp directory for assembling the backup
+  const tmpDir = path.join(BACKUP_DIR, `_tmp_${timestamp}`);
+  await fs.mkdir(tmpDir, { recursive: true });
+
+  const sqlFile = path.join(tmpDir, "database.sql.gz");
 
   try {
-    await execAsync(`pg_dump "${dbUrl}" | gzip > "${filepath}"`, {
+    // 1. Dump the database
+    await execAsync(`pg_dump "${dbUrl}" | gzip > "${sqlFile}"`, {
       timeout: 300000, // 5 min max
     });
 
-    const stat = await fs.stat(filepath);
-
-    // Verify the backup is not empty
-    if (stat.size < 100) {
-      await fs.unlink(filepath).catch(() => {});
-      throw new Error("Le fichier de backup est vide ou corrompu");
+    const sqlStat = await fs.stat(sqlFile);
+    if (sqlStat.size < 100) {
+      throw new Error("Le fichier de backup SQL est vide ou corrompu");
     }
+
+    // 2. Check if uploads exist and copy them
+    const hasUploads = await uploadsExist();
+    if (hasUploads) {
+      await execAsync(`cp -r "${UPLOADS_DIR}" "${path.join(tmpDir, "uploads")}"`, {
+        timeout: 120000,
+      });
+    }
+
+    // 3. Create a tar.gz archive
+    const filename = `backup_${type}_${timestamp}.tar.gz`;
+    const filepath = path.join(BACKUP_DIR, filename);
+
+    await execAsync(`tar -czf "${filepath}" -C "${tmpDir}" .`, {
+      timeout: 300000,
+    });
+
+    const stat = await fs.stat(filepath);
 
     // Upload to cloud if configured
     let cloudUploaded = false;
@@ -103,7 +133,6 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
       }
     } catch (cloudErr) {
       const cloudMsg = cloudErr instanceof Error ? `${cloudErr.message}\n${cloudErr.stack}` : String(cloudErr);
-      // Log cloud upload failure but don't fail the entire backup
       console.error(`[backup] Cloud upload failed for ${type}:`, cloudMsg);
       await prisma.activityLog.create({
         data: {
@@ -116,11 +145,12 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
 
     // Log in activity
     const cloudLabel = cloudUploaded ? " + cloud" : "";
+    const uploadsLabel = hasUploads ? " + fichiers" : "";
     await prisma.activityLog.create({
       data: {
         action: "BACKUP",
         entity: "system",
-        details: `Backup ${type} créé: ${filename} (${formatSize(stat.size)})${cloudLabel}`,
+        details: `Backup ${type} créé: ${filename} (${formatSize(stat.size)})${uploadsLabel}${cloudLabel}`,
       },
     }).catch(() => {});
 
@@ -132,10 +162,15 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
       type,
     };
   } catch (err) {
-    // Clean up failed backup file
-    await fs.unlink(filepath).catch(() => {});
     throw err;
+  } finally {
+    // Cleanup temp directory
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+function isBackupFile(name: string): boolean {
+  return name.startsWith("backup_") && (name.endsWith(".tar.gz") || name.endsWith(".sql.gz"));
 }
 
 export async function listBackups(): Promise<(BackupInfo & { location: "local" | "cloud" | "both" })[]> {
@@ -146,10 +181,11 @@ export async function listBackups(): Promise<(BackupInfo & { location: "local" |
   const files = await fs.readdir(BACKUP_DIR);
 
   for (const file of files) {
-    if (!file.startsWith("backup_") || !file.endsWith(".sql.gz")) continue;
+    if (!isBackupFile(file)) continue;
 
     const filepath = path.join(BACKUP_DIR, file);
     const stat = await fs.stat(filepath);
+    if (!stat.isFile()) continue;
     const type = file.startsWith("backup_auto_") ? "auto" : "manual";
 
     localMap.set(file, {
@@ -195,7 +231,7 @@ export async function listBackups(): Promise<(BackupInfo & { location: "local" |
 export async function deleteBackup(filename: string): Promise<void> {
   // Prevent path traversal
   const safe = path.basename(filename);
-  if (!safe.startsWith("backup_") || !safe.endsWith(".sql.gz")) {
+  if (!isBackupFile(safe)) {
     throw new Error("Nom de fichier invalide");
   }
 
@@ -217,7 +253,7 @@ export async function deleteBackup(filename: string): Promise<void> {
 
 export async function getBackupPath(filename: string): Promise<string> {
   const safe = path.basename(filename);
-  if (!safe.startsWith("backup_") || !safe.endsWith(".sql.gz")) {
+  if (!isBackupFile(safe)) {
     throw new Error("Nom de fichier invalide");
   }
 
@@ -241,10 +277,41 @@ export async function restoreBackup(filename: string): Promise<void> {
   const dbUrl = getDbUrlForPgDump();
   if (!dbUrl) throw new Error("DATABASE_URL non configurée");
 
-  // Restore: decompress and pipe to psql
-  await execAsync(`gunzip -c "${filepath}" | psql "${dbUrl}"`, {
-    timeout: 600000, // 10 min max
-  });
+  if (filepath.endsWith(".tar.gz")) {
+    // New format: tar.gz with database.sql.gz + uploads/
+    const tmpDir = path.join(BACKUP_DIR, `_restore_${Date.now()}`);
+    await fs.mkdir(tmpDir, { recursive: true });
+
+    try {
+      await execAsync(`tar -xzf "${filepath}" -C "${tmpDir}"`, { timeout: 300000 });
+
+      // Restore database
+      const sqlFile = path.join(tmpDir, "database.sql.gz");
+      try {
+        await fs.access(sqlFile);
+        await execAsync(`gunzip -c "${sqlFile}" | psql "${dbUrl}"`, { timeout: 600000 });
+      } catch {
+        // Might be an older tar.gz format, skip
+      }
+
+      // Restore uploads if present
+      const uploadsBackup = path.join(tmpDir, "uploads");
+      try {
+        await fs.access(uploadsBackup);
+        await fs.mkdir(UPLOADS_DIR, { recursive: true });
+        await execAsync(`cp -r "${uploadsBackup}/"* "${UPLOADS_DIR}/"`, { timeout: 120000 });
+      } catch {
+        // No uploads in this backup
+      }
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    }
+  } else {
+    // Legacy format: .sql.gz
+    await execAsync(`gunzip -c "${filepath}" | psql "${dbUrl}"`, {
+      timeout: 600000,
+    });
+  }
 
   await prisma.activityLog.create({
     data: {

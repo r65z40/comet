@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
 
     // Validate filename - only allow .sql, .gz, .sql.gz, .dump extensions
     const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    if (!/\.(sql|gz|dump|sql\.gz)$/i.test(filename)) {
+    if (!/\.(sql|gz|dump|sql\.gz|tar\.gz)$/i.test(filename)) {
       return NextResponse.json(
-        { error: "Format non supporté. Formats acceptés : .sql, .gz, .sql.gz, .dump" },
+        { error: "Format non supporté. Formats acceptés : .sql, .gz, .sql.gz, .tar.gz, .dump" },
         { status: 400 }
       );
     }

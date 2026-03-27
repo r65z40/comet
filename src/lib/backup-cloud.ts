@@ -140,7 +140,7 @@ async function s3List(config: CloudConfig): Promise<{ name: string; size: number
   }));
 
   return (response.Contents || [])
-    .filter((obj) => obj.Key?.endsWith(".sql.gz"))
+    .filter((obj) => obj.Key?.endsWith(".sql.gz") || obj.Key?.endsWith(".tar.gz"))
     .map((obj) => ({
       name: obj.Key!.split("/").pop()!,
       size: obj.Size || 0,
@@ -247,7 +247,7 @@ async function ftpList(config: CloudConfig): Promise<{ name: string; size: numbe
   return withFtpClient(config, async (client) => {
     const list = await client.list();
     return list
-      .filter((f) => f.name.endsWith(".sql.gz") && f.name.startsWith("backup_"))
+      .filter((f) => (f.name.endsWith(".sql.gz") || f.name.endsWith(".tar.gz")) && f.name.startsWith("backup_"))
       .map((f) => ({
         name: f.name,
         size: f.size,

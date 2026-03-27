@@ -1,13 +1,13 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, NodeViewWrapper, NodeViewProps, ReactNodeViewRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import LinkExtension from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   Bold,
   Italic,
@@ -28,9 +28,97 @@ import {
   Undo,
   Redo,
   Code,
-  Upload,
 } from "lucide-react";
 
+// ─── Resizable Image Node View ────────────────────────
+function ResizableImageView({ node, updateAttributes, selected }: NodeViewProps) {
+  const [resizing, setResizing] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(0);
+
+  const width = node.attrs.width as number | null;
+
+  function onMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizing(true);
+    startXRef.current = e.clientX;
+    startWidthRef.current = imgRef.current?.offsetWidth || 300;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const diff = ev.clientX - startXRef.current;
+      const newWidth = Math.max(100, startWidthRef.current + diff);
+      updateAttributes({ width: newWidth });
+    };
+
+    const onMouseUp = () => {
+      setResizing(false);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }
+
+  return (
+    <NodeViewWrapper className="relative inline-block my-2" data-drag-handle>
+      <div className={`relative inline-block ${selected ? "ring-2 ring-primary-400 rounded" : ""}`}>
+        <img
+          ref={imgRef}
+          src={node.attrs.src}
+          alt={node.attrs.alt || ""}
+          title={node.attrs.title || ""}
+          style={{ width: width ? `${width}px` : "auto", maxWidth: "100%", display: "block" }}
+          className="rounded"
+          draggable={false}
+        />
+        {/* Resize handle — bottom right */}
+        <div
+          onMouseDown={onMouseDown}
+          className={`absolute bottom-0 right-0 w-4 h-4 cursor-se-resize rounded-tl bg-primary-500 opacity-0 hover:opacity-100 transition-opacity ${
+            selected || resizing ? "opacity-100" : ""
+          }`}
+          style={{ touchAction: "none" }}
+        />
+        {/* Resize handle — right middle */}
+        <div
+          onMouseDown={onMouseDown}
+          className={`absolute top-1/2 -translate-y-1/2 right-0 w-2 h-10 cursor-ew-resize rounded-l bg-primary-400 opacity-0 hover:opacity-80 transition-opacity ${
+            selected || resizing ? "opacity-80" : ""
+          }`}
+          style={{ touchAction: "none" }}
+        />
+      </div>
+    </NodeViewWrapper>
+  );
+}
+
+// Custom Image extension with resize support
+const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: null,
+        parseHTML: (element) => {
+          const width = element.getAttribute("width") || element.style.width;
+          return width ? parseInt(width, 10) || null : null;
+        },
+        renderHTML: (attributes) => {
+          if (!attributes.width) return {};
+          return { width: attributes.width, style: `width: ${attributes.width}px` };
+        },
+      },
+    };
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ResizableImageView);
+  },
+});
+
+// ─── Editor Component ─────────────────────────────────
 interface RichTextEditorProps {
   content: string;
   onChange: (html: string) => void;
@@ -46,7 +134,7 @@ export default function RichTextEditor({ content, onChange, placeholder }: RichT
         heading: { levels: [1, 2, 3] },
       }),
       Underline,
-      Image.configure({ inline: false, allowBase64: false }),
+      ResizableImage.configure({ inline: false, allowBase64: false }),
       LinkExtension.configure({
         openOnClick: false,
         HTMLAttributes: { class: "text-blue-600 underline cursor-pointer" },
