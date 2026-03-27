@@ -52,8 +52,13 @@ function fileIcon(type: string) {
   return <FileText className="h-4 w-4 text-slate-400" />;
 }
 
-// Simple markdown-like rendering
+// Render content: supports HTML (from rich editor) and plain text fallback
 function renderContent(text: string) {
+  // If content looks like HTML (contains tags), render as HTML
+  if (text.includes("<") && text.includes(">")) {
+    return <div dangerouslySetInnerHTML={{ __html: text }} />;
+  }
+  // Fallback: simple markdown-like rendering for old content
   return text.split("\n").map((line, i) => {
     if (line.startsWith("### ")) return <h3 key={i} className="text-base font-semibold text-slate-800 mt-4 mb-2">{line.slice(4)}</h3>;
     if (line.startsWith("## ")) return <h2 key={i} className="text-lg font-bold text-slate-900 mt-5 mb-2">{line.slice(3)}</h2>;

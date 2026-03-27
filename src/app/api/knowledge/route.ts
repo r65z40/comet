@@ -116,7 +116,16 @@ export async function PUT(req: NextRequest) {
   if (categoryId !== undefined) data.categoryId = categoryId || null;
   if (visibility !== undefined) data.visibility = visibility;
   if (published !== undefined) data.published = published;
-  if (clientIds !== undefined) data.clientIds = clientIds ? JSON.stringify(clientIds) : null;
+  if (clientIds !== undefined) {
+    // clientIds may arrive as a JSON string or null
+    if (typeof clientIds === "string") {
+      data.clientIds = clientIds;
+    } else if (Array.isArray(clientIds)) {
+      data.clientIds = clientIds.length > 0 ? JSON.stringify(clientIds) : null;
+    } else {
+      data.clientIds = null;
+    }
+  }
 
   const article = await prisma.kbArticle.update({
     where: { id },

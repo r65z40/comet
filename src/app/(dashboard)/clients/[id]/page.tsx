@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, FileText, ChevronDown, Calendar, ClipboardList } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, FileText, ChevronDown, Calendar, ClipboardList, BookOpen } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -90,6 +90,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [hideRenewed, setHideRenewed] = useState(false);
   const [installSearch, setInstallSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [kbArticles, setKbArticles] = useState<{ id: string; title: string; updatedAt: string; category: { name: string } | null }[]>([]);
 
   // Portal state
   const [portalOpen, setPortalOpen] = useState(false);
@@ -241,6 +242,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     fetch("/api/settings")
       .then((r) => r.json())
       .then(setReportSettings);
+    fetch(`/api/knowledge/by-client?clientId=${id}`)
+      .then((r) => r.json())
+      .then((data) => setKbArticles(data.articles || []))
+      .catch(() => {});
   }, [id]);
 
   async function changeStatus(installId: string, newStatus: string) {
@@ -1046,6 +1051,36 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 </Link>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Articles de la base de connaissances */}
+      {kbArticles.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-slate-400" />
+              Articles assignés ({kbArticles.length})
+            </h3>
+            <Link href="/knowledge" className="text-xs text-primary-600 hover:text-primary-700">
+              Voir la base de connaissances
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {kbArticles.map((art) => (
+              <Link
+                key={art.id}
+                href={`/knowledge/${art.id}`}
+                className="rounded-lg border border-slate-200 p-3 hover:bg-slate-50 hover:border-slate-300 transition-colors block"
+              >
+                <p className="text-sm font-medium text-slate-800 line-clamp-1 mb-1">{art.title}</p>
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  {art.category && <span>{art.category.name}</span>}
+                  <span>{new Date(art.updatedAt).toLocaleDateString("fr-FR")}</span>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       )}

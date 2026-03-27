@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   Save,
@@ -17,11 +18,21 @@ import {
   Users,
   FileText,
   Image as ImageIcon,
+  X,
+  Building2,
 } from "lucide-react";
+
+const RichTextEditor = dynamic(() => import("@/components/ui/RichTextEditor"), { ssr: false });
 
 interface Category {
   id: string;
   name: string;
+}
+
+interface ClientOption {
+  id: string;
+  name: string;
+  logoUrl: string | null;
 }
 
 interface Attachment {
@@ -65,6 +76,7 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
   const router = useRouter();
   const [article, setArticle] = useState<Article | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [clients, setClients] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Edit state
@@ -73,16 +85,20 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
   const [categoryId, setCategoryId] = useState("");
   const [visibility, setVisibility] = useState("public");
   const [published, setPublished] = useState(false);
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const fetchArticle = useCallback(async () => {
     try {
-      const [articleRes, catRes] = await Promise.all([
+      const [articleRes, catRes, clientsRes] = await Promise.all([
         fetch(`/api/knowledge?id=${id}`),
         fetch("/api/knowledge/categories"),
+        fetch("/api/knowledge/clients"),
       ]);
       if (articleRes.ok) {
         const data = await articleRes.json();
@@ -92,8 +108,10 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
         setCategoryId(data.categoryId || "");
         setVisibility(data.visibility);
         setPublished(data.published);
+        setSelectedClientIds(data.clientIds ? JSON.parse(data.clientIds) : []);
       }
       if (catRes.ok) setCategories(await catRes.json());
+      if (clientsRes.ok) setClients(await clientsRes.json());
     } catch { /* ignore */ }
     setLoading(false);
   }, [id]);
@@ -116,6 +134,7 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
           categoryId: categoryId || null,
           visibility,
           published,
+          clientIds: selectedClientIds.length > 0 ? JSON.stringify(selectedClientIds) : null,
         }),
       });
       if (res.ok) {
@@ -129,18 +148,34 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("articleId", id);
-      await fetch("/api/knowledge/attachments", { method: "POST", body: formData });
+    setUploadProgress(0);
+
+    const xhr = new XMLHttpRequest();
+    xhr.upload.addEventListener("progress", (evt) => {
+      if (evt.lengthComputable) {
+        setUploadProgress(Math.round((evt.loaded / evt.total) * 100));
+      }
+    });
+    xhr.addEventListener("load", () => {
+      setUploading(false);
+      setUploadProgress(0);
       fetchArticle();
-    } catch { /* ignore */ }
-    setUploading(false);
+    });
+    xhr.addEventListener("error", () => {
+      setUploading(false);
+      setUploadProgress(0);
+    });
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("articleId", id);
+    xhr.open("POST", "/api/knowledge/attachments");
+    xhr.send(formData);
+
     e.target.value = "";
   }
 
@@ -148,6 +183,16 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
     await fetch(`/api/knowledge/attachments?id=${attId}`, { method: "DELETE" });
     fetchArticle();
   }
+
+  function toggleClient(clientId: string) {
+    setSelectedClientIds(prev =>
+      prev.includes(clientId) ? prev.filter(id => id !== clientId) : [...prev, clientId]
+    );
+  }
+
+  const filteredClients = clients.filter(c =>
+    !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -217,14 +262,7 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Contenu</label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={20}
-                placeholder="Rédigez le contenu de l'article ici... (Markdown supporté)"
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono leading-relaxed resize-y"
-              />
-              <p className="text-xs text-slate-400 mt-1">Markdown supporté pour la mise en forme</p>
+              <RichTextEditor content={content} onChange={setContent} />
             </div>
           </div>
 
@@ -240,12 +278,28 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
               </h3>
               <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors">
                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                Ajouter
+                Ajouter (max 500 Mo)
                 <input type="file" onChange={handleUpload} disabled={uploading} className="hidden" />
               </label>
             </div>
 
-            {article.attachments.length === 0 ? (
+            {/* Upload progress bar */}
+            {uploading && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                  <span>Envoi en cours...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary-500 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {article.attachments.length === 0 && !uploading ? (
               <div className="text-center py-8 text-slate-400">
                 <Paperclip className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Aucune pièce jointe</p>
@@ -335,6 +389,77 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
                   </label>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Client assignment */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+            <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-slate-400" />
+              Clients assignés
+              {selectedClientIds.length > 0 && (
+                <span className="text-xs bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded-full">{selectedClientIds.length}</span>
+              )}
+            </h3>
+
+            {/* Selected clients */}
+            {selectedClientIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedClientIds.map(cid => {
+                  const client = clients.find(c => c.id === cid);
+                  if (!client) return null;
+                  return (
+                    <span key={cid} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-100 text-xs text-slate-700">
+                      {client.logoUrl ? (
+                        <img src={client.logoUrl} alt="" className="h-4 w-4 rounded-full object-cover" />
+                      ) : (
+                        <Building2 className="h-3 w-3 text-slate-400" />
+                      )}
+                      <span className="truncate max-w-[120px]">{client.name}</span>
+                      <button onClick={() => toggleClient(cid)} className="text-slate-400 hover:text-red-500">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Client search & list */}
+            <input
+              type="text"
+              placeholder="Rechercher un client..."
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+            <div className="max-h-40 overflow-y-auto space-y-0.5">
+              {filteredClients.slice(0, 20).map(client => (
+                <label
+                  key={client.id}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-xs ${
+                    selectedClientIds.includes(client.id) ? "bg-primary-50 text-primary-700" : "hover:bg-slate-50 text-slate-600"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedClientIds.includes(client.id)}
+                    onChange={() => toggleClient(client.id)}
+                    className="rounded text-primary-600"
+                  />
+                  {client.logoUrl ? (
+                    <img src={client.logoUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
+                  ) : (
+                    <div className="h-5 w-5 rounded-full bg-slate-200 flex items-center justify-center">
+                      <Building2 className="h-3 w-3 text-slate-400" />
+                    </div>
+                  )}
+                  <span className="truncate">{client.name}</span>
+                </label>
+              ))}
+              {filteredClients.length === 0 && (
+                <p className="text-xs text-slate-400 text-center py-2">Aucun client trouvé</p>
+              )}
             </div>
           </div>
 

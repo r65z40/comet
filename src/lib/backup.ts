@@ -102,13 +102,14 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
         cloudUploaded = true;
       }
     } catch (cloudErr) {
-      const cloudMsg = cloudErr instanceof Error ? cloudErr.message : String(cloudErr);
+      const cloudMsg = cloudErr instanceof Error ? `${cloudErr.message}\n${cloudErr.stack}` : String(cloudErr);
       // Log cloud upload failure but don't fail the entire backup
+      console.error(`[backup] Cloud upload failed for ${type}:`, cloudMsg);
       await prisma.activityLog.create({
         data: {
           action: "BACKUP",
           entity: "system",
-          details: `Backup ${type} créé localement mais échec upload cloud: ${cloudMsg}`,
+          details: `Backup ${type} créé localement mais échec upload cloud: ${cloudMsg.slice(0, 500)}`,
         },
       }).catch(() => {});
     }

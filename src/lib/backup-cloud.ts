@@ -166,6 +166,8 @@ async function s3TestConnection(config: CloudConfig): Promise<{ success: boolean
 async function withFtpClient<T>(config: CloudConfig, fn: (client: FtpClient) => Promise<T>): Promise<T> {
   const client = new FtpClient();
   client.ftp.verbose = false;
+  // Set generous timeouts for large file uploads
+  (client.ftp as unknown as Record<string, number>).timeout = 120000;
 
   try {
     await client.access({
@@ -192,15 +194,41 @@ async function ftpUpload(config: CloudConfig, filepath: string, filename: string
   const stat = await fs.stat(filepath);
   if (stat.size === 0) throw new Error("Le fichier backup est vide, upload FTP annulé");
 
-  await withFtpClient(config, async (client) => {
-    await client.uploadFrom(filepath, filename);
-    // Vérifier que le fichier est bien présent sur le serveur
+  // Use a dedicated FTP client with upload-specific settings
+  const client = new FtpClient();
+  client.ftp.verbose = false;
+  (client.ftp as unknown as Record<string, number>).timeout = 300000;
+
+  try {
+    await client.access({
+      host: config.ftpHost,
+      port: config.ftpPort || 21,
+      user: config.ftpUser,
+      password: config.ftpPassword,
+      secure: config.ftpSecure || false,
+      secureOptions: { rejectUnauthorized: false },
+    });
+
+    const remotePath = config.ftpPath || "/backups";
+    await client.ensureDir(remotePath);
+    await client.cd(remotePath);
+
+    // Use tracking to help debug issues
+    const trackingStream = createReadStream(filepath);
+    await client.uploadFrom(trackingStream, filename);
+
+    // Verify the upload
     const list = await client.list();
     const uploaded = list.find(f => f.name === filename);
     if (!uploaded) {
       throw new Error(`Fichier ${filename} non trouvé sur le serveur FTP après upload`);
     }
-  });
+    if (uploaded.size < stat.size * 0.9) {
+      throw new Error(`Fichier ${filename} incomplet sur FTP: ${uploaded.size} vs ${stat.size} octets`);
+    }
+  } finally {
+    client.close();
+  }
 }
 
 async function ftpDownload(config: CloudConfig, filename: string, destPath: string): Promise<void> {

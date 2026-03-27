@@ -19,6 +19,7 @@ import {
   Globe,
   Lock,
   Users,
+  Building2,
 } from "lucide-react";
 
 interface Category {
@@ -36,13 +37,21 @@ interface Article {
   published: boolean;
   categoryId: string | null;
   category: { id: string; name: string } | null;
+  clientIds: string | null;
   updatedAt: string;
   _count: { attachments: number };
+}
+
+interface ClientInfo {
+  id: string;
+  name: string;
+  logoUrl: string | null;
 }
 
 export default function KnowledgePage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [allClients, setAllClients] = useState<ClientInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
@@ -63,12 +72,14 @@ export default function KnowledgePage() {
       if (filterCategory) params.set("categoryId", filterCategory);
       if (filterVisibility) params.set("visibility", filterVisibility);
 
-      const [articlesRes, categoriesRes] = await Promise.all([
+      const [articlesRes, categoriesRes, clientsRes] = await Promise.all([
         fetch(`/api/knowledge?${params}`),
         fetch("/api/knowledge/categories"),
+        fetch("/api/knowledge/clients"),
       ]);
       if (articlesRes.ok) setArticles(await articlesRes.json());
       if (categoriesRes.ok) setCategories(await categoriesRes.json());
+      if (clientsRes.ok) setAllClients(await clientsRes.json());
     } catch { /* ignore */ }
     setLoading(false);
   }, [search, filterCategory, filterVisibility]);
@@ -356,6 +367,28 @@ export default function KnowledgePage() {
                         )}
                         <span>Modifié le {formatDate(article.updatedAt)}</span>
                       </div>
+                      {/* Client logos */}
+                      {article.clientIds && (() => {
+                        const ids: string[] = JSON.parse(article.clientIds);
+                        const assignedClients = allClients.filter(c => ids.includes(c.id));
+                        if (assignedClients.length === 0) return null;
+                        return (
+                          <div className="flex items-center gap-1 mt-1.5">
+                            {assignedClients.slice(0, 5).map(c => (
+                              c.logoUrl ? (
+                                <img key={c.id} src={c.logoUrl} alt={c.name} title={c.name} className="h-5 w-5 rounded-full object-cover border border-slate-200" />
+                              ) : (
+                                <div key={c.id} title={c.name} className="h-5 w-5 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                                  <Building2 className="h-3 w-3 text-slate-400" />
+                                </div>
+                              )
+                            ))}
+                            {assignedClients.length > 5 && (
+                              <span className="text-[10px] text-slate-400 ml-1">+{assignedClients.length - 5}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
