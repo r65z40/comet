@@ -138,10 +138,8 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
         }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setArticle(data);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
+        router.push("/knowledge");
+        return;
       }
     } finally {
       setSaving(false);

@@ -56,6 +56,7 @@ export default function KnowledgePage() {
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterVisibility, setFilterVisibility] = useState("");
+  const [filterClient, setFilterClient] = useState("");
 
   // Category management
   const [showNewCategory, setShowNewCategory] = useState(false);
@@ -292,6 +293,46 @@ export default function KnowledgePage() {
               ))}
             </div>
           </div>
+
+          {/* Client filter */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <h3 className="text-sm font-medium text-slate-900 mb-3 flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-slate-400" />
+              Client
+            </h3>
+            <div className="space-y-1">
+              <button
+                onClick={() => setFilterClient("")}
+                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                  !filterClient
+                    ? "bg-primary-50 text-primary-700 font-medium"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Tous
+              </button>
+              <div className="max-h-48 overflow-y-auto space-y-0.5">
+                {allClients.map((client) => (
+                  <button
+                    key={client.id}
+                    onClick={() => setFilterClient(client.id)}
+                    className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2 ${
+                      filterClient === client.id
+                        ? "bg-primary-50 text-primary-700 font-medium"
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {client.logoUrl ? (
+                      <img src={client.logoUrl} alt="" className="h-4 w-4 rounded-full object-cover" />
+                    ) : (
+                      <Building2 className="h-3.5 w-3.5 text-slate-300" />
+                    )}
+                    <span className="truncate">{client.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Main content: articles list */}
@@ -309,11 +350,21 @@ export default function KnowledgePage() {
           </div>
 
           {/* Articles */}
-          {loading ? (
+          {(() => {
+            const filteredArticles = filterClient
+              ? articles.filter(a => {
+                  if (!a.clientIds) return false;
+                  try {
+                    const ids: string[] = JSON.parse(a.clientIds);
+                    return ids.includes(filterClient);
+                  } catch { return false; }
+                })
+              : articles;
+            return loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
             </div>
-          ) : articles.length === 0 ? (
+          ) : filteredArticles.length === 0 ? (
             <div className="text-center py-20 rounded-xl border border-slate-200 bg-white">
               <BookOpen className="h-12 w-12 mx-auto text-slate-300 mb-3" />
               <p className="text-slate-500 text-sm">Aucun article trouvé</p>
@@ -327,7 +378,7 @@ export default function KnowledgePage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {articles.map((article) => (
+              {filteredArticles.map((article) => (
                 <div
                   key={article.id}
                   className="rounded-xl border border-slate-200 bg-white p-4 hover:border-slate-300 transition-colors"
@@ -437,7 +488,8 @@ export default function KnowledgePage() {
                 </div>
               ))}
             </div>
-          )}
+          );
+          })()}
         </div>
       </div>
     </div>
