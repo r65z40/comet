@@ -390,8 +390,8 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          {/* Client assignment */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+          {/* Client assignment — only for "client" visibility */}
+          {visibility === "client" && <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
             <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
               <Building2 className="h-4 w-4 text-slate-400" />
               Clients assignés
@@ -459,7 +459,7 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
                 <p className="text-xs text-slate-400 text-center py-2">Aucun client trouvé</p>
               )}
             </div>
-          </div>
+          </div>}
 
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <h3 className="text-sm font-medium text-slate-900 mb-3">Informations</h3>
