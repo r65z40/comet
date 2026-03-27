@@ -13,7 +13,7 @@ export default function NewArticlePage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [visibility, setVisibility] = useState("public");
+  const [visibility, setVisibility] = useState("internal");
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -85,9 +85,9 @@ export default function NewArticlePage() {
               onChange={(e) => setVisibility(e.target.value)}
               className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
-              <option value="public">Public (portail client)</option>
-              <option value="internal">Interne uniquement</option>
-              <option value="client">Clients ciblés</option>
+              <option value="internal">Interne — visible uniquement par les administrateurs</option>
+              <option value="public">Public — visible par tous les clients sur leur portail</option>
+              <option value="client">Clients ciblés — visible uniquement par les clients sélectionnés</option>
             </select>
           </div>
         </div>

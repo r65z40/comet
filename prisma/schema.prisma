@@ -459,7 +459,7 @@ model KbArticle {
   categoryId  String?
   category    KbCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   authorId    String?
-  visibility  String   @default("public") // public | internal | client
+  visibility  String   @default("internal") // internal | public | client
   published   Boolean  @default(false)
   clientIds   String?  // JSON array of client IDs for visibility="client"
   attachments KbAttachment[]

@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       content: content || "",
       categoryId: categoryId || null,
       authorId: session.user?.id || null,
-      visibility: visibility || "public",
+      visibility: visibility || "internal",
       published: published ?? false,
       clientIds: clientIds ? JSON.stringify(clientIds) : null,
     },

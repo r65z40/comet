@@ -267,7 +267,7 @@ export default function PortalKnowledgePage() {
                   </div>
                   {article.content && (
                     <p className="text-xs text-slate-500 mt-2 line-clamp-2">
-                      {article.content.slice(0, 120)}{article.content.length > 120 ? "…" : ""}
+                      {article.content.replace(/<[^>]*>/g, "").slice(0, 120)}{article.content.replace(/<[^>]*>/g, "").length > 120 ? "…" : ""}
                     </p>
                   )}
                 </div>

@@ -31,6 +31,7 @@ services:
       CRON_SECRET: ${CRON_SECRET:-comet_cron_secret_2024}
     volumes:
       - backup_data:/app/backups
+      - uploads_data:/app/public/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -38,3 +39,4 @@ services:
 volumes:
   postgres_data:
   backup_data:
+  uploads_data:

@@ -357,9 +357,9 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
               <label className="block text-xs font-medium text-slate-500 mb-1">Visibilité</label>
               <div className="space-y-2">
                 {[
-                  { value: "public", label: "Public", desc: "Visible sur le portail client", icon: Globe, color: "text-emerald-500" },
-                  { value: "internal", label: "Interne", desc: "Visible uniquement par les admins", icon: Lock, color: "text-amber-500" },
-                  { value: "client", label: "Clients ciblés", desc: "Visible par certains clients", icon: Users, color: "text-blue-500" },
+                  { value: "internal", label: "Interne", desc: "Visible uniquement par les administrateurs de l'application", icon: Lock, color: "text-amber-500" },
+                  { value: "public", label: "Public", desc: "Visible par tous les clients sur leur portail", icon: Globe, color: "text-emerald-500" },
+                  { value: "client", label: "Clients ciblés", desc: "Visible uniquement par les clients que vous sélectionnez ci-dessous", icon: Users, color: "text-blue-500" },
                 ].map((opt) => (
                   <label
                     key={opt.value}
