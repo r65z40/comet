@@ -424,18 +424,21 @@ export default function KnowledgePage() {
                         const assignedClients = allClients.filter(c => ids.includes(c.id));
                         if (assignedClients.length === 0) return null;
                         return (
-                          <div className="flex items-center gap-1 mt-1.5">
-                            {assignedClients.slice(0, 5).map(c => (
-                              c.logoUrl ? (
-                                <img key={c.id} src={c.logoUrl} alt={c.name} title={c.name} className="h-5 w-5 rounded-full object-cover border border-slate-200" />
-                              ) : (
-                                <div key={c.id} title={c.name} className="h-5 w-5 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                                  <Building2 className="h-3 w-3 text-slate-400" />
-                                </div>
-                              )
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            {assignedClients.slice(0, 3).map(c => (
+                              <div key={c.id} className="flex items-center gap-1 bg-slate-50 rounded-full px-1.5 py-0.5 border border-slate-200">
+                                {c.logoUrl ? (
+                                  <img src={c.logoUrl} alt={c.name} className="h-4 w-4 rounded-full object-cover" />
+                                ) : (
+                                  <div className="h-4 w-4 rounded-full bg-slate-200 flex items-center justify-center">
+                                    <Building2 className="h-2.5 w-2.5 text-slate-400" />
+                                  </div>
+                                )}
+                                <span className="text-[11px] text-slate-600 max-w-[100px] truncate">{c.name}</span>
+                              </div>
                             ))}
-                            {assignedClients.length > 5 && (
-                              <span className="text-[10px] text-slate-400 ml-1">+{assignedClients.length - 5}</span>
+                            {assignedClients.length > 3 && (
+                              <span className="text-[10px] text-slate-400 ml-0.5">+{assignedClients.length - 3}</span>
                             )}
                           </div>
                         );

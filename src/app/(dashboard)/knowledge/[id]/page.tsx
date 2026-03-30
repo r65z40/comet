@@ -20,6 +20,8 @@ import {
   Image as ImageIcon,
   X,
   Building2,
+  Edit3,
+  FolderOpen,
 } from "lucide-react";
 
 const RichTextEditor = dynamic(() => import("@/components/ui/RichTextEditor"), { ssr: false });
@@ -71,25 +73,31 @@ function fileIcon(type: string) {
   return <FileText className="h-4 w-4 text-slate-400" />;
 }
 
-export default function ArticleEditorPage({ params }: { params: Promise<{ id: string }> }) {
+function visibilityInfo(v: string) {
+  if (v === "internal") return { label: "Interne", desc: "Visible uniquement par les administrateurs", icon: Lock, color: "text-amber-500", bg: "bg-amber-50" };
+  if (v === "client") return { label: "Clients ciblés", desc: "Visible par les clients sélectionnés", icon: Users, color: "text-blue-500", bg: "bg-blue-50" };
+  return { label: "Public", desc: "Visible par tous les clients", icon: Globe, color: "text-emerald-500", bg: "bg-emerald-50" };
+}
+
+export default function ArticlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const [article, setArticle] = useState<Article | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
 
   // Edit state
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [visibility, setVisibility] = useState("public");
+  const [visibility, setVisibility] = useState("internal");
   const [published, setPublished] = useState(false);
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [clientSearch, setClientSearch] = useState("");
 
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -120,9 +128,19 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
     fetchArticle();
   }, [fetchArticle]);
 
+  function enterEdit() {
+    if (!article) return;
+    setTitle(article.title);
+    setContent(article.content);
+    setCategoryId(article.categoryId || "");
+    setVisibility(article.visibility);
+    setPublished(article.published);
+    setSelectedClientIds(article.clientIds ? JSON.parse(article.clientIds) : []);
+    setEditing(true);
+  }
+
   async function handleSave() {
     setSaving(true);
-    setSaved(false);
     try {
       const res = await fetch("/api/knowledge", {
         method: "PUT",
@@ -138,8 +156,9 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
         }),
       });
       if (res.ok) {
-        router.push("/knowledge");
-        return;
+        const data = await res.json();
+        setArticle(data);
+        setEditing(false);
       }
     } finally {
       setSaving(false);
@@ -184,7 +203,7 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
 
   function toggleClient(clientId: string) {
     setSelectedClientIds(prev =>
-      prev.includes(clientId) ? prev.filter(id => id !== clientId) : [...prev, clientId]
+      prev.includes(clientId) ? prev.filter(i => i !== clientId) : [...prev, clientId]
     );
   }
 
@@ -209,14 +228,161 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
     );
   }
 
+  const vis = visibilityInfo(article.visibility);
+  const assignedClients = article.clientIds ? clients.filter(c => {
+    try { return JSON.parse(article.clientIds!).includes(c.id); } catch { return false; }
+  }) : [];
+
+  // ─── PREVIEW MODE ───────────────────────────────────
+  if (!editing) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <a href="/knowledge" className="text-slate-400 hover:text-slate-600 transition-colors">
+              <ArrowLeft className="h-5 w-5" />
+            </a>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">{article.title}</h1>
+              <div className="flex items-center gap-3 mt-1">
+                {article.category && (
+                  <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+                    <FolderOpen className="h-3 w-3" />
+                    {article.category.name}
+                  </span>
+                )}
+                <span className="text-xs text-slate-400">
+                  Modifié le {new Date(article.updatedAt).toLocaleDateString("fr-FR")}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${vis.bg} ${vis.color}`}>
+              <vis.icon className="h-3.5 w-3.5" />
+              {vis.label}
+            </span>
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${article.published ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+              {article.published ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {article.published ? "Publié" : "Brouillon"}
+            </span>
+            <button
+              onClick={enterEdit}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
+            >
+              <Edit3 className="h-4 w-4" />
+              Éditer
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Article content */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              {article.content ? (
+                <div className="prose prose-slate max-w-none text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: article.content }} />
+              ) : (
+                <p className="text-sm text-slate-400 italic">Aucun contenu. Cliquez sur Éditer pour rédiger l&apos;article.</p>
+              )}
+            </div>
+
+            {/* Attachments (read-only) */}
+            {article.attachments.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-5">
+                <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2 mb-3">
+                  <Paperclip className="h-4 w-4 text-slate-400" />
+                  Pièces jointes ({article.attachments.length})
+                </h3>
+                <div className="space-y-2">
+                  {article.attachments.map((att) => (
+                    <a
+                      key={att.id}
+                      href={att.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-colors"
+                    >
+                      {fileIcon(att.fileType)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-700 truncate">{att.fileName}</p>
+                        <p className="text-xs text-slate-400">{formatSize(att.fileSize)}</p>
+                      </div>
+                      <Download className="h-4 w-4 text-slate-400" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar info */}
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-5">
+              <h3 className="text-sm font-medium text-slate-900 mb-3">Informations</h3>
+              <div className="space-y-3 text-xs text-slate-500">
+                <div>
+                  <span className="text-slate-400">Créé le</span>
+                  <p className="text-slate-700">{new Date(article.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400">Modifié le</span>
+                  <p className="text-slate-700">{new Date(article.updatedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400">Pièces jointes</span>
+                  <p className="text-slate-700">{article.attachments.length}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Assigned clients */}
+            {assignedClients.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-5">
+                <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2 mb-3">
+                  <Building2 className="h-4 w-4 text-slate-400" />
+                  Clients assignés
+                </h3>
+                <div className="space-y-2">
+                  {assignedClients.map(c => (
+                    <div key={c.id} className="flex items-center gap-2 text-sm text-slate-600">
+                      {c.logoUrl ? (
+                        <img src={c.logoUrl} alt="" className="h-6 w-6 rounded-full object-cover border border-slate-200" />
+                      ) : (
+                        <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                          <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                        </div>
+                      )}
+                      {c.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => { if (confirm("Supprimer cet article ?")) { fetch(`/api/knowledge?id=${id}`, { method: "DELETE" }).then(() => router.push("/knowledge")); } }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-red-200 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+              Supprimer l&apos;article
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── EDIT MODE ──────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <a href="/knowledge" className="text-slate-400 hover:text-slate-600 transition-colors">
+          <button onClick={() => setEditing(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
             <ArrowLeft className="h-5 w-5" />
-          </a>
+          </button>
           <div>
             <h1 className="text-xl font-bold text-slate-900">Éditer l&apos;article</h1>
             <p className="text-xs text-slate-400 mt-0.5">/{article.slug}</p>
@@ -235,12 +401,18 @@ export default function ArticleEditorPage({ params }: { params: Promise<{ id: st
             {published ? "Publié" : "Brouillon"}
           </button>
           <button
+            onClick={() => setEditing(false)}
+            className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            Annuler
+          </button>
+          <button
             onClick={handleSave}
             disabled={saving}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {saved ? "Enregistré !" : "Enregistrer"}
+            Enregistrer
           </button>
         </div>
       </div>
