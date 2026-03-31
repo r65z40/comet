@@ -69,7 +69,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const [ctx, setCtx] = useState<PortalContextType>({ client: null, user: null, portalSettings: null, companyLogo: null, companyName: null });
   const [loading, setLoading] = useState(true);
 
-  const isPublicPage = pathname === "/portal/login" || pathname === "/portal/setup";
+  const isPublicPage = pathname === "/portal/login" || pathname === "/portal/setup" || pathname === "/portal/forgot-password" || pathname === "/portal/reset-password";
 
   useEffect(() => {
     if (isPublicPage) {
