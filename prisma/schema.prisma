@@ -67,6 +67,7 @@ model Client {
   portalSettings    ClientPortalSettings?
   contacts          Contact[]
   boardCards        BoardCard[]
+  tickets           Ticket[]
 
   @@index([deletedAt])
   @@map("clients")
@@ -85,6 +86,7 @@ model ClientUser {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   passwordResets    ClientPasswordReset[]
+  tickets           Ticket[]
 
   @@index([clientId])
   @@index([inviteToken])
@@ -501,4 +503,52 @@ model KbAttachment {
 
   @@index([articleId])
   @@map("kb_attachments")
+}
+
+// ─── Ticketing System ──────────────────────────────────────
+
+model Ticket {
+  id              String          @id @default(cuid())
+  ateraId         Int?            @unique
+  ticketNumber    String?
+  title           String
+  description     String
+  priority        String          @default("Low")    // Low, Medium, High, Critical
+  status          String          @default("Open")   // Open, Pending, Resolved, Closed
+  type            String          @default("Incident") // Incident, Problem, Request
+  impact          String          @default("NoImpact") // NoImpact, Minor, Major, SiteDown, ServerIssue, Crisis
+  clientId        String
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientUserId    String?
+  clientUser      ClientUser?     @relation(fields: [clientUserId], references: [id], onDelete: SetNull)
+  assignedTo      String?         // Internal user name
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  ateraSynced     Boolean         @default(false)
+  ateraSyncError  String?
+  comments        TicketComment[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([clientId])
+  @@index([clientUserId])
+  @@index([status])
+  @@index([priority])
+  @@index([ateraId])
+  @@map("tickets")
+}
+
+model TicketComment {
+  id            String     @id @default(cuid())
+  ticketId      String
+  ticket        Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  content       String
+  authorName    String
+  authorEmail   String?
+  isInternal    Boolean    @default(false)
+  isFromClient  Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+
+  @@index([ticketId])
+  @@map("ticket_comments")
 }

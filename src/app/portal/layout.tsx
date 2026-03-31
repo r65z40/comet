@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Monitor, FileText, BookOpen, LogOut } from "lucide-react";
+import { LayoutDashboard, Monitor, FileText, BookOpen, LogOut, Ticket } from "lucide-react";
 
 interface PortalContextType {
   client: {
@@ -42,6 +42,7 @@ const navItems = [
   { name: "Tableau de bord", href: "/portal", icon: LayoutDashboard },
   { name: "Installations", href: "/portal/installations", icon: Monitor },
   { name: "Rapport", href: "/portal/report", icon: FileText },
+  { name: "Tickets", href: "/portal/tickets", icon: Ticket },
   { name: "Base de connaissances", href: "/portal/knowledge", icon: BookOpen },
 ];
 

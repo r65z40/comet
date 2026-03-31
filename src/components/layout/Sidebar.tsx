@@ -16,6 +16,7 @@ import {
   RotateCcw,
   ClipboardList,
   BookOpen,
+  Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ const navigation = [
   { name: "Produits", href: "/products", icon: Package },
   { name: "Factures", href: "/invoices", icon: FileText },
   { name: "Board", href: "/board", icon: ClipboardList },
+  { name: "Tickets", href: "/tickets", icon: Ticket },
   { name: "Base de connaissances", href: "/knowledge", icon: BookOpen },
   { name: "Paramètres", href: "/settings", icon: Settings },
 ];

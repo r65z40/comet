@@ -152,6 +152,14 @@ export default function SettingsPage() {
     }
   }
 
+  // Atera settings
+  const [ateraApiKey, setAteraApiKey] = useState("");
+  const [ateraEnabled, setAteraEnabled] = useState(false);
+  const [savingAtera, setSavingAtera] = useState(false);
+  const [savedAtera, setSavedAtera] = useState(false);
+  const [testingAtera, setTestingAtera] = useState(false);
+  const [ateraTestResult, setAteraTestResult] = useState<{ success: boolean; error?: string } | null>(null);
+
   // Collapsible sections
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     tools: true,
@@ -323,6 +331,8 @@ export default function SettingsPage() {
         setSiteFavicon(data.site_favicon || "");
         setBroadcastEnabled(data.broadcast_enabled === "true");
         setBroadcastMessage(data.broadcast_message || "");
+        setAteraApiKey(data.atera_api_key || "");
+        setAteraEnabled(data.atera_enabled === "true");
       })
       .finally(() => setLoading(false));
 
@@ -1009,6 +1019,119 @@ export default function SettingsPage() {
           </div>
         )}
       </div>}
+      </div>}
+
+      {/* Atera Integration */}
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("atera")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-indigo-50 p-2">
+              <Plug className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Intégration Atera</h3>
+              <p className="text-xs text-slate-400">Synchronisation des tickets avec Atera</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {ateraEnabled && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-medium">Actif</span>}
+            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.atera ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+        {openSections.atera && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Clé API Atera</label>
+            <input
+              type="password"
+              value={ateraApiKey}
+              onChange={(e) => setAteraApiKey(e.target.value)}
+              placeholder="Votre clé API Atera (Admin > API dans Atera)"
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <p className="text-xs text-slate-400 mt-1">Trouvez votre clé API dans Atera : Admin &gt; API</p>
+          </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={ateraEnabled}
+              onChange={(e) => setAteraEnabled(e.target.checked)}
+              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <div>
+              <span className="text-sm font-medium text-slate-700">Activer la synchronisation</span>
+              <p className="text-xs text-slate-400">Les tickets créés seront automatiquement envoyés à Atera</p>
+            </div>
+          </label>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={async () => {
+                setSavingAtera(true);
+                setSavedAtera(false);
+                try {
+                  await fetch("/api/settings", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      atera_api_key: ateraApiKey,
+                      atera_enabled: ateraEnabled ? "true" : "false",
+                    }),
+                  });
+                  setSavedAtera(true);
+                  setTimeout(() => setSavedAtera(false), 3000);
+                } finally {
+                  setSavingAtera(false);
+                }
+              }}
+              disabled={savingAtera}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            >
+              {savingAtera ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Enregistrer
+            </button>
+            <button
+              onClick={async () => {
+                setTestingAtera(true);
+                setAteraTestResult(null);
+                try {
+                  // Save first so test uses latest key
+                  await fetch("/api/settings", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      atera_api_key: ateraApiKey,
+                      atera_enabled: ateraEnabled ? "true" : "false",
+                    }),
+                  });
+                  const res = await fetch("/api/atera", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "test" }),
+                  });
+                  const data = await res.json();
+                  setAteraTestResult(data);
+                } catch {
+                  setAteraTestResult({ success: false, error: "Erreur de connexion" });
+                } finally {
+                  setTestingAtera(false);
+                }
+              }}
+              disabled={testingAtera || !ateraApiKey}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              {testingAtera ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Tester la connexion
+            </button>
+            {savedAtera && <span className="text-xs text-emerald-600">Enregistré</span>}
+          </div>
+
+          {ateraTestResult && (
+            <div className={`p-3 rounded-lg text-sm ${ateraTestResult.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              {ateraTestResult.success ? "Connexion Atera réussie !" : `Erreur : ${ateraTestResult.error}`}
+            </div>
+          )}
+        </div>}
       </div>}
 
       {/* Notifications par email */}
