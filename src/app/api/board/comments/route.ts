@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -38,25 +39,23 @@ export async function POST(req: NextRequest) {
 
   // Notify card assignee if they didn't write the comment
   if (card.assigneeId && card.assigneeId !== session.user?.id) {
-    await prisma.notification.create({
-      data: {
-        userId: card.assigneeId,
-        title: "Nouveau commentaire",
-        message: `${session.user?.name || "Un collaborateur"} a commenté sur "${card.title}"`,
-        link: `/board?card=${cardId}`,
-      },
+    await createNotification({
+      userId: card.assigneeId,
+      type: "card_comment",
+      title: "Nouveau commentaire",
+      message: `${session.user?.name || "Un collaborateur"} a commenté sur "${card.title}"`,
+      link: `/board?card=${cardId}`,
     });
   }
 
   // Also notify card creator if different from commenter and assignee
   if (card.createdById && card.createdById !== session.user?.id && card.createdById !== card.assigneeId) {
-    await prisma.notification.create({
-      data: {
-        userId: card.createdById,
-        title: "Nouveau commentaire",
-        message: `${session.user?.name || "Un collaborateur"} a commenté sur "${card.title}"`,
-        link: `/board?card=${cardId}`,
-      },
+    await createNotification({
+      userId: card.createdById,
+      type: "card_comment",
+      title: "Nouveau commentaire",
+      message: `${session.user?.name || "Un collaborateur"} a commenté sur "${card.title}"`,
+      link: `/board?card=${cardId}`,
     });
   }
 

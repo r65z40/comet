@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { Inbox, X, CheckCheck, ClipboardList } from "lucide-react";
+import { Inbox, X, CheckCheck, ClipboardList, Settings } from "lucide-react";
 
 interface Notification {
   id: string;
@@ -113,6 +113,14 @@ export default function NotificationBell() {
                   </button>
                 </>
               )}
+              <Link
+                href="/notifications"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                title="Préférences de notifications"
+              >
+                <Settings className="h-3.5 w-3.5" />
+              </Link>
             </div>
           </div>
 

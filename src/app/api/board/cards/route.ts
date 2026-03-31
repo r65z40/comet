@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { notifyUsers } from "@/lib/notifications";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -93,18 +94,14 @@ export async function POST(req: NextRequest) {
   });
 
   // Notify all assignees (except creator)
-  for (const uid of allAssigneeIds) {
-    if (uid !== session.user?.id) {
-      await prisma.notification.create({
-        data: {
-          userId: uid,
-          title: "Nouvelle carte assignée",
-          message: `${session.user?.name || "Un collaborateur"} vous a assigné la carte "${title.trim()}"`,
-          link: `/board?card=${card.id}`,
-        },
-      });
-    }
-  }
+  await notifyUsers({
+    userIds: allAssigneeIds,
+    excludeUserId: session.user?.id,
+    type: "card_assigned",
+    title: "Nouvelle carte assignée",
+    message: `${session.user?.name || "Un collaborateur"} vous a assigné la carte "${title.trim()}"`,
+    link: `/board?card=${card.id}`,
+  });
 
   return NextResponse.json(card, { status: 201 });
 }
@@ -227,35 +224,27 @@ export async function PUT(req: NextRequest) {
   if (newAssigneeIds !== undefined) {
     const oldIds: string[] = existingCard.assigneeIds ? JSON.parse(existingCard.assigneeIds) : (existingCard.assigneeId ? [existingCard.assigneeId] : []);
     const addedIds = newAssigneeIds.filter((uid) => !oldIds.includes(uid));
-    for (const uid of addedIds) {
-      if (uid !== session.user?.id) {
-        await prisma.notification.create({
-          data: {
-            userId: uid,
-            title: "Carte assignée",
-            message: `${session.user?.name || "Un collaborateur"} vous a assigné la carte "${card.title}"`,
-            link: `/board?card=${card.id}`,
-          },
-        });
-      }
-    }
+    await notifyUsers({
+      userIds: addedIds,
+      excludeUserId: session.user?.id,
+      type: "card_assigned",
+      title: "Carte assignée",
+      message: `${session.user?.name || "Un collaborateur"} vous a assigné la carte "${card.title}"`,
+      link: `/board?card=${card.id}`,
+    });
   }
 
   // Notify if due date is set and card has assignees
   if (dueDate !== undefined && dueDate && !existingCard.dueDate) {
     const allIds: string[] = newAssigneeIds || (existingCard.assigneeIds ? JSON.parse(existingCard.assigneeIds) : (existingCard.assigneeId ? [existingCard.assigneeId] : []));
-    for (const uid of allIds) {
-      if (uid !== session.user?.id) {
-        await prisma.notification.create({
-          data: {
-            userId: uid,
-            title: "Date limite ajoutée",
-            message: `${session.user?.name || "Un collaborateur"} a ajouté une date limite au ${new Date(dueDate).toLocaleDateString("fr-FR")} sur "${card.title}"`,
-            link: `/board?card=${card.id}`,
-          },
-        });
-      }
-    }
+    await notifyUsers({
+      userIds: allIds,
+      excludeUserId: session.user?.id,
+      type: "card_due",
+      title: "Date limite ajoutée",
+      message: `${session.user?.name || "Un collaborateur"} a ajouté une date limite au ${new Date(dueDate).toLocaleDateString("fr-FR")} sur "${card.title}"`,
+      link: `/board?card=${card.id}`,
+    });
   }
 
   return NextResponse.json(card);

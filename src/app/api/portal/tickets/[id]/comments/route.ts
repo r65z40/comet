@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyPortalToken } from "@/lib/portal-auth";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
+import { notifyAdmins } from "@/lib/notifications";
 
 // POST: Client adds a comment to their ticket
 export async function POST(
@@ -46,7 +47,15 @@ export async function POST(
     });
   }
 
-  // Notify admins
+  // Notify admins in-app
+  notifyAdmins({
+    type: "ticket_reply",
+    title: "Réponse client sur ticket",
+    message: `${payload.name} a répondu au ticket : ${ticket.title}`,
+    link: `/tickets/${id}`,
+  }).catch((err) => console.error("In-app notification error:", err));
+
+  // Notify admins by email
   const smtpConfig = await getSmtpConfig();
   if (smtpConfig) {
     const notifSetting = await prisma.setting.findUnique({

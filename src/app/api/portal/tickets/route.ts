@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { verifyPortalToken } from "@/lib/portal-auth";
 import { syncTicketToAtera, getAteraConfig } from "@/lib/atera";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
+import { notifyAdmins } from "@/lib/notifications";
 
 // GET: List client's tickets
 export async function GET(req: NextRequest) {
@@ -118,6 +119,14 @@ export async function POST(req: NextRequest) {
         ).catch((err) => console.error("Email notification error:", err));
       }
     }
+
+    // Notify admins in-app
+    notifyAdmins({
+      type: "ticket_new",
+      title: "Nouveau ticket client",
+      message: `${payload.name} a ouvert le ticket : ${title}`,
+      link: `/tickets/${ticket.id}`,
+    }).catch((err) => console.error("In-app notification error:", err));
 
     // Log activity
     await prisma.activityLog.create({

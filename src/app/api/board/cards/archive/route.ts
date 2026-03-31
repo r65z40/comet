@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { notifyUsers } from "@/lib/notifications";
 
 export async function PUT(req: NextRequest) {
   const session = await auth();
@@ -44,18 +45,14 @@ export async function PUT(req: NextRequest) {
       } catch {}
     }
 
-    for (const uid of assigneeIds) {
-      if (uid !== session.user?.id) {
-        await prisma.notification.create({
-          data: {
-            userId: uid,
-            title: "Carte archivée",
-            message: `${session.user?.name || "Un collaborateur"} a archivé la carte "${fullCard.title}"`,
-            link: `/board?card=${id}`,
-          },
-        });
-      }
-    }
+    await notifyUsers({
+      userIds: assigneeIds,
+      excludeUserId: session.user?.id,
+      type: "card_archived",
+      title: "Carte archivée",
+      message: `${session.user?.name || "Un collaborateur"} a archivé la carte "${fullCard.title}"`,
+      link: `/board?card=${id}`,
+    });
   }
 
   return NextResponse.json(card);

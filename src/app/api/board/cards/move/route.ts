@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { notifyUsers } from "@/lib/notifications";
 
 // Move a card to a different column (and/or reorder within column)
 export async function POST(req: NextRequest) {
@@ -102,17 +103,15 @@ export async function POST(req: NextRequest) {
         extra.forEach((aid: string) => { if (!allAssigneeIds.includes(aid)) allAssigneeIds.push(aid); });
       } catch {}
     }
-    for (const uid of allAssigneeIds) {
-      if (uid !== session.user?.id && targetColumn) {
-        await prisma.notification.create({
-          data: {
-            userId: uid,
-            title: "Carte déplacée",
-            message: `${session.user?.name || "Un collaborateur"} a déplacé "${card.title}" vers "${targetColumn.name}"`,
-            link: `/board?card=${cardId}`,
-          },
-        });
-      }
+    if (targetColumn) {
+      await notifyUsers({
+        userIds: allAssigneeIds,
+        excludeUserId: session.user?.id,
+        type: "card_moved",
+        title: "Carte déplacée",
+        message: `${session.user?.name || "Un collaborateur"} a déplacé "${card.title}" vers "${targetColumn.name}"`,
+        link: `/board?card=${cardId}`,
+      });
     }
   }
 
