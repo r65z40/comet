@@ -103,6 +103,15 @@ export default function PortalLoginPage() {
               "Se connecter"
             )}
           </button>
+
+          <div className="text-center">
+            <a
+              href="/portal/forgot-password"
+              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+            >
+              Mot de passe oublié ?
+            </a>
+          </div>
         </form>
       </div>
     </div>

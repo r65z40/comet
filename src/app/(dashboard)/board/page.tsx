@@ -45,6 +45,7 @@ import {
   Archive,
   Bookmark,
   Trash2,
+  Monitor,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -772,6 +773,16 @@ export default function BoardPage() {
               </div>
             )}
           </div>
+
+          {/* Screen mode */}
+          <button
+            onClick={() => router.push("/board/screen")}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
+            title="Mode écran - Vue plein écran pour affichage partagé"
+          >
+            <Monitor className="h-4 w-4" />
+            Screen
+          </button>
 
           {/* Add column */}
           <button

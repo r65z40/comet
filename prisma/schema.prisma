@@ -84,10 +84,25 @@ model ClientUser {
   inviteTokenExpiry DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  passwordResets    ClientPasswordReset[]
 
   @@index([clientId])
   @@index([inviteToken])
   @@map("client_users")
+}
+
+model ClientPasswordReset {
+  id           String     @id @default(cuid())
+  clientUserId String
+  clientUser   ClientUser @relation(fields: [clientUserId], references: [id], onDelete: Cascade)
+  token        String     @unique
+  expiresAt    DateTime
+  used         Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  @@index([token])
+  @@index([clientUserId])
+  @@map("client_password_resets")
 }
 
 model Contact {
