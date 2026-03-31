@@ -142,6 +142,36 @@ export async function testAteraConnection(): Promise<{ success: boolean; error?:
   }
 }
 
+// ─── End User / Contact Helpers ──────────────────────────
+
+async function findOrCreateAteraEndUser(email: string, firstName: string, lastName: string, customerName?: string): Promise<string | undefined> {
+  try {
+    // Try to find existing contact by email
+    const contacts = await ateraFetch(`/contacts?page=1&itemsInPage=50&email=${encodeURIComponent(email)}`);
+    if (contacts?.items?.length > 0) {
+      return email; // Contact exists, use the email
+    }
+
+    // Contact doesn't exist — create it
+    const body: Record<string, string> = {
+      Email: email,
+      Firstname: firstName || "Client",
+      Lastname: lastName || "",
+    };
+    if (customerName) body.CustomerName = customerName;
+
+    await ateraFetch("/contacts", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    return email;
+  } catch (err) {
+    console.warn("Could not find/create Atera end user:", err);
+    return undefined; // Will create ticket without end user
+  }
+}
+
 // ─── Sync Helpers ───────────────────────────────────────
 
 /**
@@ -168,6 +198,7 @@ export async function syncTicketToAtera(ticketId: string): Promise<{ ateraId: nu
     const nameParts = (ticket.clientUser?.name || ticket.client.name || "").split(" ");
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
+    const endUserEmail = ticket.clientUser?.email || ticket.client.email || undefined;
 
     if (ticket.ateraId) {
       // Update existing
@@ -186,17 +217,33 @@ export async function syncTicketToAtera(ticketId: string): Promise<{ ateraId: nu
 
       return { ateraId: ticket.ateraId };
     } else {
-      // Create new
-      const result = await createAteraTicket({
+      // Ensure end user exists in Atera before creating ticket
+      let resolvedEmail = endUserEmail;
+      if (resolvedEmail) {
+        resolvedEmail = await findOrCreateAteraEndUser(
+          resolvedEmail,
+          firstName,
+          lastName,
+          ticket.client.name || undefined,
+        );
+      }
+
+      // Build ticket data — only include EndUser fields if we have a valid email
+      const ticketData: AteraTicketCreate = {
         TicketTitle: ticket.title,
         Description: ticket.description,
-        EndUserEmail: ticket.clientUser?.email || ticket.client.email || undefined,
-        EndUserFirstName: firstName,
-        EndUserLastName: lastName,
         TicketPriority: ticket.priority,
         TicketType: ticket.type,
         TicketImpact: ticket.impact,
-      });
+      };
+
+      if (resolvedEmail) {
+        ticketData.EndUserEmail = resolvedEmail;
+        ticketData.EndUserFirstName = firstName;
+        ticketData.EndUserLastName = lastName;
+      }
+
+      const result = await createAteraTicket(ticketData);
 
       const ateraId = result?.TicketID || (result as unknown as { ActionID: number })?.ActionID;
 

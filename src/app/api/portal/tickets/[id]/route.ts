@@ -19,6 +19,9 @@ export async function GET(
         where: { isInternal: false },
         orderBy: { createdAt: "asc" },
       },
+      attachments: {
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 

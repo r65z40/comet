@@ -554,6 +554,7 @@ model Ticket {
   ateraSynced     Boolean         @default(false)
   ateraSyncError  String?
   comments        TicketComment[]
+  attachments     TicketAttachment[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -578,4 +579,19 @@ model TicketComment {
 
   @@index([ticketId])
   @@map("ticket_comments")
+}
+
+model TicketAttachment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  fileName   String
+  fileUrl    String
+  fileType   String
+  fileSize   Int
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+
+  @@index([ticketId])
+  @@map("ticket_attachments")
 }

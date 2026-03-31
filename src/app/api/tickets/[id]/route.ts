@@ -19,6 +19,7 @@ export async function GET(
       client: { select: { id: true, name: true, logoUrl: true, email: true } },
       clientUser: { select: { id: true, name: true, email: true } },
       comments: { orderBy: { createdAt: "asc" } },
+      attachments: { orderBy: { createdAt: "asc" } },
     },
   });
 

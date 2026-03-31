@@ -16,6 +16,11 @@ import {
   Circle,
   PauseCircle,
   XCircle,
+  Paperclip,
+  FileText,
+  Image,
+  X,
+  Download,
 } from "lucide-react";
 
 interface TicketData {
@@ -41,8 +46,19 @@ interface Comment {
   createdAt: string;
 }
 
+interface Attachment {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileType: string;
+  fileSize: number;
+  uploadedBy: string | null;
+  createdAt: string;
+}
+
 interface TicketDetail extends TicketData {
   comments: Comment[];
+  attachments: Attachment[];
 }
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -89,6 +105,7 @@ export default function PortalTicketsPage() {
   const [newDescription, setNewDescription] = useState("");
   const [newPriority, setNewPriority] = useState("Medium");
   const [newType, setNewType] = useState("Incident");
+  const [newFiles, setNewFiles] = useState<File[]>([]);
   const [creating, setCreating] = useState(false);
 
   // Comment
@@ -133,16 +150,48 @@ export default function PortalTicketsPage() {
         }),
       });
       if (res.ok) {
+        const ticket = await res.json();
+
+        // Upload files if any
+        for (const file of newFiles) {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("ticketId", ticket.id);
+          await fetch("/api/portal/tickets/attachments", {
+            method: "POST",
+            body: formData,
+          }).catch(() => {});
+        }
+
         setNewTitle("");
         setNewDescription("");
         setNewPriority("Medium");
         setNewType("Incident");
+        setNewFiles([]);
         setView("list");
         fetchTickets();
       }
     } catch {} finally {
       setCreating(false);
     }
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    const maxSize = 10 * 1024 * 1024;
+    const valid = files.filter((f) => f.size <= maxSize);
+    setNewFiles((prev) => [...prev, ...valid]);
+    e.target.value = "";
+  }
+
+  function removeFile(index: number) {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function formatFileSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} o`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
   }
 
   async function addComment() {
@@ -247,6 +296,38 @@ export default function PortalTicketsPage() {
               />
             </div>
 
+            {/* File attachments */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Pièces jointes</label>
+              <div className="space-y-2">
+                {newFiles.map((file, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    {file.type.startsWith("image/") ? (
+                      <Image className="h-4 w-4 text-blue-500 shrink-0" />
+                    ) : (
+                      <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                    )}
+                    <span className="text-sm text-slate-700 truncate flex-1">{file.name}</span>
+                    <span className="text-xs text-slate-400 shrink-0">{formatFileSize(file.size)}</span>
+                    <button onClick={() => removeFile(i)} className="text-slate-400 hover:text-red-500 shrink-0">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500 hover:border-blue-400 hover:text-blue-600 transition-colors">
+                  <Paperclip className="h-4 w-4" />
+                  <span>Ajouter un fichier (max 10 Mo)</span>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setView("list")}
@@ -311,6 +392,40 @@ export default function PortalTicketsPage() {
             </div>
           </div>
         </div>
+
+        {/* Attachments */}
+        {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm mb-4">
+            <div className="p-4 border-b border-slate-100">
+              <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                Pièces jointes ({selectedTicket.attachments.length})
+              </h2>
+            </div>
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {selectedTicket.attachments.map((att) => (
+                <a
+                  key={att.id}
+                  href={att.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:border-blue-300 hover:bg-blue-50/30 transition-colors"
+                >
+                  {att.fileType.startsWith("image/") ? (
+                    <Image className="h-5 w-5 text-blue-500 shrink-0" />
+                  ) : (
+                    <FileText className="h-5 w-5 text-slate-400 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-700 truncate">{att.fileName}</p>
+                    <p className="text-xs text-slate-400">{formatFileSize(att.fileSize)}</p>
+                  </div>
+                  <Download className="h-4 w-4 text-slate-400 shrink-0" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Comments / conversation */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
