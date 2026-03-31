@@ -59,6 +59,7 @@ export interface AteraTicketCreate {
   EndUserEmail?: string;
   EndUserFirstName?: string;
   EndUserLastName?: string;
+  CustomerName?: string;
   TicketPriority?: string;
   TicketType?: string;
   TicketImpact?: string;
@@ -228,10 +229,11 @@ export async function syncTicketToAtera(ticketId: string): Promise<{ ateraId: nu
         );
       }
 
-      // Build ticket data — only include EndUser fields if we have a valid email
+      // Build ticket data — include CustomerName for Atera client association
       const ticketData: AteraTicketCreate = {
         TicketTitle: ticket.title,
         Description: ticket.description,
+        CustomerName: ticket.client.name || undefined,
         TicketPriority: ticket.priority,
         TicketType: ticket.type,
         TicketImpact: ticket.impact,
@@ -245,14 +247,17 @@ export async function syncTicketToAtera(ticketId: string): Promise<{ ateraId: nu
 
       const result = await createAteraTicket(ticketData);
 
-      const ateraId = result?.TicketID || (result as unknown as { ActionID: number })?.ActionID;
+      // Atera returns ActionID (sometimes as string), parse to int
+      const rawId = result?.TicketID ?? (result as unknown as { ActionID: string | number })?.ActionID;
+      const ateraId = rawId ? (typeof rawId === "string" ? parseInt(rawId, 10) : rawId) : null;
 
-      if (ateraId) {
+      if (ateraId && !isNaN(ateraId)) {
+        const ticketNumber = result?.TicketNumber || String(ateraId);
         await prisma.ticket.update({
           where: { id: ticketId },
           data: {
             ateraId,
-            ticketNumber: result?.TicketNumber || String(ateraId),
+            ticketNumber,
             ateraSynced: true,
             ateraSyncError: null,
           },

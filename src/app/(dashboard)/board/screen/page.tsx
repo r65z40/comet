@@ -13,6 +13,7 @@ import {
   ShieldOff,
   ShieldAlert,
   RefreshCw,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +74,13 @@ interface ActivityItem {
   entity: string;
   userName: string | null;
   details: string | null;
+  date: string;
+}
+
+interface CyberNewsItem {
+  title: string;
+  link: string;
+  source: string;
   date: string;
 }
 
@@ -138,6 +146,7 @@ export default function BoardScreenPage() {
   const [loading, setLoading] = useState(true);
   const [feedTab, setFeedTab] = useState<"expiring" | "changes" | "activity">("expiring");
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [cyberNews, setCyberNews] = useState<CyberNewsItem[]>([]);
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchColumns = useCallback(async () => {
@@ -157,19 +166,29 @@ export default function BoardScreenPage() {
     } catch {}
   }, []);
 
-  useEffect(() => {
-    Promise.all([fetchColumns(), fetchFeed()]).finally(() => setLoading(false));
+  const fetchCyberNews = useCallback(async () => {
+    try {
+      const res = await fetch("/api/board/cyber-feed");
+      if (res.ok) setCyberNews(await res.json());
+    } catch {}
+  }, []);
 
-    // Auto-refresh every 30 seconds
+  useEffect(() => {
+    Promise.all([fetchColumns(), fetchFeed(), fetchCyberNews()]).finally(() => setLoading(false));
+
+    // Auto-refresh every 30 seconds (board + feed), cyber news every 10 min
     refreshIntervalRef.current = setInterval(() => {
       fetchColumns();
       fetchFeed();
     }, 30000);
 
+    const cyberInterval = setInterval(fetchCyberNews, 10 * 60 * 1000);
+
     return () => {
       if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
+      clearInterval(cyberInterval);
     };
-  }, [fetchColumns, fetchFeed]);
+  }, [fetchColumns, fetchFeed, fetchCyberNews]);
 
   // Enter fullscreen on mount
   useEffect(() => {
@@ -218,6 +237,33 @@ export default function BoardScreenPage() {
 
   return (
     <div className="fixed inset-0 bg-slate-900 text-white z-[9999] flex flex-col overflow-hidden">
+      {/* Cyber news ticker */}
+      {cyberNews.length > 0 && (
+        <div className="shrink-0 bg-slate-950 border-b border-slate-800 overflow-hidden h-8 flex items-center">
+          <div className="flex items-center gap-2 px-3 shrink-0 bg-red-600/90 h-full z-10">
+            <Zap className="h-3.5 w-3.5 text-white" />
+            <span className="text-xs font-bold text-white whitespace-nowrap">CYBER</span>
+          </div>
+          <div className="overflow-hidden flex-1 relative">
+            <div className="animate-ticker flex items-center gap-8 whitespace-nowrap">
+              {cyberNews.map((item, i) => (
+                <span key={i} className="inline-flex items-center gap-2 text-xs">
+                  <span className="text-red-400 font-semibold">{item.source}</span>
+                  <span className="text-slate-300">{item.title}</span>
+                </span>
+              ))}
+              {/* Duplicate for seamless loop */}
+              {cyberNews.map((item, i) => (
+                <span key={"dup-" + i} className="inline-flex items-center gap-2 text-xs">
+                  <span className="text-red-400 font-semibold">{item.source}</span>
+                  <span className="text-slate-300">{item.title}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-3 bg-slate-800/80 border-b border-slate-700 shrink-0">
         <div className="flex items-center gap-3">

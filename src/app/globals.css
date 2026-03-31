@@ -39,6 +39,15 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-ticker {
+  animation: ticker 60s linear infinite;
+}
+
 @layer base {
   * {
     border-color: var(--color-surface-300);
