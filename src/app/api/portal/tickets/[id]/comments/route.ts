@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { verifyPortalToken } from "@/lib/portal-auth";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
 import { notifyAdmins } from "@/lib/notifications";
+import { addAteraTicketComment } from "@/lib/atera";
 
 // POST: Client adds a comment to their ticket
 export async function POST(
@@ -38,6 +39,13 @@ export async function POST(
       isFromClient: true,
     },
   });
+
+  // Push comment to Atera if ticket is synced
+  if (ticket.ateraId) {
+    addAteraTicketComment(ticket.ateraId, content.trim(), false).catch((err) =>
+      console.error("Atera comment sync error:", err)
+    );
+  }
 
   // Reopen ticket if it was resolved/closed
   if (ticket.status === "Resolved" || ticket.status === "Closed") {

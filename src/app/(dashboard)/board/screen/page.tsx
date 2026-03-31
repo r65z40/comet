@@ -16,6 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TicketToast from "@/components/layout/TicketToast";
 
 interface CardTag {
   id: string;
@@ -237,6 +238,7 @@ export default function BoardScreenPage() {
 
   return (
     <div className="fixed inset-0 bg-slate-900 text-white z-[9999] flex flex-col overflow-hidden">
+      <TicketToast />
       {/* Cyber news ticker */}
       {cyberNews.length > 0 && (
         <div className="shrink-0 bg-slate-950 border-b border-slate-800 overflow-hidden h-8 flex items-center">

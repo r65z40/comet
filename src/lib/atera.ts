@@ -276,3 +276,176 @@ export async function syncTicketToAtera(ticketId: string): Promise<{ ateraId: nu
     return { ateraId: null, error };
   }
 }
+
+// ─── Comment Sync (Comet → Atera) ──────────────────────
+
+export async function addAteraTicketComment(
+  ticketId: number,
+  comment: string,
+  isInternal: boolean = false
+): Promise<void> {
+  await ateraFetch(`/tickets/${ticketId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ Comment: comment, IsInternal: isInternal }),
+  });
+}
+
+// ─── Bidirectional Sync (Atera → Comet) ────────────────
+
+const ATERA_STATUS_MAP: Record<string, string> = {
+  Open: "Open",
+  Pending: "Pending",
+  Resolved: "Resolved",
+  Closed: "Closed",
+  Waiting: "Pending",
+  "In Progress": "Open",
+};
+
+function generateAteraCommentId(comment: string, date: string, email: string): string {
+  // Simple hash for deduplication
+  const raw = `${comment.trim().substring(0, 100)}|${date}|${email}`;
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const char = raw.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return `atera_${Math.abs(hash).toString(36)}`;
+}
+
+/**
+ * Sync all Atera-linked tickets from Atera back to Comet.
+ * Called by cron scheduler every 5 minutes.
+ */
+export async function syncAllFromAtera(): Promise<{ synced: number; errors: number }> {
+  const config = await getAteraConfig();
+  if (!config || !config.enabled) {
+    return { synced: 0, errors: 0 };
+  }
+
+  // Get all tickets with an ateraId
+  const tickets = await prisma.ticket.findMany({
+    where: { ateraId: { not: null } },
+    select: { id: true, ateraId: true, status: true, priority: true, type: true, impact: true, assignedTo: true },
+    take: 50,
+  });
+
+  let synced = 0;
+  let errors = 0;
+
+  for (const ticket of tickets) {
+    if (!ticket.ateraId) continue;
+
+    try {
+      // 1. Fetch ticket state from Atera
+      const ateraTicket = await getAteraTicket(ticket.ateraId);
+
+      // 2. Compare and update fields
+      const updates: Record<string, unknown> = {};
+      const mappedStatus = ATERA_STATUS_MAP[ateraTicket.TicketStatus] || ateraTicket.TicketStatus;
+
+      if (mappedStatus && mappedStatus !== ticket.status) {
+        updates.status = mappedStatus;
+        if (mappedStatus === "Resolved") updates.resolvedAt = new Date();
+        if (mappedStatus === "Closed") updates.closedAt = new Date();
+        // If reopened, clear resolved/closed dates
+        if ((mappedStatus === "Open" || mappedStatus === "Pending") && (ticket.status === "Resolved" || ticket.status === "Closed")) {
+          updates.resolvedAt = null;
+          updates.closedAt = null;
+        }
+      }
+
+      if (ateraTicket.TicketPriority && ateraTicket.TicketPriority !== ticket.priority) {
+        updates.priority = ateraTicket.TicketPriority;
+      }
+      if (ateraTicket.TicketType && ateraTicket.TicketType !== ticket.type) {
+        updates.type = ateraTicket.TicketType;
+      }
+      if (ateraTicket.TicketImpact && ateraTicket.TicketImpact !== ticket.impact) {
+        updates.impact = ateraTicket.TicketImpact;
+      }
+      if (ateraTicket.TechnicianFullName && ateraTicket.TechnicianFullName !== ticket.assignedTo) {
+        updates.assignedTo = ateraTicket.TechnicianFullName;
+      }
+
+      // Always update sync timestamp
+      updates.lastAteraSyncAt = new Date();
+      updates.ateraSynced = true;
+      updates.ateraSyncError = null;
+
+      if (Object.keys(updates).length > 1) { // more than just lastAteraSyncAt
+        await prisma.ticket.update({ where: { id: ticket.id }, data: updates });
+      } else {
+        await prisma.ticket.update({ where: { id: ticket.id }, data: { lastAteraSyncAt: new Date() } });
+      }
+
+      // 3. Sync comments from Atera
+      try {
+        const commentsRes = await getAteraTicketComments(ticket.ateraId);
+        const ateraComments = commentsRes?.items || [];
+
+        // Get existing ateraCommentIds for this ticket
+        const existingComments = await prisma.ticketComment.findMany({
+          where: { ticketId: ticket.id, ateraCommentId: { not: null } },
+          select: { ateraCommentId: true },
+        });
+        const existingIds = new Set(existingComments.map(c => c.ateraCommentId));
+
+        for (const ac of ateraComments) {
+          const commentId = generateAteraCommentId(ac.Comment, ac.Date, ac.Email);
+
+          if (existingIds.has(commentId)) continue;
+
+          // Check if a very similar comment already exists (fallback dedup)
+          const commentContent = ac.Comment.trim();
+          if (!commentContent) continue;
+
+          const duplicate = await prisma.ticketComment.findFirst({
+            where: {
+              ticketId: ticket.id,
+              content: commentContent,
+              authorEmail: ac.Email || null,
+            },
+          });
+          if (duplicate) {
+            // Mark existing comment with ateraCommentId to avoid future checks
+            await prisma.ticketComment.update({
+              where: { id: duplicate.id },
+              data: { ateraCommentId: commentId },
+            });
+            continue;
+          }
+
+          const authorName = [ac.FirstName, ac.LastName].filter(Boolean).join(" ") || ac.Email || "Atera";
+          const isFromClient = ac.TechnicianContactID === 0 && ac.EndUserID > 0;
+
+          await prisma.ticketComment.create({
+            data: {
+              ticketId: ticket.id,
+              content: commentContent,
+              authorName,
+              authorEmail: ac.Email || null,
+              isInternal: ac.IsInternal,
+              isFromClient,
+              ateraCommentId: commentId,
+              createdAt: ac.Date ? new Date(ac.Date) : new Date(),
+            },
+          });
+        }
+      } catch (commentErr) {
+        console.warn(`[atera-sync] Failed to sync comments for ticket ${ticket.id}:`, commentErr);
+      }
+
+      synced++;
+    } catch (err) {
+      errors++;
+      const error = err instanceof Error ? err.message : "Erreur sync";
+      await prisma.ticket.update({
+        where: { id: ticket.id },
+        data: { ateraSyncError: error },
+      }).catch(() => {});
+    }
+  }
+
+  return { synced, errors };
+}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
+import { addAteraTicketComment } from "@/lib/atera";
 
 // POST: Add comment to ticket
 export async function POST(
@@ -38,6 +39,13 @@ export async function POST(
       isFromClient: false,
     },
   });
+
+  // Push comment to Atera if ticket is synced
+  if (ticket.ateraId && !isInternal) {
+    addAteraTicketComment(ticket.ateraId, content.trim(), false).catch((err) =>
+      console.error("Atera comment sync error:", err)
+    );
+  }
 
   // Send email notification to client if not internal comment
   if (!isInternal && ticket.clientUser?.email) {
