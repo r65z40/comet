@@ -143,6 +143,27 @@ export async function testAteraConnection(): Promise<{ success: boolean; error?:
   }
 }
 
+// ─── Customer (Company) Helpers ─────────────────────────
+
+async function findOrCreateAteraCustomer(customerName: string): Promise<boolean> {
+  try {
+    const res = await ateraFetch(`/customers?page=1&itemsInPage=50&customerName=${encodeURIComponent(customerName)}`);
+    const items = Array.isArray(res) ? res : (res?.items || []);
+    if (items.length > 0) return true;
+
+    // Customer doesn't exist — create it
+    await ateraFetch("/customers", {
+      method: "POST",
+      body: JSON.stringify({ CustomerName: customerName }),
+    });
+    console.log(`[atera] Created customer in Atera: ${customerName}`);
+    return true;
+  } catch (err) {
+    console.warn("[atera] Could not find/create Atera customer:", err);
+    return false;
+  }
+}
+
 // ─── End User / Contact Helpers ──────────────────────────
 
 async function findOrCreateAteraEndUser(email: string, firstName: string, lastName: string, customerName?: string): Promise<string | undefined> {
@@ -218,6 +239,12 @@ export async function syncTicketToAtera(ticketId: string): Promise<{ ateraId: nu
 
       return { ateraId: ticket.ateraId };
     } else {
+      // Ensure customer (company) exists in Atera first
+      const clientName = ticket.client.name || undefined;
+      if (clientName) {
+        await findOrCreateAteraCustomer(clientName);
+      }
+
       // Ensure end user exists in Atera before creating ticket
       let resolvedEmail = endUserEmail;
       if (resolvedEmail) {
@@ -225,15 +252,15 @@ export async function syncTicketToAtera(ticketId: string): Promise<{ ateraId: nu
           resolvedEmail,
           firstName,
           lastName,
-          ticket.client.name || undefined,
+          clientName,
         );
       }
 
       // Build ticket data — include CustomerName for Atera client association
       const ticketData: AteraTicketCreate = {
         TicketTitle: ticket.title,
-        Description: ticket.description,
-        CustomerName: ticket.client.name || undefined,
+        Description: `[${clientName || "Client"}] ${ticket.description}`,
+        CustomerName: clientName,
         TicketPriority: ticket.priority,
         TicketType: ticket.type,
         TicketImpact: ticket.impact,
@@ -317,16 +344,18 @@ function generateAteraCommentId(comment: string, date: string, email: string): s
  * Sync all Atera-linked tickets from Atera back to Comet.
  * Called by cron scheduler every 5 minutes.
  */
-export async function syncAllFromAtera(): Promise<{ synced: number; errors: number }> {
+export async function syncAllFromAtera(): Promise<{ synced: number; errors: number; skipped?: boolean }> {
   const config = await getAteraConfig();
   if (!config || !config.enabled) {
-    return { synced: 0, errors: 0 };
+    console.log("[atera-sync] Atera non configuré ou désactivé, sync ignorée");
+    return { synced: 0, errors: 0, skipped: true };
   }
 
-  // Get all tickets with an ateraId
+  // Get all tickets with an ateraId, ordered by least recently synced first
   const tickets = await prisma.ticket.findMany({
     where: { ateraId: { not: null } },
     select: { id: true, ateraId: true, status: true, priority: true, type: true, impact: true, assignedTo: true },
+    orderBy: { lastAteraSyncAt: { sort: "asc", nulls: "first" } },
     take: 50,
   });
 
@@ -339,6 +368,11 @@ export async function syncAllFromAtera(): Promise<{ synced: number; errors: numb
     try {
       // 1. Fetch ticket state from Atera
       const ateraTicket = await getAteraTicket(ticket.ateraId);
+      if (!ateraTicket) {
+        console.warn(`[atera-sync] No data returned from Atera for ticket ${ticket.ateraId}`);
+        errors++;
+        continue;
+      }
 
       // 2. Compare and update fields
       const updates: Record<string, unknown> = {};
@@ -382,7 +416,9 @@ export async function syncAllFromAtera(): Promise<{ synced: number; errors: numb
       // 3. Sync comments from Atera
       try {
         const commentsRes = await getAteraTicketComments(ticket.ateraId);
-        const ateraComments = commentsRes?.items || [];
+        const ateraComments: AteraComment[] = Array.isArray(commentsRes)
+          ? commentsRes
+          : (commentsRes?.items || []);
 
         // Get existing ateraCommentIds for this ticket
         const existingComments = await prisma.ticketComment.findMany({

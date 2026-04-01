@@ -12,13 +12,9 @@ interface TicketNotification {
   createdAt: string;
 }
 
-interface ToastItem extends TicketNotification {
-  dismissAt: number;
-}
-
 export default function TicketToast() {
   const router = useRouter();
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [toasts, setToasts] = useState<TicketNotification[]>([]);
   const seenIds = useRef<Set<string>>(new Set());
 
   const fetchRecent = useCallback(async () => {
@@ -27,15 +23,15 @@ export default function TicketToast() {
       if (!res.ok) return;
       const notifications: TicketNotification[] = await res.json();
 
-      const newToasts: ToastItem[] = [];
+      const newToasts: TicketNotification[] = [];
       for (const n of notifications) {
         if (seenIds.current.has(n.id)) continue;
         seenIds.current.add(n.id);
-        newToasts.push({ ...n, dismissAt: Date.now() + 8000 });
+        newToasts.push(n);
       }
 
       if (newToasts.length > 0) {
-        setToasts((prev) => [...newToasts, ...prev].slice(0, 3));
+        setToasts((prev) => [...newToasts, ...prev].slice(0, 5));
       }
     } catch {}
   }, []);
@@ -47,23 +43,17 @@ export default function TicketToast() {
     return () => clearInterval(interval);
   }, [fetchRecent]);
 
-  // Auto-dismiss
-  useEffect(() => {
-    if (toasts.length === 0) return;
-
-    const timer = setInterval(() => {
-      const now = Date.now();
-      setToasts((prev) => prev.filter((t) => t.dismissAt > now));
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [toasts.length]);
-
   function dismiss(id: string) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+    // Mark as read so it doesn't reappear
+    fetch("/api/notifications/inbox", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [id] }),
+    }).catch(() => {});
   }
 
-  function handleClick(toast: ToastItem) {
+  function handleClick(toast: TicketNotification) {
     dismiss(toast.id);
     if (toast.link) router.push(toast.link);
   }

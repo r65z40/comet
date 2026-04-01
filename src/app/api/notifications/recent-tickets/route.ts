@@ -9,14 +9,14 @@ export async function GET() {
     return NextResponse.json([], { status: 401 });
   }
 
-  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
 
   const notifications = await prisma.notification.findMany({
     where: {
       userId: session.user.id,
       type: { in: ["ticket_new", "ticket_reply"] },
       read: false,
-      createdAt: { gte: twoMinutesAgo },
+      createdAt: { gte: thirtyMinutesAgo },
     },
     orderBy: { createdAt: "desc" },
     take: 5,

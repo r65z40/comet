@@ -139,21 +139,27 @@ export async function executeCronJob(): Promise<{
   }
 
   // === Atera Bidirectional Sync ===
-  let ateraSyncResult = { synced: 0, errors: 0 };
+  let ateraSyncResult: { synced: number; errors: number; skipped?: boolean } = { synced: 0, errors: 0 };
   try {
     ateraSyncResult = await syncAllFromAtera();
-    if (ateraSyncResult.synced > 0 || ateraSyncResult.errors > 0) {
-      await prisma.syncLog.create({
-        data: {
-          type: "ATERA_SYNC",
-          status: ateraSyncResult.errors > 0 ? "PARTIAL" : "SUCCESS",
-          message: `${todayStr} ${parisTimeStr} - Synced: ${ateraSyncResult.synced}, Errors: ${ateraSyncResult.errors}`,
-          itemCount: ateraSyncResult.synced,
-          startedAt: new Date(),
-          completedAt: new Date(),
-        },
-      }).catch(() => {});
-    }
+    const statusMsg = ateraSyncResult.skipped
+      ? "SKIPPED"
+      : ateraSyncResult.errors > 0
+        ? "PARTIAL"
+        : "SUCCESS";
+    const message = ateraSyncResult.skipped
+      ? `${todayStr} ${parisTimeStr} - Atera non configuré ou désactivé`
+      : `${todayStr} ${parisTimeStr} - Synced: ${ateraSyncResult.synced}, Errors: ${ateraSyncResult.errors}`;
+    await prisma.syncLog.create({
+      data: {
+        type: "ATERA_SYNC",
+        status: statusMsg,
+        message,
+        itemCount: ateraSyncResult.synced,
+        startedAt: new Date(),
+        completedAt: new Date(),
+      },
+    }).catch(() => {});
   } catch (ateraErr) {
     const ateraMsg = ateraErr instanceof Error ? ateraErr.message : String(ateraErr);
     await prisma.syncLog.create({
