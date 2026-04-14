@@ -249,7 +249,13 @@ export default function KanbanColumn({
       </div>
 
       {/* Cards */}
-      <div ref={setNodeRef} className="flex-1 overflow-y-auto px-3 pb-3 space-y-2">
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex-1 overflow-y-auto px-3 pb-3 space-y-2 min-h-[80px] transition-colors rounded-lg",
+          isOver && "bg-primary-50/60"
+        )}
+      >
         <SortableContext
           items={column.cards.map((c) => c.id)}
           strategy={verticalListSortingStrategy}
@@ -262,6 +268,18 @@ export default function KanbanColumn({
             />
           ))}
         </SortableContext>
+
+        {/* Empty state placeholder — serves as visual drop target */}
+        {column.cards.length === 0 && !showAddCard && (
+          <div
+            className={cn(
+              "flex items-center justify-center border-2 border-dashed rounded-lg py-6 text-xs text-slate-400 transition-colors",
+              isOver ? "border-primary-400 text-primary-500 bg-primary-50/40" : "border-slate-300"
+            )}
+          >
+            Déposez une carte ici
+          </div>
+        )}
 
         {/* Add card form */}
         {showAddCard ? (

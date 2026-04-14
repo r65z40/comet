@@ -369,6 +369,9 @@ export default function BoardPage() {
 
     if (activeCardId === overId) return;
 
+    // Snapshot for rollback on failure
+    const snapshot = columns;
+
     // Optimistic update
     setColumns((prev) => {
       const next = prev.map((col) => ({
@@ -387,17 +390,23 @@ export default function BoardPage() {
       return next;
     });
 
-    await fetch("/api/board/cards/move", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cardId: activeCardId,
-        targetColumnId,
-        targetPosition,
-      }),
-    });
-
-    fetchBoard();
+    try {
+      const res = await fetch("/api/board/cards/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cardId: activeCardId,
+          targetColumnId,
+          targetPosition,
+        }),
+      });
+      if (!res.ok) throw new Error("Move failed");
+      // Success: trust optimistic update — no refetch needed to avoid flicker/race
+    } catch (err) {
+      console.error("Card move failed, rolling back:", err);
+      setColumns(snapshot);
+      fetchBoard();
+    }
   }
 
   function handleDragOver(event: DragOverEvent) {

@@ -3,6 +3,24 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   X,
   Monitor,
   AlertTriangle,
@@ -14,6 +32,7 @@ import {
   ShieldAlert,
   RefreshCw,
   Zap,
+  GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
@@ -148,9 +167,18 @@ export default function BoardScreenPage() {
   const [feedTab, setFeedTab] = useState<"expiring" | "changes" | "activity">("expiring");
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [cyberNews, setCyberNews] = useState<CyberNewsItem[]>([]);
+  const [activeCard, setActiveCard] = useState<BoardCard | null>(null);
+  // Disable auto-refresh temporarily while user is dragging to avoid visual jumps
+  const isDraggingRef = useRef(false);
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
   const fetchColumns = useCallback(async () => {
+    if (isDraggingRef.current) return;
     try {
       const res = await fetch("/api/board/columns");
       if (res.ok) setColumns(await res.json());
@@ -225,6 +253,85 @@ export default function BoardScreenPage() {
     return () => window.removeEventListener("keydown", handleKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handleDragStart(event: DragStartEvent) {
+    isDraggingRef.current = true;
+    const { active } = event;
+    const card = columns.flatMap((c) => c.cards).find((c) => c.id === active.id);
+    setActiveCard(card || null);
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    isDraggingRef.current = false;
+    const { active, over } = event;
+    setActiveCard(null);
+
+    if (!over) return;
+
+    const activeCardId = active.id as string;
+    const overId = over.id as string;
+
+    const sourceColumn = columns.find((col) =>
+      col.cards.some((c) => c.id === activeCardId)
+    );
+    if (!sourceColumn) return;
+
+    let targetColumnId: string;
+    let targetPosition: number;
+
+    const targetColumn = columns.find((col) => col.id === overId);
+    if (targetColumn) {
+      targetColumnId = targetColumn.id;
+      targetPosition = targetColumn.cards.length;
+    } else {
+      const overColumn = columns.find((col) =>
+        col.cards.some((c) => c.id === overId)
+      );
+      if (!overColumn) return;
+      targetColumnId = overColumn.id;
+      const overCard = overColumn.cards.find((c) => c.id === overId);
+      targetPosition = overCard?.position ?? 0;
+    }
+
+    if (activeCardId === overId) return;
+
+    // Snapshot for rollback
+    const snapshot = columns;
+
+    // Optimistic update
+    setColumns((prev) => {
+      const next = prev.map((col) => ({
+        ...col,
+        cards: col.cards.filter((c) => c.id !== activeCardId),
+      }));
+      const card = sourceColumn.cards.find((c) => c.id === activeCardId);
+      if (card) {
+        const targetCol = next.find((c) => c.id === targetColumnId);
+        if (targetCol) {
+          const updatedCard = { ...card, columnId: targetColumnId };
+          targetCol.cards.splice(targetPosition, 0, updatedCard);
+          targetCol.cards = targetCol.cards.map((c, i) => ({ ...c, position: i }));
+        }
+      }
+      return next;
+    });
+
+    try {
+      const res = await fetch("/api/board/cards/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cardId: activeCardId,
+          targetColumnId,
+          targetPosition,
+        }),
+      });
+      if (!res.ok) throw new Error("Move failed");
+    } catch {
+      // Rollback on error
+      setColumns(snapshot);
+    }
+  }
 
   if (loading) {
     return (
@@ -315,34 +422,29 @@ export default function BoardScreenPage() {
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Kanban columns */}
-        <div className="flex-1 flex gap-3 overflow-x-auto p-4">
-          {columns.map((column) => (
-            <div
-              key={column.id}
-              className="flex-shrink-0 flex flex-col bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden"
-              style={{ width: `${Math.max(260, Math.floor((100 - 25) / columns.length))}%`, minWidth: 260, maxWidth: 340 }}
-            >
-              {/* Column header */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/50">
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
-                <h2 className="font-semibold text-sm truncate">{column.name}</h2>
-                <span className="ml-auto text-xs text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">
-                  {column.cards.length}
-                </span>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex-1 flex gap-3 overflow-x-auto p-4">
+            {columns.map((column) => (
+              <ScreenColumn
+                key={column.id}
+                column={column}
+                width={Math.max(260, Math.floor((100 - 25) / columns.length))}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeCard ? (
+              <div className="rotate-3 opacity-90">
+                <ScreenCard card={activeCard} isDraggingOverlay />
               </div>
-
-              {/* Cards */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin">
-                {column.cards.map((card) => (
-                  <ScreenCard key={card.id} card={card} />
-                ))}
-                {column.cards.length === 0 && (
-                  <div className="text-center py-8 text-slate-600 text-xs">Aucune carte</div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
 
         {/* Live feed sidebar */}
         <div className="w-80 bg-slate-800/80 border-l border-slate-700 flex flex-col shrink-0 overflow-hidden">
@@ -498,8 +600,71 @@ export default function BoardScreenPage() {
   );
 }
 
-function ScreenCard({ card }: { card: BoardCard }) {
-  const priorityColors = {
+function ScreenColumn({ column, width }: { column: BoardColumn; width: number }) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.id });
+
+  return (
+    <div
+      className="flex-shrink-0 flex flex-col bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden"
+      style={{ width: `${width}%`, minWidth: 260, maxWidth: 340 }}
+    >
+      {/* Column header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/50">
+        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
+        <h2 className="font-semibold text-sm truncate">{column.name}</h2>
+        <span className="ml-auto text-xs text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">
+          {column.cards.length}
+        </span>
+      </div>
+
+      {/* Cards */}
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin min-h-[100px] transition-colors",
+          isOver && "bg-slate-700/30"
+        )}
+      >
+        <SortableContext
+          items={column.cards.map((c) => c.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {column.cards.map((card) => (
+            <ScreenCard key={card.id} card={card} />
+          ))}
+        </SortableContext>
+
+        {column.cards.length === 0 && (
+          <div
+            className={cn(
+              "flex items-center justify-center border-2 border-dashed rounded-lg py-6 text-xs transition-colors",
+              isOver ? "border-blue-400 text-blue-300 bg-blue-500/10" : "border-slate-700 text-slate-600"
+            )}
+          >
+            Déposez une carte ici
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ScreenCard({ card, isDraggingOverlay }: { card: BoardCard; isDraggingOverlay?: boolean }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: card.id, disabled: isDraggingOverlay });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const priorityColors: Record<number, string> = {
     1: "border-l-red-500",
     2: "border-l-orange-500",
     3: "border-l-slate-600",
@@ -509,42 +674,57 @@ function ScreenCard({ card }: { card: BoardCard }) {
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       className={cn(
-        "bg-slate-700/40 rounded-lg p-3 border-l-2 hover:bg-slate-700/60 transition-colors",
-        priorityColors[card.priority as keyof typeof priorityColors] || "border-l-slate-600"
+        "bg-slate-700/40 rounded-lg p-3 border-l-2 hover:bg-slate-700/60 transition-colors group",
+        priorityColors[card.priority] || "border-l-slate-600",
+        isDragging && "opacity-30"
       )}
     >
-      <p className="text-sm font-medium text-white line-clamp-2">{card.title}</p>
+      <div className="flex items-start gap-1.5">
+        <button
+          {...attributes}
+          {...listeners}
+          className="text-slate-500 hover:text-slate-300 cursor-grab active:cursor-grabbing transition-colors opacity-0 group-hover:opacity-100 shrink-0 mt-0.5"
+          aria-label="Glisser la carte"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white line-clamp-2">{card.title}</p>
 
-      {card.client && (
-        <div className="flex items-center gap-1.5 mt-1.5">
-          {card.client.logoUrl ? (
-            <img src={card.client.logoUrl} alt="" className="h-4 w-4 rounded-full object-cover" />
-          ) : null}
-          <span className="text-xs text-slate-400 truncate">{card.client.name}</span>
+          {card.client && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              {card.client.logoUrl ? (
+                <img src={card.client.logoUrl} alt="" className="h-4 w-4 rounded-full object-cover" />
+              ) : null}
+              <span className="text-xs text-slate-400 truncate">{card.client.name}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            {card.tags.slice(0, 3).map((t) => (
+              <span
+                key={t.id}
+                className="text-[10px] px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: t.tag.color + "30", color: t.tag.color }}
+              >
+                {t.tag.name}
+              </span>
+            ))}
+
+            {card.dueDate && (
+              <span className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1",
+                isOverdue ? "bg-red-500/20 text-red-400" : "bg-slate-600/50 text-slate-400"
+              )}>
+                <Clock className="h-2.5 w-2.5" />
+                {formatDate(card.dueDate)}
+              </span>
+            )}
+          </div>
         </div>
-      )}
-
-      <div className="flex items-center gap-2 mt-2 flex-wrap">
-        {card.tags.slice(0, 3).map((t) => (
-          <span
-            key={t.id}
-            className="text-[10px] px-1.5 py-0.5 rounded"
-            style={{ backgroundColor: t.tag.color + "30", color: t.tag.color }}
-          >
-            {t.tag.name}
-          </span>
-        ))}
-
-        {card.dueDate && (
-          <span className={cn(
-            "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1",
-            isOverdue ? "bg-red-500/20 text-red-400" : "bg-slate-600/50 text-slate-400"
-          )}>
-            <Clock className="h-2.5 w-2.5" />
-            {formatDate(card.dueDate)}
-          </span>
-        )}
       </div>
     </div>
   );
