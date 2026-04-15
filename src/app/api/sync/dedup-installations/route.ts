@@ -4,54 +4,68 @@ import { auth } from "@/lib/auth";
 
 /**
  * GET /api/sync/dedup-installations
- *   → Dry-run : liste les paires (orpheline ↔ liée à une facture) détectées.
+ *   → Dry-run : liste les paires de doublons détectées.
  *
  * POST /api/sync/dedup-installations
- *   body: { pairIds: string[] }  // liste des IDs d'orphelines à fusionner
- *   → Exécute la fusion : transfère notes/comParc/alwaysInFleet/historique vers
- *     l'installation liée à la facture, puis soft-delete l'orpheline.
+ *   body: { victimIds: string[] }  // liste des IDs d'installations à archiver
+ *   → Fusionne : transfère metadata/historique de la victime vers la keeper,
+ *     puis soft-delete la victime.
+ *
+ * Matching : même client + produit (nom + fournisseur normalisés) + quantité
+ * + dates ±3 jours. Peut apparier : orpheline↔liée facture, orphan↔orphan,
+ * ou deux factures différentes (doublons d'import manuel, Axonaut, etc.).
  */
 
+interface InstallationSide {
+  id: string;
+  createdAt: Date;
+  status: string;
+  notes: string | null;
+  comParc: string | null;
+  alwaysInFleet: boolean;
+  startDate: Date;
+  endDate: Date;
+  invoice: { id: string; invoiceNumber: string | null } | null;
+  invoiceLineId: string | null;
+  historyCount: number;
+}
+
 interface InstallationPair {
-  orphan: {
-    id: string;
-    createdAt: Date;
-    status: string;
-    notes: string | null;
-    comParc: string | null;
-    alwaysInFleet: boolean;
-    startDate: Date;
-    endDate: Date;
-  };
-    linked: {
-    id: string;
-    createdAt: Date;
-    status: string;
-    notes: string | null;
-    comParc: string | null;
-    alwaysInFleet: boolean;
-    startDate: Date;
-    endDate: Date;
-    invoice: { id: string; invoiceNumber: string | null } | null;
-  };
+  victim: InstallationSide;   // celle qui sera archivée
+  keeper: InstallationSide;   // celle qui est conservée
   client: { id: string; name: string };
   product: { id: string; name: string };
+  reason: string;             // pourquoi cette paire est considérée comme doublon
+}
+
+function metadataScore(i: {
+  notes: string | null;
+  comParc: string | null;
+  alwaysInFleet: boolean;
+  historyCount: number;
+  invoiceLineId: string | null;
+}): number {
+  let s = 0;
+  if (i.invoiceLineId) s += 1000; // prédominance écrasante
+  if (i.notes) s += 10;
+  if (i.comParc) s += 10;
+  if (i.alwaysInFleet) s += 5;
+  s += i.historyCount;
+  return s;
 }
 
 async function findDuplicatePairs(): Promise<InstallationPair[]> {
-  // Charger toutes les installations actives avec leur produit
+  // Charger toutes les installations actives avec leur produit + historique count
   const all = await prisma.installation.findMany({
     where: { deletedAt: null },
     include: {
       client: { select: { id: true, name: true } },
       product: { select: { id: true, name: true, supplier: true } },
       invoice: { select: { id: true, invoiceNumber: true } },
+      _count: { select: { history: true } },
     },
     orderBy: { createdAt: "asc" },
   });
-
-  const orphans = all.filter((i) => i.invoiceLineId === null);
-  const linked = all.filter((i) => i.invoiceLineId !== null);
 
   // Normalisation pour matching flou
   const norm = (s: string | null | undefined) =>
@@ -61,60 +75,107 @@ async function findDuplicatePairs(): Promise<InstallationPair[]> {
 
   const DATE_TOLERANCE_DAYS = 3;
 
+  // Grouper par (clientId + nomProduit + fournisseur + quantité)
+  type Installation = (typeof all)[number];
+  const groups = new Map<string, Installation[]>();
+
+  for (const inst of all) {
+    const key = [
+      inst.clientId,
+      norm(inst.product.name),
+      norm(inst.product.supplier),
+      inst.quantity.toFixed(2),
+    ].join("|");
+    const arr = groups.get(key) || [];
+    arr.push(inst);
+    groups.set(key, arr);
+  }
+
   const pairs: InstallationPair[] = [];
-  const alreadyMatched = new Set<string>();
+  const alreadyPaired = new Set<string>();
 
-  for (const orphan of orphans) {
-    // Candidats : même client, même nom de produit (insensible casse/espaces),
-    // même fournisseur (ou les deux vides), dates à ±3 jours, non déjà appariés
-    const candidates = linked.filter(
-      (l) =>
-        !alreadyMatched.has(l.id) &&
-        l.clientId === orphan.clientId &&
-        norm(l.product.name) === norm(orphan.product.name) &&
-        norm(l.product.supplier) === norm(orphan.product.supplier) &&
-        dayDiff(l.startDate, orphan.startDate) <= DATE_TOLERANCE_DAYS &&
-        dayDiff(l.endDate, orphan.endDate) <= DATE_TOLERANCE_DAYS &&
-        Math.abs(l.quantity - orphan.quantity) < 0.0001
-    );
+  // Pour chaque groupe de 2+ installations, chercher des paires compatibles
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
 
-    if (candidates.length === 0) continue;
+    for (let i = 0; i < group.length; i++) {
+      if (alreadyPaired.has(group[i].id)) continue;
+      for (let j = i + 1; j < group.length; j++) {
+        if (alreadyPaired.has(group[j].id)) continue;
+        const a = group[i];
+        const b = group[j];
+        if (
+          dayDiff(a.startDate, b.startDate) <= DATE_TOLERANCE_DAYS &&
+          dayDiff(a.endDate, b.endDate) <= DATE_TOLERANCE_DAYS
+        ) {
+          // Choisir laquelle garder
+          const sideA = {
+            id: a.id,
+            createdAt: a.createdAt,
+            status: a.status,
+            notes: a.notes,
+            comParc: a.comParc,
+            alwaysInFleet: a.alwaysInFleet,
+            startDate: a.startDate,
+            endDate: a.endDate,
+            invoice: a.invoice,
+            invoiceLineId: a.invoiceLineId,
+            historyCount: a._count.history,
+          };
+          const sideB = {
+            id: b.id,
+            createdAt: b.createdAt,
+            status: b.status,
+            notes: b.notes,
+            comParc: b.comParc,
+            alwaysInFleet: b.alwaysInFleet,
+            startDate: b.startDate,
+            endDate: b.endDate,
+            invoice: b.invoice,
+            invoiceLineId: b.invoiceLineId,
+            historyCount: b._count.history,
+          };
 
-    // Prendre le candidat dont les dates sont les plus proches
-    candidates.sort(
-      (a, b) =>
-        dayDiff(a.startDate, orphan.startDate) +
-        dayDiff(a.endDate, orphan.endDate) -
-        (dayDiff(b.startDate, orphan.startDate) + dayDiff(b.endDate, orphan.endDate))
-    );
-    const best = candidates[0];
-    alreadyMatched.add(best.id);
+          const scoreA = metadataScore(sideA);
+          const scoreB = metadataScore(sideB);
 
-    pairs.push({
-      orphan: {
-        id: orphan.id,
-        createdAt: orphan.createdAt,
-        status: orphan.status,
-        notes: orphan.notes,
-        comParc: orphan.comParc,
-        alwaysInFleet: orphan.alwaysInFleet,
-        startDate: orphan.startDate,
-        endDate: orphan.endDate,
-      },
-      linked: {
-        id: best.id,
-        createdAt: best.createdAt,
-        status: best.status,
-        notes: best.notes,
-        comParc: best.comParc,
-        alwaysInFleet: best.alwaysInFleet,
-        startDate: best.startDate,
-        endDate: best.endDate,
-        invoice: best.invoice,
-      },
-      client: orphan.client,
-      product: { id: orphan.product.id, name: orphan.product.name },
-    });
+          let keeper, victim;
+          if (scoreA > scoreB) {
+            keeper = sideA; victim = sideB;
+          } else if (scoreB > scoreA) {
+            keeper = sideB; victim = sideA;
+          } else {
+            // Égalité : garder la plus ancienne
+            if (a.createdAt <= b.createdAt) { keeper = sideA; victim = sideB; }
+            else { keeper = sideB; victim = sideA; }
+          }
+
+          // Raison lisible
+          let reason = "";
+          if (keeper.invoiceLineId && !victim.invoiceLineId) {
+            reason = "Liée à une facture vs orpheline";
+          } else if (!keeper.invoiceLineId && !victim.invoiceLineId) {
+            reason = "Deux imports manuels sans facture";
+          } else if (keeper.invoiceLineId && victim.invoiceLineId) {
+            reason = "Deux factures différentes";
+          } else {
+            reason = "Doublon";
+          }
+
+          alreadyPaired.add(a.id);
+          alreadyPaired.add(b.id);
+
+          pairs.push({
+            victim,
+            keeper,
+            client: a.client,
+            product: { id: a.product.id, name: a.product.name },
+            reason,
+          });
+          break; // passer au i suivant
+        }
+      }
+    }
   }
 
   return pairs;
@@ -141,8 +202,9 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const orphanIds: string[] = body.orphanIds || [];
-  if (!Array.isArray(orphanIds) || orphanIds.length === 0) {
+  // Accepter victimIds (nouveau) et orphanIds (ancien, rétrocompat)
+  const victimIds: string[] = body.victimIds || body.orphanIds || [];
+  if (!Array.isArray(victimIds) || victimIds.length === 0) {
     return NextResponse.json({ error: "Aucune installation à fusionner" }, { status: 400 });
   }
 
@@ -150,7 +212,7 @@ export async function POST(req: NextRequest) {
     data: {
       type: "installations_dedup",
       status: "running",
-      message: `Fusion de ${orphanIds.length} doublons...`,
+      message: `Fusion de ${victimIds.length} doublons...`,
     },
   });
 
@@ -159,14 +221,14 @@ export async function POST(req: NextRequest) {
     let failed = 0;
     const mergedDetails: string[] = [];
 
-    // Re-détecter les paires côté serveur pour éviter qu'un client soumette un id frauduleux
+    // Re-détecter les paires côté serveur (anti-falsification)
     const allPairs = await findDuplicatePairs();
-    const pairsToMerge = allPairs.filter((p) => orphanIds.includes(p.orphan.id));
+    const pairsToMerge = allPairs.filter((p) => victimIds.includes(p.victim.id));
 
     for (const pair of pairsToMerge) {
       try {
         await prisma.$transaction(async (tx) => {
-          // Préparer les champs à transférer (seulement si vides côté facture)
+          // Transférer les champs utilisateur (seulement si vides chez le keeper)
           const updateData: {
             notes?: string;
             comParc?: string;
@@ -174,42 +236,41 @@ export async function POST(req: NextRequest) {
             status?: string;
           } = {};
 
-          if (pair.orphan.notes && !pair.linked.notes) {
-            updateData.notes = pair.orphan.notes;
+          if (pair.victim.notes && !pair.keeper.notes) {
+            updateData.notes = pair.victim.notes;
           }
-          if (pair.orphan.comParc && !pair.linked.comParc) {
-            updateData.comParc = pair.orphan.comParc;
+          if (pair.victim.comParc && !pair.keeper.comParc) {
+            updateData.comParc = pair.victim.comParc;
           }
-          if (pair.orphan.alwaysInFleet && !pair.linked.alwaysInFleet) {
+          if (pair.victim.alwaysInFleet && !pair.keeper.alwaysInFleet) {
             updateData.alwaysInFleet = true;
           }
-          // Si la liée à la facture a encore le status par défaut, prendre celui de l'orpheline
           if (
-            pair.linked.status === "EN_PARC_GARANTIE" &&
-            pair.orphan.status !== "EN_PARC_GARANTIE"
+            pair.keeper.status === "EN_PARC_GARANTIE" &&
+            pair.victim.status !== "EN_PARC_GARANTIE"
           ) {
-            updateData.status = pair.orphan.status;
+            updateData.status = pair.victim.status;
           }
 
           if (Object.keys(updateData).length > 0) {
             await tx.installation.update({
-              where: { id: pair.linked.id },
+              where: { id: pair.keeper.id },
               data: updateData,
             });
           }
 
           // Transférer l'historique
           await tx.installationHistory.updateMany({
-            where: { installationId: pair.orphan.id },
-            data: { installationId: pair.linked.id },
+            where: { installationId: pair.victim.id },
+            data: { installationId: pair.keeper.id },
           });
 
-          // Soft-delete de l'orpheline
+          // Soft-delete de la victime
           await tx.installation.update({
-            where: { id: pair.orphan.id },
+            where: { id: pair.victim.id },
             data: {
               deletedAt: new Date(),
-              notes: `[Fusionnée avec ${pair.linked.id} le ${new Date().toISOString()}] ${pair.orphan.notes || ""}`.trim(),
+              notes: `[Fusionnée avec ${pair.keeper.id} le ${new Date().toISOString()}] ${pair.victim.notes || ""}`.trim(),
             },
           });
         });
@@ -218,7 +279,7 @@ export async function POST(req: NextRequest) {
         mergedDetails.push(`${pair.client.name} / ${pair.product.name}`);
       } catch (e) {
         failed++;
-        console.error(`Fusion échouée pour orphan ${pair.orphan.id}:`, e);
+        console.error(`Fusion échouée pour victim ${pair.victim.id}:`, e);
       }
     }
 
