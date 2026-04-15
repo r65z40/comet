@@ -39,76 +39,82 @@ interface InstallationPair {
 }
 
 async function findDuplicatePairs(): Promise<InstallationPair[]> {
-  // Toutes les installations orphelines (hors soft-deleted)
-  const orphans = await prisma.installation.findMany({
-    where: {
-      invoiceLineId: null,
-      deletedAt: null,
-    },
+  // Charger toutes les installations actives avec leur produit
+  const all = await prisma.installation.findMany({
+    where: { deletedAt: null },
     include: {
       client: { select: { id: true, name: true } },
-      product: { select: { id: true, name: true } },
+      product: { select: { id: true, name: true, supplier: true } },
+      invoice: { select: { id: true, invoiceNumber: true } },
     },
     orderBy: { createdAt: "asc" },
   });
+
+  const orphans = all.filter((i) => i.invoiceLineId === null);
+  const linked = all.filter((i) => i.invoiceLineId !== null);
+
+  // Normalisation pour matching flou
+  const norm = (s: string | null | undefined) =>
+    (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const dayDiff = (a: Date, b: Date) =>
+    Math.abs(Math.floor((a.getTime() - b.getTime()) / 86400000));
+
+  const DATE_TOLERANCE_DAYS = 3;
 
   const pairs: InstallationPair[] = [];
   const alreadyMatched = new Set<string>();
 
   for (const orphan of orphans) {
-    const startDay = new Date(orphan.startDate);
-    startDay.setHours(0, 0, 0, 0);
-    const nextDay = new Date(startDay);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const endDay = new Date(orphan.endDate);
-    endDay.setHours(0, 0, 0, 0);
-    const endNextDay = new Date(endDay);
-    endNextDay.setDate(endNextDay.getDate() + 1);
+    // Candidats : même client, même nom de produit (insensible casse/espaces),
+    // même fournisseur (ou les deux vides), dates à ±3 jours, non déjà appariés
+    const candidates = linked.filter(
+      (l) =>
+        !alreadyMatched.has(l.id) &&
+        l.clientId === orphan.clientId &&
+        norm(l.product.name) === norm(orphan.product.name) &&
+        norm(l.product.supplier) === norm(orphan.product.supplier) &&
+        dayDiff(l.startDate, orphan.startDate) <= DATE_TOLERANCE_DAYS &&
+        dayDiff(l.endDate, orphan.endDate) <= DATE_TOLERANCE_DAYS &&
+        Math.abs(l.quantity - orphan.quantity) < 0.0001
+    );
 
-    // Chercher l'installation liée à une facture qui correspond
-    const linked = await prisma.installation.findFirst({
-      where: {
-        clientId: orphan.clientId,
-        productId: orphan.productId,
-        invoiceLineId: { not: null },
-        deletedAt: null,
-        startDate: { gte: startDay, lt: nextDay },
-        endDate: { gte: endDay, lt: endNextDay },
-        id: { notIn: Array.from(alreadyMatched) },
+    if (candidates.length === 0) continue;
+
+    // Prendre le candidat dont les dates sont les plus proches
+    candidates.sort(
+      (a, b) =>
+        dayDiff(a.startDate, orphan.startDate) +
+        dayDiff(a.endDate, orphan.endDate) -
+        (dayDiff(b.startDate, orphan.startDate) + dayDiff(b.endDate, orphan.endDate))
+    );
+    const best = candidates[0];
+    alreadyMatched.add(best.id);
+
+    pairs.push({
+      orphan: {
+        id: orphan.id,
+        createdAt: orphan.createdAt,
+        status: orphan.status,
+        notes: orphan.notes,
+        comParc: orphan.comParc,
+        alwaysInFleet: orphan.alwaysInFleet,
+        startDate: orphan.startDate,
+        endDate: orphan.endDate,
       },
-      include: {
-        invoice: { select: { id: true, invoiceNumber: true } },
+      linked: {
+        id: best.id,
+        createdAt: best.createdAt,
+        status: best.status,
+        notes: best.notes,
+        comParc: best.comParc,
+        alwaysInFleet: best.alwaysInFleet,
+        startDate: best.startDate,
+        endDate: best.endDate,
+        invoice: best.invoice,
       },
+      client: orphan.client,
+      product: { id: orphan.product.id, name: orphan.product.name },
     });
-
-    if (linked) {
-      alreadyMatched.add(linked.id);
-      pairs.push({
-        orphan: {
-          id: orphan.id,
-          createdAt: orphan.createdAt,
-          status: orphan.status,
-          notes: orphan.notes,
-          comParc: orphan.comParc,
-          alwaysInFleet: orphan.alwaysInFleet,
-          startDate: orphan.startDate,
-          endDate: orphan.endDate,
-        },
-        linked: {
-          id: linked.id,
-          createdAt: linked.createdAt,
-          status: linked.status,
-          notes: linked.notes,
-          comParc: linked.comParc,
-          alwaysInFleet: linked.alwaysInFleet,
-          startDate: linked.startDate,
-          endDate: linked.endDate,
-          invoice: linked.invoice,
-        },
-        client: orphan.client,
-        product: orphan.product,
-      });
-    }
   }
 
   return pairs;

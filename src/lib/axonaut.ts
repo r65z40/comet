@@ -620,21 +620,35 @@ export async function generateInstallations() {
       endDate.setMonth(endDate.getMonth() + line.product.durationMonths);
 
       // Avant de créer, chercher une installation "orpheline" correspondante
-      // (même client + produit + dates) sans invoice liée, pour éviter les doublons
-      const startDay = new Date(startDate); startDay.setHours(0, 0, 0, 0);
-      const nextDay = new Date(startDay); nextDay.setDate(nextDay.getDate() + 1);
-      const endDay = new Date(endDate); endDay.setHours(0, 0, 0, 0);
-      const endNextDay = new Date(endDay); endNextDay.setDate(endNextDay.getDate() + 1);
+      // (même client + produit équivalent + dates ±3j + même quantité) sans
+      // invoice liée, pour éviter les doublons. On matche sur nom + fournisseur
+      // pour attraper aussi les cas où Axonaut a dupliqué le produit.
+      const norm = (s: string | null | undefined) =>
+        (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+      const startMin = new Date(startDate); startMin.setDate(startMin.getDate() - 3);
+      const startMax = new Date(startDate); startMax.setDate(startMax.getDate() + 3);
+      const endMin = new Date(endDate); endMin.setDate(endMin.getDate() - 3);
+      const endMax = new Date(endDate); endMax.setDate(endMax.getDate() + 3);
 
-      const orphan = await prisma.installation.findFirst({
+      const orphanCandidates = await prisma.installation.findMany({
         where: {
           clientId: line.invoice.clientId,
-          productId: line.product.id,
           invoiceLineId: null,
-          startDate: { gte: startDay, lt: nextDay },
-          endDate: { gte: endDay, lt: endNextDay },
+          deletedAt: null,
+          startDate: { gte: startMin, lte: startMax },
+          endDate: { gte: endMin, lte: endMax },
         },
+        include: { product: { select: { name: true, supplier: true } } },
       });
+
+      const productNameNorm = norm(line.product.name);
+      const productSupplierNorm = norm(line.product.supplier);
+      const orphan = orphanCandidates.find(
+        (o) =>
+          norm(o.product.name) === productNameNorm &&
+          norm(o.product.supplier) === productSupplierNorm &&
+          Math.abs(o.quantity - line.quantity) < 0.0001
+      );
 
       if (orphan) {
         // Lier l'installation orpheline à la nouvelle ligne de facture
