@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { RefreshCw, CheckCircle, XCircle, Loader2, Play, Zap, Bug, Trash2 } from "lucide-react";
+import { RefreshCw, CheckCircle, XCircle, Loader2, Play, Zap, Bug, Trash2, Copy } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import DedupInstallationsModal from "./DedupInstallationsModal";
 
 interface SyncLog {
   id: string;
@@ -47,6 +48,7 @@ export default function SyncPage() {
   const [showDebug, setShowDebug] = useState(false);
   const [loadingDebug, setLoadingDebug] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDedup, setShowDedup] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchLogs = useCallback(async () => {
@@ -156,6 +158,14 @@ export default function SyncPage() {
           <p className="text-sm text-slate-500 mt-1">Gérer la synchronisation avec Axonaut</p>
         </div>
         <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => setShowDedup(true)}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 sm:px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            title="Analyser et fusionner les installations en doublon"
+          >
+            <Copy className="h-4 w-4" />
+            <span className="hidden sm:inline">Doublons d&apos;installations</span>
+          </button>
           <button
             onClick={fetchDebug}
             disabled={loadingDebug}
@@ -351,6 +361,12 @@ export default function SyncPage() {
           </div>
         )}
       </div>
+
+      <DedupInstallationsModal
+        open={showDedup}
+        onClose={() => setShowDedup(false)}
+        onMerged={fetchLogs}
+      />
     </div>
   );
 }
