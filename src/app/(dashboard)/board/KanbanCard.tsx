@@ -207,13 +207,13 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
       {(card.client || contactName) && (
         <div className="flex flex-col gap-0.5 mb-2">
           {card.client && (
-            <span className="flex items-center gap-1 text-xs text-slate-600">
-              <Building2 className="h-3 w-3 text-slate-400 flex-shrink-0" />
-              <span className="truncate">{card.client.name}</span>
+            <span className="flex items-center gap-1.5 px-2 py-1 bg-primary-50 border border-primary-100 rounded-md">
+              <Building2 className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
+              <span className="truncate text-xs font-semibold text-primary-700">{card.client.name}</span>
             </span>
           )}
           {contactName && (
-            <span className="flex items-center gap-1 text-xs text-slate-500">
+            <span className="flex items-center gap-1 text-xs text-slate-500 pl-1">
               <User className="h-3 w-3 text-slate-400 flex-shrink-0" />
               <span className="truncate">{contactName}</span>
             </span>

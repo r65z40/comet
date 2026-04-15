@@ -695,11 +695,11 @@ function ScreenCard({ card, isDraggingOverlay }: { card: BoardCard; isDraggingOv
           <p className="text-sm font-medium text-white line-clamp-2">{card.title}</p>
 
           {card.client && (
-            <div className="flex items-center gap-1.5 mt-1.5">
+            <div className="inline-flex items-center gap-1.5 mt-1.5 px-2 py-1 rounded-md bg-blue-500/15 border border-blue-500/30">
               {card.client.logoUrl ? (
                 <img src={card.client.logoUrl} alt="" className="h-4 w-4 rounded-full object-cover" />
               ) : null}
-              <span className="text-xs text-slate-400 truncate">{card.client.name}</span>
+              <span className="text-xs font-semibold text-blue-300 truncate">{card.client.name}</span>
             </div>
           )}
 

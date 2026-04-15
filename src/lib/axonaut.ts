@@ -594,6 +594,7 @@ export async function generateInstallations() {
     let skippedNoDuration = 0;
     let skippedNoClient = 0;
     let skippedExisting = 0;
+    let merged = 0;
 
     const invoiceLines = await prisma.invoiceLine.findMany({
       include: {
@@ -617,6 +618,39 @@ export async function generateInstallations() {
       const startDate = new Date(line.invoice.invoiceDate);
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + line.product.durationMonths);
+
+      // Avant de créer, chercher une installation "orpheline" correspondante
+      // (même client + produit + dates) sans invoice liée, pour éviter les doublons
+      const startDay = new Date(startDate); startDay.setHours(0, 0, 0, 0);
+      const nextDay = new Date(startDay); nextDay.setDate(nextDay.getDate() + 1);
+      const endDay = new Date(endDate); endDay.setHours(0, 0, 0, 0);
+      const endNextDay = new Date(endDay); endNextDay.setDate(endNextDay.getDate() + 1);
+
+      const orphan = await prisma.installation.findFirst({
+        where: {
+          clientId: line.invoice.clientId,
+          productId: line.product.id,
+          invoiceLineId: null,
+          startDate: { gte: startDay, lt: nextDay },
+          endDate: { gte: endDay, lt: endNextDay },
+        },
+      });
+
+      if (orphan) {
+        // Lier l'installation orpheline à la nouvelle ligne de facture
+        await prisma.installation.update({
+          where: { id: orphan.id },
+          data: {
+            invoiceId: line.invoiceId,
+            invoiceLineId: line.id,
+            supplier: line.product.supplier ?? orphan.supplier,
+            family: line.product.family ?? orphan.family,
+            quantity: line.quantity,
+          },
+        });
+        merged++;
+        continue;
+      }
 
       const status = "EN_PARC";
 
@@ -643,8 +677,8 @@ export async function generateInstallations() {
       where: { id: log.id },
       data: {
         status: "success",
-        message: `${totalGenerated} installations générées (${invoiceLines.length} lignes analysées, ${skippedNoProduct} sans produit lié, ${skippedNoDuration} sans durée, ${skippedNoClient} sans client, ${skippedExisting} déjà existantes)`,
-        itemCount: totalGenerated,
+        message: `${totalGenerated} installations générées, ${merged} fusionnées avec des orphelines (${invoiceLines.length} lignes analysées, ${skippedNoProduct} sans produit lié, ${skippedNoDuration} sans durée, ${skippedNoClient} sans client, ${skippedExisting} déjà existantes)`,
+        itemCount: totalGenerated + merged,
         completedAt: new Date(),
       },
     });
