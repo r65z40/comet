@@ -126,6 +126,20 @@ export default function DedupInstallationsModal({ open, onClose, onMerged }: Pro
     }
   }
 
+  /** Inverse le rôle victim/keeper pour toutes les paires */
+  function swapAll() {
+    setPairs((prev) =>
+      prev.map((p) => ({ ...p, victim: p.keeper, keeper: p.victim }))
+    );
+    setSelected((prev) => {
+      const next = new Set<string>();
+      for (const p of pairs) {
+        if (prev.has(p.victim.id)) next.add(p.keeper.id);
+      }
+      return next;
+    });
+  }
+
   /** Inverse le rôle victim/keeper pour une paire donnée */
   function swapSides(pairIndex: number) {
     setPairs((prev) => {
@@ -242,9 +256,17 @@ export default function DedupInstallationsModal({ open, onClose, onMerged }: Pro
                     {selected.size} / {pairs.length} sélectionnée(s)
                   </span>
                 </label>
-                <span className="text-xs text-slate-500">
-                  {pairs.length} paire(s) détectée(s)
-                </span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={swapAll}
+                    className="text-xs text-slate-500 hover:text-primary-600 underline"
+                  >
+                    Tout inverser
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    {pairs.length} paire(s) détectée(s)
+                  </span>
+                </div>
               </div>
 
               {pairs.map((pair, idx) => (
