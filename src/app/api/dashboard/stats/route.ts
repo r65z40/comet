@@ -40,13 +40,13 @@ export async function GET() {
       prisma.installation.count({ where: { status: { in: ["HORS_PARC", "EN_PARC_HORS_GARANTIE"] } } }),
       prisma.installation.count({ where: { status: "RENOUVELE" } }),
       prisma.installation.count({
-        where: { endDate: { gte: now, lte: thirtyDays }, status: { not: "RENOUVELE" }, alwaysInFleet: { not: true } },
+        where: { endDate: { gte: now, lte: thirtyDays }, status: { not: "RENOUVELE" }, alwaysInFleet: { not: true }, deletedAt: null },
       }),
       prisma.installation.count({
-        where: { endDate: { gte: now, lte: sixtyDays }, status: { not: "RENOUVELE" }, alwaysInFleet: { not: true } },
+        where: { endDate: { gte: now, lte: sixtyDays }, status: { not: "RENOUVELE" }, alwaysInFleet: { not: true }, deletedAt: null },
       }),
       prisma.installation.count({
-        where: { endDate: { gte: now, lte: ninetyDays }, status: { not: "RENOUVELE" }, alwaysInFleet: { not: true } },
+        where: { endDate: { gte: now, lte: ninetyDays }, status: { not: "RENOUVELE" }, alwaysInFleet: { not: true }, deletedAt: null },
       }),
       prisma.installation.groupBy({
         by: ["family"],
@@ -71,6 +71,7 @@ export async function GET() {
           AND "endDate" <= NOW() + INTERVAL '12 months'
           AND status != 'RENOUVELE'
           AND ("alwaysInFleet" IS NULL OR "alwaysInFleet" = false)
+          AND "deletedAt" IS NULL
         GROUP BY TO_CHAR("endDate", 'YYYY-MM')
         ORDER BY month ASC
       `,
@@ -80,6 +81,7 @@ export async function GET() {
         where: {
           status: { not: "RENOUVELE" },
           alwaysInFleet: { not: true },
+          deletedAt: null,
           endDate: { gte: now, lte: ninetyDays },
         },
         include: {

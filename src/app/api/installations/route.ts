@@ -46,15 +46,18 @@ export async function GET(req: NextRequest) {
       future.setDate(future.getDate() + days);
       where.endDate = { gte: now, lte: future };
       where.status = { not: "RENOUVELE" };
+      where.alwaysInFleet = { not: true };
     }
   }
 
-  // Filter by month (YYYY-MM)
+  // Filter by month (YYYY-MM) — mirrors the dashboard chart filter
   if (month && /^\d{4}-\d{2}$/.test(month)) {
     const [year, m] = month.split("-").map(Number);
     const start = new Date(year, m - 1, 1);
     const end = new Date(year, m, 0, 23, 59, 59, 999);
     where.endDate = { gte: start, lte: end };
+    if (!status) where.status = { not: "RENOUVELE" };
+    where.alwaysInFleet = { not: true };
   }
 
   if (search) {

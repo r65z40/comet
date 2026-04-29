@@ -13,6 +13,8 @@ export async function GET() {
   const installations = await prisma.installation.findMany({
     where: {
       status: { not: "RENOUVELE" },
+      alwaysInFleet: { not: true },
+      deletedAt: null,
       endDate: { gte: now, lte: future },
     },
     include: {
