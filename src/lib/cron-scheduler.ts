@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import { sendExpiryNotifications } from "@/lib/email";
 import { createBackup, getBackupSettings, rotateBackups, sendBackupFailureNotification } from "@/lib/backup";
-import { syncAllFromAtera } from "@/lib/atera";
 
 // Paris timezone helpers
 function getParisComponents() {
@@ -49,7 +48,6 @@ function getParisDateString(): string {
 export async function executeCronJob(): Promise<{
   alerts: { sent?: boolean; skipped?: boolean; reason?: string; count?: number };
   backup: { done: boolean; reason?: string; filename?: string };
-  ateraSync: { synced: number; errors: number };
 }> {
   const pc = getParisComponents();
   const parisHour = pc.hour;
@@ -138,42 +136,7 @@ export async function executeCronJob(): Promise<{
     backupResult = { done: false, reason: backupMsg };
   }
 
-  // === Atera Bidirectional Sync ===
-  let ateraSyncResult: { synced: number; errors: number; skipped?: boolean } = { synced: 0, errors: 0 };
-  try {
-    ateraSyncResult = await syncAllFromAtera();
-    const statusMsg = ateraSyncResult.skipped
-      ? "SKIPPED"
-      : ateraSyncResult.errors > 0
-        ? "PARTIAL"
-        : "SUCCESS";
-    const message = ateraSyncResult.skipped
-      ? `${todayStr} ${parisTimeStr} - Atera non configuré ou désactivé`
-      : `${todayStr} ${parisTimeStr} - Synced: ${ateraSyncResult.synced}, Errors: ${ateraSyncResult.errors}`;
-    await prisma.syncLog.create({
-      data: {
-        type: "ATERA_SYNC",
-        status: statusMsg,
-        message,
-        itemCount: ateraSyncResult.synced,
-        startedAt: new Date(),
-        completedAt: new Date(),
-      },
-    }).catch(() => {});
-  } catch (ateraErr) {
-    const ateraMsg = ateraErr instanceof Error ? ateraErr.message : String(ateraErr);
-    await prisma.syncLog.create({
-      data: {
-        type: "ATERA_SYNC",
-        status: "ERROR",
-        message: `${todayStr} ${parisTimeStr} - ${ateraMsg}`,
-        startedAt: new Date(),
-        completedAt: new Date(),
-      },
-    }).catch(() => {});
-  }
-
-  return { alerts: alertResult, backup: backupResult, ateraSync: ateraSyncResult };
+  return { alerts: alertResult, backup: backupResult };
 }
 
 async function runAutoBackup(
