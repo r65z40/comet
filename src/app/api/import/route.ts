@@ -272,8 +272,6 @@ export async function POST(req: NextRequest) {
           let status = "EN_PARC_GARANTIE";
           if (renew) {
             status = "RENOUVELE";
-          } else if (!inPark) {
-            status = "HORS_PARC";
           } else if (warrantyEnd < new Date()) {
             status = "EN_PARC_HORS_GARANTIE";
           }
@@ -291,6 +289,7 @@ export async function POST(req: NextRequest) {
               durationMonths,
               endDate: warrantyEnd,
               status,
+              alwaysInFleet: inPark,
               comParc: comParc || null,
               importSource,
               importDetails,
