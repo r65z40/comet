@@ -58,6 +58,8 @@ model Client {
   clientType        String?
   notes             String?
   logoUrl           String?
+  importSource      String?
+  importDetails     String?
   deletedAt         DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -119,6 +121,8 @@ model Contact {
   mobile             String?
   jobTitle           String?
   isBillingContact   Boolean  @default(false)
+  importSource       String?
+  importDetails      String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   boardCards         BoardCard[]
@@ -162,6 +166,8 @@ model Product {
   duration        String?
   durationMonths  Int?
   unitPrice       Float?
+  importSource    String?
+  importDetails   String?
   deletedAt       DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -181,6 +187,8 @@ model Invoice {
   invoiceDate     DateTime
   totalAmount     Float?
   status          String?
+  importSource    String?
+  importDetails   String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   lines           InvoiceLine[]
@@ -200,6 +208,8 @@ model InvoiceLine {
   unitPrice       Float?
   purchasePrice   Float?
   totalPrice      Float?
+  importSource    String?
+  importDetails   String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -225,6 +235,8 @@ model Installation {
   alwaysInFleet   Boolean            @default(false)
   comParc         String?
   notes           String?
+  importSource    String?
+  importDetails   String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   history         InstallationHistory[]

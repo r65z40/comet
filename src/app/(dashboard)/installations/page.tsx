@@ -19,6 +19,8 @@ interface Installation {
   status: string;
   alwaysInFleet: boolean;
   comParc: string | null;
+  importSource: string | null;
+  importDetails: string | null;
   client: { id: string; name: string };
   product: { id: string; name: string; code: string | null };
 }
@@ -140,6 +142,27 @@ export default function InstallationsPage() {
           {i.alwaysInFleet ? "Toujours en parc" : formatCountdown(i.endDate)}
         </span>
       ),
+    },
+    {
+      key: "importSource",
+      label: "Source",
+      render: (i: Installation) =>
+        i.importSource ? (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded ${
+              i.importSource === "axonaut"
+                ? "bg-blue-50 text-blue-700"
+                : i.importSource === "import"
+                ? "bg-amber-50 text-amber-700"
+                : "bg-slate-50 text-slate-600"
+            }`}
+            title={i.importDetails || ""}
+          >
+            {i.importSource === "axonaut" ? "API" : i.importSource === "import" ? "Import" : i.importSource}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-300">—</span>
+        ),
     },
     {
       key: "status",

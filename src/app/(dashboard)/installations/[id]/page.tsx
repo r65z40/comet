@@ -20,6 +20,8 @@ interface InstallationDetail {
   alwaysInFleet: boolean;
   comParc: string | null;
   notes: string | null;
+  importSource: string | null;
+  importDetails: string | null;
   client: { id: string; name: string; email: string | null; phone: string | null; address: string | null; city: string | null };
   product: { id: string; name: string; code: string | null; description: string | null };
   invoice: { id: string; invoiceNumber: string | null; invoiceDate: string } | null;
@@ -370,6 +372,20 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
                 onCancel={() => setEditingField(null)}
                 onChangeValue={setEditValue}
               />
+              {installation.importSource && (
+                <InfoItem
+                  icon={Info}
+                  label="Source"
+                  value={
+                    installation.importSource === "axonaut"
+                      ? "API Axonaut"
+                      : installation.importSource === "import"
+                      ? "Import manuel"
+                      : installation.importSource
+                  }
+                  sub={installation.importDetails || undefined}
+                />
+              )}
             </div>
           </div>
 
@@ -549,7 +565,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
   );
 }
 
-function InfoItem({ icon: Icon, label, value }: { icon: typeof Calendar; label: string; value: string }) {
+function InfoItem({ icon: Icon, label, value, sub }: { icon: typeof Calendar; label: string; value: string; sub?: string }) {
   return (
     <div className="flex items-start gap-3">
       <div className="rounded-lg bg-slate-100 p-2">
@@ -558,6 +574,7 @@ function InfoItem({ icon: Icon, label, value }: { icon: typeof Calendar; label: 
       <div>
         <p className="text-xs text-slate-400">{label}</p>
         <p className="text-sm font-medium text-slate-800">{value}</p>
+        {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
       </div>
     </div>
   );

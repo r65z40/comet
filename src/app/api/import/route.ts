@@ -140,6 +140,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const importSource = "import";
+    const importDetails = `${file.name} — ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+
     const results = {
       total: 0,
       created: 0,
@@ -184,7 +187,7 @@ export async function POST(req: NextRequest) {
         });
         if (!client) {
           client = await prisma.client.create({
-            data: { name: clientName },
+            data: { name: clientName, importSource, importDetails },
           });
         }
 
@@ -202,6 +205,8 @@ export async function POST(req: NextRequest) {
                 family: family || null,
                 supplier: supplier || null,
                 unitPrice: salePrice,
+                importSource,
+                importDetails,
               },
             });
           }
@@ -221,6 +226,8 @@ export async function POST(req: NextRequest) {
                 clientId: client.id,
                 invoiceDate,
                 status: "PAYEE",
+                importSource,
+                importDetails,
               },
             });
           }
@@ -230,6 +237,8 @@ export async function POST(req: NextRequest) {
               clientId: client.id,
               invoiceDate,
               status: "PAYEE",
+              importSource,
+              importDetails,
             },
           });
         }
@@ -246,6 +255,8 @@ export async function POST(req: NextRequest) {
             unitPrice,
             purchasePrice,
             totalPrice,
+            importSource,
+            importDetails,
           },
         });
 
@@ -281,6 +292,8 @@ export async function POST(req: NextRequest) {
               endDate: warrantyEnd,
               status,
               comParc: comParc || null,
+              importSource,
+              importDetails,
             },
           });
         }

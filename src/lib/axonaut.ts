@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
 
+function axonautImportDetails() {
+  return `Sync Axonaut — ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+}
+
 async function getAxonautConfig() {
   const settings = await prisma.setting.findMany({
     where: { key: { in: ["axonaut_api_key", "axonaut_api_url"] } },
@@ -226,6 +230,8 @@ export async function syncProducts() {
                 duration,
                 durationMonths: durationMonths || null,
                 unitPrice: toFloat(p.price),
+                importSource: "axonaut",
+                importDetails: axonautImportDetails(),
               },
             });
           }
@@ -332,7 +338,7 @@ export async function syncClients() {
             });
           } else {
             await prisma.client.create({
-              data: { axonautId: c.id, ...clientData },
+              data: { axonautId: c.id, ...clientData, importSource: "axonaut", importDetails: axonautImportDetails() },
             });
           }
         }
@@ -420,7 +426,7 @@ export async function syncContacts() {
           });
         } else {
           await prisma.contact.create({
-            data: { axonautId: emp.id, ...contactData },
+            data: { axonautId: emp.id, ...contactData, importSource: "axonaut", importDetails: axonautImportDetails() },
           });
         }
         totalSynced++;
@@ -496,6 +502,8 @@ export async function syncInvoices() {
             invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
             totalAmount: toFloat(inv.total_amount ?? inv.total),
             status: inv.status || null,
+            importSource: "axonaut",
+            importDetails: axonautImportDetails(),
           },
           update: {
             invoiceNumber: inv.number || inv.invoice_number || null,
@@ -544,6 +552,8 @@ export async function syncInvoices() {
               quantity: toFloat(line.quantity) ?? 1,
               unitPrice: toFloat(line.unit_price ?? line.price ?? line.unitPrice),
               totalPrice: toFloat(line.total_price ?? line.total ?? line.totalPrice),
+              importSource: "axonaut",
+              importDetails: axonautImportDetails(),
             },
           });
         }
@@ -681,6 +691,8 @@ export async function generateInstallations() {
           durationMonths: line.product.durationMonths,
           endDate,
           status,
+          importSource: "axonaut",
+          importDetails: axonautImportDetails(),
         },
       });
 
@@ -765,7 +777,7 @@ export async function refreshClient(axonautId: number) {
       });
       clientId = existingByName.id;
     } else {
-      const created = await prisma.client.create({ data: { axonautId: c.id, ...clientData } });
+      const created = await prisma.client.create({ data: { axonautId: c.id, ...clientData, importSource: "axonaut", importDetails: axonautImportDetails() } });
       clientId = created.id;
     }
   }
@@ -809,7 +821,7 @@ async function refreshClientContacts(companyAxonautId: number, clientId: string)
         });
       } else {
         await prisma.contact.create({
-          data: { axonautId: emp.id, ...contactData },
+          data: { axonautId: emp.id, ...contactData, importSource: "axonaut", importDetails: axonautImportDetails() },
         });
       }
     }
@@ -846,6 +858,8 @@ export async function refreshProduct(axonautId: number) {
       duration,
       durationMonths: durationMonths || null,
       unitPrice: toFloat(p.price),
+      importSource: "axonaut",
+      importDetails: axonautImportDetails(),
     },
     update: {
       name: p.name || "Sans nom",
@@ -913,6 +927,8 @@ export async function refreshInvoice(axonautId: number) {
       invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
       totalAmount: toFloat(inv.total_amount ?? inv.total),
       status: inv.status || null,
+      importSource: "axonaut",
+      importDetails: axonautImportDetails(),
     },
     update: {
       invoiceNumber: inv.number || inv.invoice_number || null,
@@ -957,6 +973,8 @@ export async function refreshInvoice(axonautId: number) {
         quantity: toFloat(line.quantity) ?? 1,
         unitPrice: toFloat(line.unit_price ?? line.price ?? line.unitPrice),
         totalPrice: toFloat(line.total_price ?? line.total ?? line.totalPrice),
+        importSource: "axonaut",
+        importDetails: axonautImportDetails(),
       },
     });
   }
