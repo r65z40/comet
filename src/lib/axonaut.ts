@@ -724,15 +724,7 @@ export async function generateInstallations() {
 }
 
 export async function updateInstallationStatuses() {
-  // Migrate old statuses to new ones
-  await prisma.installation.updateMany({
-    where: { status: "EN_PARC_GARANTIE" },
-    data: { status: "EN_PARC" },
-  });
-  await prisma.installation.updateMany({
-    where: { status: "EN_PARC_HORS_GARANTIE" },
-    data: { status: "HORS_PARC" },
-  });
+  // No-op: status changes are manual only
 }
 
 export async function refreshClient(axonautId: number) {

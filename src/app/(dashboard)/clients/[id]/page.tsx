@@ -373,12 +373,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
     function getReportStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
       if (alwaysInFleet) return "Toujours en parc";
-      if (status === "EN_PARC" || status === "EN_PARC_GARANTIE") {
+      if (status === "EN_PARC") {
         const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
         if (days > 0 && days <= 90) return `En parc (${days}j)`;
         return "En parc";
       }
-      if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE") return "Hors parc";
+      if (status === "HORS_PARC") return "Hors parc";
       if (status === "RENOUVELE") return "Renouvelé";
       return status;
     }
@@ -387,7 +387,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       if (alwaysInFleet) return "color: #6b7280; font-weight: 700;";
       const expired = new Date(endDate).getTime() < Date.now();
       if (status === "RENOUVELE") return "color: #2563eb; font-weight: 700;";
-      if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE") return "color: #dc2626; font-weight: 700;";
+      if (status === "HORS_PARC") return "color: #dc2626; font-weight: 700;";
       if (expired) return "color: #dc2626; font-weight: 700;";
       const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       if (days <= 90) return "color: #ea580c; font-weight: 700;";
@@ -397,7 +397,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     function getEndDateBgStyle(status: string, endDate: string, alwaysInFleet?: boolean): string {
       if (alwaysInFleet) return "background-color: #e5e7eb;";
       const expired = new Date(endDate).getTime() < Date.now();
-      if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE" || expired) return "background-color: #fecaca;";
+      if (status === "HORS_PARC" || expired) return "background-color: #fecaca;";
       const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       if (days <= 90) return "background-color: #fed7aa;";
       return "background-color: #bbf7d0;";
@@ -424,7 +424,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     // Exclude renewed installations from report, and optionally hors parc
     const reportInstallations = client.installations.filter(i => {
       if (i.status === "RENOUVELE" && !includeRenewed) return false;
-      if (!includeHorsParc && (i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE")) return false;
+      if (!includeHorsParc && (i.status === "HORS_PARC")) return false;
       return true;
     });
 
@@ -502,8 +502,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       `;
     }
 
-    const enParc = reportInstallations.filter(i => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
-    const horsParc = reportInstallations.filter(i => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
+    const enParc = reportInstallations.filter(i => i.status === "EN_PARC");
+    const horsParc = reportInstallations.filter(i => i.status === "HORS_PARC");
     const renewedCount = client.installations.filter(i => i.status === "RENOUVELE").length;
 
     const clientLogoHtml = client.logoUrl
@@ -702,8 +702,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const enParc = client.installations.filter((i) => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
-  const horsParc = client.installations.filter((i) => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
+  const enParc = client.installations.filter((i) => i.status === "EN_PARC");
+  const horsParc = client.installations.filter((i) => i.status === "HORS_PARC");
   const renouvele = client.installations.filter((i) => i.status === "RENOUVELE");
 
   return (
@@ -1136,8 +1136,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             <tbody className="divide-y divide-slate-200">
               {sortedInstallations(client.installations.filter((inst) => {
                 if (hideRenewed && inst.status === "RENOUVELE") return false;
-                if (statusFilter === "en_parc") return inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE";
-                if (statusFilter === "hors_parc") return inst.status === "HORS_PARC" || inst.status === "EN_PARC_HORS_GARANTIE";
+                if (statusFilter === "en_parc") return inst.status === "EN_PARC";
+                if (statusFilter === "hors_parc") return inst.status === "HORS_PARC";
                 if (statusFilter === "renouvele") return inst.status === "RENOUVELE";
                 return true;
               }).filter((inst) => {
@@ -1146,7 +1146,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 return inst.product.name.toLowerCase().includes(q) || (inst.product.code && inst.product.code.toLowerCase().includes(q)) || (inst.family && inst.family.toLowerCase().includes(q)) || (inst.supplier && inst.supplier.toLowerCase().includes(q));
               })).map((inst) => {
                 const expired = isWarrantyExpired(inst.endDate);
-                const isEnParc = inst.status === "EN_PARC" || inst.status === "EN_PARC_GARANTIE";
+                const isEnParc = inst.status === "EN_PARC";
                 return (
                 <tr
                   key={inst.id}

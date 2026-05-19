@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "status" && typeof value === "string") {
-    const validStatuses = ["EN_PARC", "HORS_PARC", "RENOUVELE", "EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE"];
+    const validStatuses = ["EN_PARC", "HORS_PARC", "RENOUVELE"];
     if (!validStatuses.includes(value)) {
       return NextResponse.json({ error: "Statut invalide" }, { status: 400 });
     }

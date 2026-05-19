@@ -12,7 +12,7 @@ export default function StatusBadge({ status, endDate, alwaysInFleet }: { status
     );
   }
 
-  const isEnParc = status === "EN_PARC" || status === "EN_PARC_GARANTIE";
+  const isEnParc = status === "EN_PARC";
 
   return (
     <span className="inline-flex items-center justify-center gap-1.5">

@@ -77,8 +77,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const activeInstalls = product.installations.filter((i) => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
-  const expiredInstalls = product.installations.filter((i) => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
+  const activeInstalls = product.installations.filter((i) => i.status === "EN_PARC");
+  const expiredInstalls = product.installations.filter((i) => i.status === "HORS_PARC");
   const renewedInstalls = product.installations.filter((i) => i.status === "RENOUVELE");
 
   return (

@@ -118,9 +118,7 @@ interface FeedData {
 
 const STATUS_LABELS: Record<string, string> = {
   EN_PARC: "En parc",
-  EN_PARC_GARANTIE: "En parc",
   HORS_PARC: "Hors parc",
-  EN_PARC_HORS_GARANTIE: "Hors parc",
   RENOUVELE: "Renouvelé",
 };
 
@@ -544,9 +542,9 @@ export default function BoardScreenPage() {
                       <ArrowRightLeft className="h-3 w-3 text-slate-500" />
                       <span className={cn(
                         "text-xs px-1.5 py-0.5 rounded font-medium",
-                        (item.newStatus === "HORS_PARC" || item.newStatus === "EN_PARC_HORS_GARANTIE")
+                        (item.newStatus === "HORS_PARC")
                           ? "bg-red-500/20 text-red-400"
-                          : (item.newStatus === "EN_PARC" || item.newStatus === "EN_PARC_GARANTIE")
+                          : (item.newStatus === "EN_PARC")
                             ? "bg-emerald-500/20 text-emerald-400"
                             : "bg-blue-500/20 text-blue-400"
                       )}>

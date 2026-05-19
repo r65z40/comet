@@ -5,7 +5,7 @@ import { z } from "zod";
 export const installationPatchSchema = z.object({
   notes: z.string().max(2000).optional(),
   comParc: z.string().max(500).optional(),
-  status: z.enum(["EN_PARC", "HORS_PARC", "RENOUVELE", "EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE"]).optional(),
+  status: z.enum(["EN_PARC", "HORS_PARC", "RENOUVELE"]).optional(),
   alwaysInFleet: z.boolean().optional(),
   endDate: z.string().datetime({ offset: true }).or(z.string().date()).optional(),
   startDate: z.string().datetime({ offset: true }).or(z.string().date()).optional(),

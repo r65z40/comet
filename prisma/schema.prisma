@@ -231,7 +231,7 @@ model Installation {
   startDate       DateTime
   durationMonths  Int
   endDate         DateTime
-  status          String             @default("EN_PARC_GARANTIE")
+  status          String             @default("EN_PARC")
   alwaysInFleet   Boolean            @default(false)
   comParc         String?
   notes           String?

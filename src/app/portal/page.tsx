@@ -36,10 +36,10 @@ export default function PortalDashboard() {
   const primaryColor = portalSettings?.primaryColor || "#3b82f6";
 
   const active = installations.filter(
-    (i) => !i.alwaysInFleet && (i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE")
+    (i) => !i.alwaysInFleet && (i.status === "EN_PARC")
   );
   const expired = installations.filter(
-    (i) => !i.alwaysInFleet && (i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE")
+    (i) => !i.alwaysInFleet && (i.status === "HORS_PARC")
   );
   const expiringSoon = active.filter((i) => {
     const days = Math.ceil((new Date(i.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));

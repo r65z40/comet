@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
       startDate: new Date(startDate),
       durationMonths: computedDuration,
       endDate: computedEndDate,
-      status: computedEndDate < new Date() ? "EN_PARC_HORS_GARANTIE" : "EN_PARC_GARANTIE",
+      status: "EN_PARC",
     },
     include: {
       product: { select: { id: true, name: true } },

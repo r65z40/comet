@@ -62,8 +62,8 @@ export async function GET() {
       }),
       // Quick stats
       Promise.all([
-        prisma.installation.count({ where: { status: { in: ["EN_PARC", "EN_PARC_GARANTIE"] }, deletedAt: null } }),
-        prisma.installation.count({ where: { status: { in: ["HORS_PARC", "EN_PARC_HORS_GARANTIE"] }, deletedAt: null } }),
+        prisma.installation.count({ where: { status: "EN_PARC", deletedAt: null } }),
+        prisma.installation.count({ where: { status: "HORS_PARC", deletedAt: null } }),
         prisma.installation.count({
           where: {
             endDate: { gte: now, lte: thirtyDays },

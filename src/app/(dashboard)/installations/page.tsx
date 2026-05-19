@@ -173,7 +173,7 @@ export default function InstallationsPage() {
       key: "actions",
       label: "Actions",
       render: (i: Installation) => {
-        const isEnParc = i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE";
+        const isEnParc = i.status === "EN_PARC";
         return (
           <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
             <button

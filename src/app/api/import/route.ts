@@ -269,12 +269,7 @@ export async function POST(req: NextRequest) {
             Math.round((warrantyEnd.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44))
           );
 
-          let status = "EN_PARC_GARANTIE";
-          if (renew) {
-            status = "RENOUVELE";
-          } else if (warrantyEnd < new Date()) {
-            status = "EN_PARC_HORS_GARANTIE";
-          }
+          const status = renew ? "RENOUVELE" : "EN_PARC";
 
           await prisma.installation.create({
             data: {

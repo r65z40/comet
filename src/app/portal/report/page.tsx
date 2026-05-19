@@ -42,12 +42,12 @@ export default function PortalReportPage() {
 
   function getStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
     if (alwaysInFleet) return "Toujours en parc";
-    if (status === "EN_PARC" || status === "EN_PARC_GARANTIE") {
+    if (status === "EN_PARC") {
       const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       if (days > 0 && days <= 90) return `En parc (${days}j)`;
       return "En parc";
     }
-    if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE") return "Hors parc";
+    if (status === "HORS_PARC") return "Hors parc";
     if (status === "RENOUVELE") return "Renouvelé";
     return status;
   }
@@ -55,7 +55,7 @@ export default function PortalReportPage() {
   function getStatusStyle(status: string, endDate: string, alwaysInFleet?: boolean): string {
     if (alwaysInFleet) return "color: #6b7280; font-weight: 700;";
     if (status === "RENOUVELE") return "color: #2563eb; font-weight: 700;";
-    if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE") return "color: #dc2626; font-weight: 700;";
+    if (status === "HORS_PARC") return "color: #dc2626; font-weight: 700;";
     const expired = new Date(endDate).getTime() < Date.now();
     if (expired) return "color: #dc2626; font-weight: 700;";
     const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -66,7 +66,7 @@ export default function PortalReportPage() {
   function getEndDateBgStyle(status: string, endDate: string, alwaysInFleet?: boolean): string {
     if (alwaysInFleet) return "background-color: #e5e7eb;";
     const expired = new Date(endDate).getTime() < Date.now();
-    if (status === "HORS_PARC" || status === "EN_PARC_HORS_GARANTIE" || expired) return "background-color: #fecaca;";
+    if (status === "HORS_PARC" || expired) return "background-color: #fecaca;";
     const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     if (days <= 90) return "background-color: #fed7aa;";
     return "background-color: #bbf7d0;";
@@ -78,8 +78,8 @@ export default function PortalReportPage() {
 
     const reportInstallations = installations.filter(i => i.status !== "RENOUVELE");
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
-    const enParc = reportInstallations.filter(i => i.status === "EN_PARC" || i.status === "EN_PARC_GARANTIE");
-    const horsParc = reportInstallations.filter(i => i.status === "HORS_PARC" || i.status === "EN_PARC_HORS_GARANTIE");
+    const enParc = reportInstallations.filter(i => i.status === "EN_PARC");
+    const horsParc = reportInstallations.filter(i => i.status === "HORS_PARC");
 
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 

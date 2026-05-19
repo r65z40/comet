@@ -53,11 +53,7 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
         setInstallation(data);
         setNotes(data.notes || "");
         setAlwaysInFleet(data.alwaysInFleet || false);
-        // Migrate old statuses on the fly for display
-        let s = data.status;
-        if (s === "EN_PARC_GARANTIE") s = "EN_PARC";
-        if (s === "EN_PARC_HORS_GARANTIE") s = "HORS_PARC";
-        setStatus(s);
+        setStatus(data.status);
       })
       .catch(() => {})
       .finally(() => setLoading(false));

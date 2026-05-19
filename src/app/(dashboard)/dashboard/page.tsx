@@ -111,16 +111,12 @@ const DEFAULT_PANELS: PanelConfig[] = [
 const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#14b8a6", "#f97316"];
 const STATUS_COLORS: Record<string, string> = {
   EN_PARC: "#10b981",
-  EN_PARC_GARANTIE: "#3b82f6",
   HORS_PARC: "#ef4444",
-  EN_PARC_HORS_GARANTIE: "#f59e0b",
   RENOUVELE: "#8b5cf6",
 };
 const STATUS_LABELS: Record<string, string> = {
   EN_PARC: "En parc",
-  EN_PARC_GARANTIE: "En parc (garantie)",
   HORS_PARC: "Hors parc",
-  EN_PARC_HORS_GARANTIE: "En parc (hors garantie)",
   RENOUVELE: "Renouvelé",
 };
 

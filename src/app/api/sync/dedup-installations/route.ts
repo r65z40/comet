@@ -246,8 +246,8 @@ export async function POST(req: NextRequest) {
             updateData.alwaysInFleet = true;
           }
           if (
-            pair.keeper.status === "EN_PARC_GARANTIE" &&
-            pair.victim.status !== "EN_PARC_GARANTIE"
+            pair.keeper.status === "EN_PARC" &&
+            pair.victim.status !== "EN_PARC"
           ) {
             updateData.status = pair.victim.status;
           }
