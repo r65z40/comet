@@ -29,13 +29,18 @@ export async function GET(req: NextRequest) {
   if (!includeDeleted) where.deletedAt = null;
 
   if (status) {
-    where.status = status;
+    // Backward compat: EN_PARC also matches old EN_PARC_GARANTIE/EN_PARC_HORS_GARANTIE
+    if (status === "EN_PARC") {
+      where.status = { in: ["EN_PARC", "EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE"] };
+    } else {
+      where.status = status;
+    }
   } else if (excludeRenewed === "true") {
     where.status = { not: "RENOUVELE" };
   }
   if (clientId) where.clientId = clientId;
-  if (family) where.family = family;
-  if (supplier) where.supplier = supplier;
+  if (family) where.family = { contains: family, mode: "insensitive" };
+  if (supplier) where.supplier = { contains: supplier, mode: "insensitive" };
 
   // Filter by expiring within N days
   if (expiring) {

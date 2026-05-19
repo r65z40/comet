@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search, X, ShieldCheck, ShieldAlert, RefreshCw, Trash2, CheckSquare } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { formatDate, formatCountdown, getCountdownColor } from "@/lib/utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
+
+const STORAGE_KEY = "installations-filters";
 
 interface Installation {
   id: string;
@@ -25,25 +27,64 @@ interface Installation {
   product: { id: string; name: string; code: string | null };
 }
 
+function readSaved(): Record<string, string> {
+  try {
+    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
+  } catch { return {}; }
+}
+
+function init(searchParams: URLSearchParams, key: string, fallback: string = ""): string {
+  return searchParams.get(key) || readSaved()[key] || fallback;
+}
+
 export default function InstallationsPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const mountRef = useRef(false);
+
   const [installations, setInstallations] = useState<Installation[]>([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => parseInt(init(searchParams, "page", "1")) || 1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "");
-  const [familyFilter, setFamilyFilter] = useState("");
-  const [supplierFilter, setSupplierFilter] = useState("");
-  const [expiringFilter, setExpiringFilter] = useState(searchParams.get("expiring") || "");
-  const [monthFilter, setMonthFilter] = useState(searchParams.get("month") || "");
-  const [perPage, setPerPage] = useState(40);
+  const [search, setSearch] = useState(() => init(searchParams, "search"));
+  const [statusFilter, setStatusFilter] = useState(() => init(searchParams, "status"));
+  const [familyFilter, setFamilyFilter] = useState(() => init(searchParams, "family"));
+  const [supplierFilter, setSupplierFilter] = useState(() => init(searchParams, "supplier"));
+  const [expiringFilter, setExpiringFilter] = useState(() => init(searchParams, "expiring"));
+  const [monthFilter, setMonthFilter] = useState(() => init(searchParams, "month"));
+  const [perPage, setPerPage] = useState(() => parseInt(init(searchParams, "perPage", "40")) || 40);
   const debouncedSearch = useDebounce(search);
   const debouncedFamily = useDebounce(familyFilter);
   const debouncedSupplier = useDebounce(supplierFilter);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+
+  // Sync filters → URL + sessionStorage
+  useEffect(() => {
+    if (!mountRef.current) { mountRef.current = true; return; }
+    const params = new URLSearchParams();
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (statusFilter) params.set("status", statusFilter);
+    if (debouncedFamily) params.set("family", debouncedFamily);
+    if (debouncedSupplier) params.set("supplier", debouncedSupplier);
+    if (expiringFilter) params.set("expiring", expiringFilter);
+    if (monthFilter) params.set("month", monthFilter);
+    if (page > 1) params.set("page", String(page));
+    if (perPage !== 40) params.set("perPage", String(perPage));
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    const save: Record<string, string> = {};
+    if (debouncedSearch) save.search = debouncedSearch;
+    if (statusFilter) save.status = statusFilter;
+    if (debouncedFamily) save.family = debouncedFamily;
+    if (debouncedSupplier) save.supplier = debouncedSupplier;
+    if (expiringFilter) save.expiring = expiringFilter;
+    if (monthFilter) save.month = monthFilter;
+    if (page > 1) save.page = String(page);
+    if (perPage !== 40) save.perPage = String(perPage);
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(save));
+  }, [debouncedSearch, statusFilter, debouncedFamily, debouncedSupplier, expiringFilter, monthFilter, page, perPage, pathname, router]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
