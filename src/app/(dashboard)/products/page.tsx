@@ -71,7 +71,7 @@ export default function ProductsPage() {
       render: (p: Product) => p.unitPrice ? `${p.unitPrice.toFixed(2)} €` : "—",
     },
     {
-      key: "installations",
+      key: "_count.installations",
       label: "Installations",
       render: (p: Product) => (
         <span className="rounded-full bg-primary-600/20 px-2.5 py-0.5 text-xs font-medium text-primary-600">
