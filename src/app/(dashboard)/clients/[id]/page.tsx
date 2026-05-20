@@ -559,7 +559,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       opacity: ${coverBgOpacity};
       z-index: 0;
     }
-    .cover-page > *:not(.cover-bg):not(.cover-logo-abs) { position: relative; z-index: 1; }
+    .cover-page > *:not(.cover-bg):not(.cover-logo-abs):not(.vertical-text) { position: relative; z-index: 1; }
     .cover-logo-abs { position: absolute; z-index: 1; }
     .cover-logo-abs img { object-fit: contain; }
     .cover-page h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; color: #1e293b; }
@@ -567,7 +567,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page .subtitle { font-size: 18px; color: #64748b; margin-bottom: 8px; }
     .cover-page .date { font-size: 16px; color: #94a3b8; margin-top: 40px; }
     .cover-page .message { font-size: 14px; color: #64748b; margin-top: 20px; max-width: 500px; line-height: 1.6; }
-    .cover-page .vertical-text { position: absolute; right: 15px; top: 0; bottom: 0; writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: flex-start; justify-content: center; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; }
+    .cover-page .vertical-text { position: absolute; right: 0; top: 0; bottom: 0; writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; padding-right: 15px; }
     @media print { .cover-page { page-break-after: always; } }
 
     .report-content { padding: 5mm; }
