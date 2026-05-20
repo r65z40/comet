@@ -100,8 +100,10 @@ export default function SettingsPage() {
   // Cover logo position/size settings
   const [companyLogoPosition, setCompanyLogoPosition] = useState("top-center");
   const [companyLogoSize, setCompanyLogoSize] = useState("180");
+  const [companyLogoTop, setCompanyLogoTop] = useState("5");
   const [clientLogoPosition, setClientLogoPosition] = useState("center");
   const [clientLogoSize, setClientLogoSize] = useState("150");
+  const [clientLogoTop, setClientLogoTop] = useState("70");
   const [reportShowDate, setReportShowDate] = useState(true);
 
   // Client merge (two separate searches for target and source)
@@ -336,8 +338,10 @@ export default function SettingsPage() {
         setReportCoverBgOpacity(data.report_cover_bg_opacity || "15");
         setCompanyLogoPosition(data.report_company_logo_position || "top-center");
         setCompanyLogoSize(data.report_company_logo_size || "180");
+        setCompanyLogoTop(data.report_company_logo_top || "5");
         setClientLogoPosition(data.report_client_logo_position || "center");
         setClientLogoSize(data.report_client_logo_size || "150");
+        setClientLogoTop(data.report_client_logo_top || "70");
         setReportShowDate(data.report_show_date !== "false");
         setSiteLogo(data.site_logo || "");
         setSiteFavicon(data.site_favicon || "");
@@ -548,8 +552,10 @@ export default function SettingsPage() {
         report_cover_bg_opacity: reportCoverBgOpacity,
         report_company_logo_position: companyLogoPosition,
         report_company_logo_size: companyLogoSize,
+        report_company_logo_top: companyLogoTop,
         report_client_logo_position: clientLogoPosition,
         report_client_logo_size: clientLogoSize,
+        report_client_logo_top: clientLogoTop,
         report_show_date: reportShowDate ? "true" : "false",
       }),
     });
@@ -1478,7 +1484,7 @@ export default function SettingsPage() {
         </div>
 
         {companyLogo && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1.5">
                 Position du logo société
@@ -1488,14 +1494,14 @@ export default function SettingsPage() {
                 onChange={(e) => setCompanyLogoPosition(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 focus:border-primary-500 focus:outline-none"
               >
-                <option value="top-left">Haut gauche</option>
-                <option value="top-center">Haut centre</option>
-                <option value="top-right">Haut droite</option>
+                <option value="top-left">Gauche</option>
+                <option value="top-center">Centre</option>
+                <option value="top-right">Droite</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1.5">
-                Taille du logo société ({companyLogoSize}px)
+                Taille ({companyLogoSize}px)
               </label>
               <input
                 type="range"
@@ -1507,10 +1513,24 @@ export default function SettingsPage() {
                 className="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-primary-600"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                Hauteur ({companyLogoTop}%)
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="90"
+                step="1"
+                value={companyLogoTop}
+                onChange={(e) => setCompanyLogoTop(e.target.value)}
+                className="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-primary-600"
+              />
+            </div>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">
               Position du logo client
@@ -1520,19 +1540,15 @@ export default function SettingsPage() {
               onChange={(e) => setClientLogoPosition(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 focus:border-primary-500 focus:outline-none"
             >
-              <option value="top-left">Haut gauche</option>
-              <option value="top-center">Haut centre</option>
-              <option value="top-right">Haut droite</option>
-              <option value="center">Centre (sous le titre)</option>
-              <option value="bottom-left">Bas gauche</option>
-              <option value="bottom-center">Bas centre</option>
-              <option value="bottom-right">Bas droite</option>
+              <option value="top-left">Gauche</option>
+              <option value="top-center">Centre</option>
+              <option value="top-right">Droite</option>
             </select>
-            <p className="text-xs text-slate-400 mt-1">Le logo du client est celui défini sur chaque fiche client</p>
+            <p className="text-xs text-slate-400 mt-1">Logo défini sur la fiche client</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">
-              Taille du logo client ({clientLogoSize}px)
+              Taille ({clientLogoSize}px)
             </label>
             <input
               type="range"
@@ -1541,6 +1557,20 @@ export default function SettingsPage() {
               step="10"
               value={clientLogoSize}
               onChange={(e) => setClientLogoSize(e.target.value)}
+              className="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-primary-600"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">
+              Hauteur ({clientLogoTop}%)
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="90"
+              step="1"
+              value={clientLogoTop}
+              onChange={(e) => setClientLogoTop(e.target.value)}
               className="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-primary-600"
             />
           </div>

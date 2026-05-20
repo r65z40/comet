@@ -371,9 +371,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const includeRenewed = reportSettings.report_include_renewed === "true";
     const companyLogoPosition = reportSettings.report_company_logo_position || "top-center";
     const companyLogoSizePx = parseInt(reportSettings.report_company_logo_size || "180");
+    const companyLogoTopPct = parseInt(reportSettings.report_company_logo_top || "5");
     const clientLogoPosition = reportSettings.report_client_logo_position || "center";
     const clientLogoSizePx = parseInt(reportSettings.report_client_logo_size || "150");
+    const clientLogoTopPct = parseInt(reportSettings.report_client_logo_top || "70");
     const showDate = reportSettings.report_show_date !== "false";
+    const hasClientLogo = !!client.logoUrl;
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
     function getReportStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
@@ -556,18 +559,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       opacity: ${coverBgOpacity};
       z-index: 0;
     }
-    .cover-page > *:not(.cover-bg):not(.cover-logo-positioned) { position: relative; z-index: 1; }
-    .cover-logo-positioned { position: absolute; z-index: 1; }
-    .cover-logo-positioned img { object-fit: contain; }
-    .cover-logos { display: flex; align-items: center; justify-content: center; gap: 40px; margin-bottom: 40px; }
-    .client-logo-inline { margin-top: 16px; margin-bottom: 16px; }
+    .cover-page > *:not(.cover-bg):not(.cover-logo-abs) { position: relative; z-index: 1; }
+    .cover-logo-abs { position: absolute; z-index: 1; }
+    .cover-logo-abs img { object-fit: contain; }
     .cover-page h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; color: #1e293b; }
     .cover-page .client-name { font-size: 42px; font-weight: 800; color: ${primaryColor}; margin-bottom: 30px; }
     .cover-page .subtitle { font-size: 18px; color: #64748b; margin-bottom: 8px; }
     .cover-page .date { font-size: 16px; color: #94a3b8; margin-top: 40px; }
     .cover-page .message { font-size: 14px; color: #64748b; margin-top: 20px; max-width: 500px; line-height: 1.6; }
-    .cover-page .vertical-text { position: absolute; right: 0; top: 5%; bottom: 0; writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; padding-right: 5px; }
-    @media print { .cover-page { page-break-after: always; } .cover-page .vertical-text { top: 55%; bottom: auto; transform: translateY(-50%); } }
+    .cover-page .vertical-text { position: absolute; right: 0; top: 0; bottom: 0; writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; padding-right: 15px; }
+    @media print { .cover-page { page-break-after: always; } }
 
     .report-content { padding: 5mm; }
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
@@ -599,29 +600,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
     ${showVerticalName ? `<div class="vertical-text">${esc(client.name)}</div>` : ""}
     ${companyLogoHtml ? (() => {
-      const isPositioned = companyLogoPosition !== "top-center";
-      if (isPositioned) {
-        const pos = companyLogoPosition === "top-left" ? "top: 30px; left: 30px;" : "top: 30px; right: 30px;";
-        return `<div class="cover-logo-positioned" style="${pos}">${companyLogoHtml}</div>`;
-      }
-      return `<div class="cover-logos">${companyLogoHtml}</div>`;
+      const hAlign = companyLogoPosition === "top-left" ? "left: 30px;" : companyLogoPosition === "top-right" ? "right: 30px;" : "left: 50%; transform: translateX(-50%);";
+      return `<div class="cover-logo-abs" style="top: ${companyLogoTopPct}%; ${hAlign}">${companyLogoHtml}</div>`;
     })() : ""}
-    ${clientLogoHtml && ["top-left", "top-center", "top-right"].includes(clientLogoPosition) ? (() => {
-      if (clientLogoPosition === "top-center") return `<div class="client-logo-inline">${clientLogoHtml}</div>`;
-      const pos = clientLogoPosition === "top-left" ? "top: 30px; left: 30px;" : "top: 30px; right: 30px;";
-      return `<div class="cover-logo-positioned" style="${pos}">${clientLogoHtml}</div>`;
+    ${clientLogoHtml ? (() => {
+      const hAlign = clientLogoPosition === "top-left" ? "left: 30px;" : clientLogoPosition === "top-right" ? "right: 30px;" : "left: 50%; transform: translateX(-50%);";
+      return `<div class="cover-logo-abs" style="top: ${clientLogoTopPct}%; ${hAlign}">${clientLogoHtml}</div>`;
     })() : ""}
     <h1>${title}</h1>
-    <div class="client-name">${esc(client.name)}</div>
-    ${clientLogoHtml && clientLogoPosition === "center" ? `<div class="client-logo-inline">${clientLogoHtml}</div>` : ""}
+    ${!hasClientLogo ? `<div class="client-name">${esc(client.name)}</div>` : ""}
     ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ""}
     ${showDate ? `<div class="date">${today}</div>` : ""}
     ${message ? `<div class="message">${message}</div>` : ""}
-    ${clientLogoHtml && ["bottom-left", "bottom-center", "bottom-right"].includes(clientLogoPosition) ? (() => {
-      if (clientLogoPosition === "bottom-center") return `<div class="client-logo-inline" style="margin-top: auto;">${clientLogoHtml}</div>`;
-      const side = clientLogoPosition === "bottom-left" ? "left: 30px;" : "right: 30px;";
-      return `<div class="cover-logo-positioned" style="bottom: 30px; ${side}">${clientLogoHtml}</div>`;
-    })() : ""}
   </div>
 
   <div class="report-content">
