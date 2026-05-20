@@ -97,6 +97,13 @@ export default function SettingsPage() {
   const [savedReport, setSavedReport] = useState(false);
   const companyLogoRef = useRef<HTMLInputElement>(null);
 
+  // Cover logo position/size settings
+  const [companyLogoPosition, setCompanyLogoPosition] = useState("top-center");
+  const [companyLogoSize, setCompanyLogoSize] = useState("180");
+  const [clientLogoPosition, setClientLogoPosition] = useState("center");
+  const [clientLogoSize, setClientLogoSize] = useState("150");
+  const [reportShowDate, setReportShowDate] = useState(true);
+
   // Client merge (two separate searches for target and source)
   type MergeClient = { id: string; name: string; _count: { installations: number; invoices: number } };
   const [mergeTargetSearch, setMergeTargetSearch] = useState("");
@@ -327,6 +334,11 @@ export default function SettingsPage() {
         setReportOrientation(data.report_orientation || "portrait");
         setReportCoverBg(data.report_cover_bg || "");
         setReportCoverBgOpacity(data.report_cover_bg_opacity || "15");
+        setCompanyLogoPosition(data.report_company_logo_position || "top-center");
+        setCompanyLogoSize(data.report_company_logo_size || "180");
+        setClientLogoPosition(data.report_client_logo_position || "center");
+        setClientLogoSize(data.report_client_logo_size || "150");
+        setReportShowDate(data.report_show_date !== "false");
         setSiteLogo(data.site_logo || "");
         setSiteFavicon(data.site_favicon || "");
         setBroadcastEnabled(data.broadcast_enabled === "true");
@@ -534,6 +546,11 @@ export default function SettingsPage() {
         report_orientation: reportOrientation,
         report_cover_bg: reportCoverBg,
         report_cover_bg_opacity: reportCoverBgOpacity,
+        report_company_logo_position: companyLogoPosition,
+        report_company_logo_size: companyLogoSize,
+        report_client_logo_position: clientLogoPosition,
+        report_client_logo_size: clientLogoSize,
+        report_show_date: reportShowDate ? "true" : "false",
       }),
     });
     setSavingReport(false);
@@ -1460,6 +1477,75 @@ export default function SettingsPage() {
           <p className="text-xs text-slate-400 mt-1">Ce logo apparaîtra sur la page de garde du rapport (max 2 Mo)</p>
         </div>
 
+        {companyLogo && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                Position du logo société
+              </label>
+              <select
+                value={companyLogoPosition}
+                onChange={(e) => setCompanyLogoPosition(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 focus:border-primary-500 focus:outline-none"
+              >
+                <option value="top-left">Haut gauche</option>
+                <option value="top-center">Haut centre</option>
+                <option value="top-right">Haut droite</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                Taille du logo société ({companyLogoSize}px)
+              </label>
+              <input
+                type="range"
+                min="60"
+                max="400"
+                step="10"
+                value={companyLogoSize}
+                onChange={(e) => setCompanyLogoSize(e.target.value)}
+                className="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-primary-600"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">
+              Position du logo client
+            </label>
+            <select
+              value={clientLogoPosition}
+              onChange={(e) => setClientLogoPosition(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-900 focus:border-primary-500 focus:outline-none"
+            >
+              <option value="top-left">Haut gauche</option>
+              <option value="top-center">Haut centre</option>
+              <option value="top-right">Haut droite</option>
+              <option value="center">Centre (sous le titre)</option>
+              <option value="bottom-left">Bas gauche</option>
+              <option value="bottom-center">Bas centre</option>
+              <option value="bottom-right">Bas droite</option>
+            </select>
+            <p className="text-xs text-slate-400 mt-1">Le logo du client est celui défini sur chaque fiche client</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">
+              Taille du logo client ({clientLogoSize}px)
+            </label>
+            <input
+              type="range"
+              min="60"
+              max="400"
+              step="10"
+              value={clientLogoSize}
+              onChange={(e) => setClientLogoSize(e.target.value)}
+              className="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-primary-600"
+            />
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Image de fond de la page de garde
@@ -1728,6 +1814,15 @@ export default function SettingsPage() {
                 className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-slate-600">Nom du client vertical sur la page de garde</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportShowDate}
+                onChange={(e) => setReportShowDate(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Date sur la page de garde</span>
             </label>
             <label className="flex items-center gap-3 cursor-pointer">
               <input

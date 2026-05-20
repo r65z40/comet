@@ -369,6 +369,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const showHeaderRow = reportSettings.report_show_header_row !== "false";
     const showStatus = reportSettings.report_show_status !== "false";
     const includeRenewed = reportSettings.report_include_renewed === "true";
+    const companyLogoPosition = reportSettings.report_company_logo_position || "top-center";
+    const companyLogoSizePx = parseInt(reportSettings.report_company_logo_size || "180");
+    const clientLogoPosition = reportSettings.report_client_logo_position || "center";
+    const clientLogoSizePx = parseInt(reportSettings.report_client_logo_size || "150");
+    const showDate = reportSettings.report_show_date !== "false";
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
     function getReportStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
@@ -507,10 +512,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const renewedCount = client.installations.filter(i => i.status === "RENOUVELE").length;
 
     const clientLogoHtml = client.logoUrl
-      ? `<img src="${client.logoUrl}" alt="Logo client" style="max-width: 180px; max-height: 120px;" />`
+      ? `<img src="${client.logoUrl}" alt="Logo client" style="max-width: ${clientLogoSizePx}px; max-height: ${Math.round(clientLogoSizePx * 0.67)}px; object-fit: contain;" />`
       : "";
     const companyLogoHtml = companyLogo
-      ? `<img src="${companyLogo}" alt="Logo société" style="max-width: 180px; max-height: 120px;" />`
+      ? `<img src="${companyLogo}" alt="Logo société" style="max-width: ${companyLogoSizePx}px; max-height: ${Math.round(companyLogoSizePx * 0.67)}px; object-fit: contain;" />`
       : "";
 
     const html = `<!DOCTYPE html>
@@ -551,18 +556,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       opacity: ${coverBgOpacity};
       z-index: 0;
     }
-    .cover-page > *:not(.cover-bg) { position: relative; z-index: 1; }
+    .cover-page > *:not(.cover-bg):not(.cover-logo-positioned) { position: relative; z-index: 1; }
+    .cover-logo-positioned { position: absolute; z-index: 1; }
+    .cover-logo-positioned img { object-fit: contain; }
     .cover-logos { display: flex; align-items: center; justify-content: center; gap: 40px; margin-bottom: 40px; }
-    .cover-logos img { border-radius: 12px; background: white; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .client-logo-inline { margin-top: 16px; margin-bottom: 16px; }
-    .client-logo-inline img { border-radius: 12px; background: white; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .cover-page h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; color: #1e293b; }
     .cover-page .client-name { font-size: 42px; font-weight: 800; color: ${primaryColor}; margin-bottom: 30px; }
     .cover-page .subtitle { font-size: 18px; color: #64748b; margin-bottom: 8px; }
     .cover-page .date { font-size: 16px; color: #94a3b8; margin-top: 40px; }
     .cover-page .message { font-size: 14px; color: #64748b; margin-top: 20px; max-width: 500px; line-height: 1.6; }
-    .cover-page .vertical-text { position: absolute; right: 0; top: 0; bottom: 0; writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; padding-right: 5px; }
-    @media print { .cover-page { page-break-after: always; } .cover-page .vertical-text { top: 50%; bottom: auto; transform: translateY(-50%); } }
+    .cover-page .vertical-text { position: absolute; right: 0; top: 5%; bottom: 0; writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; padding-right: 5px; }
+    @media print { .cover-page { page-break-after: always; } .cover-page .vertical-text { top: 55%; bottom: auto; transform: translateY(-50%); } }
 
     .report-content { padding: 5mm; }
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
@@ -593,13 +598,30 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   <div class="cover-page">
     ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
     ${showVerticalName ? `<div class="vertical-text">${esc(client.name)}</div>` : ""}
-    ${companyLogoHtml ? `<div class="cover-logos">${companyLogoHtml}</div>` : ""}
+    ${companyLogoHtml ? (() => {
+      const isPositioned = companyLogoPosition !== "top-center";
+      if (isPositioned) {
+        const pos = companyLogoPosition === "top-left" ? "top: 30px; left: 30px;" : "top: 30px; right: 30px;";
+        return `<div class="cover-logo-positioned" style="${pos}">${companyLogoHtml}</div>`;
+      }
+      return `<div class="cover-logos">${companyLogoHtml}</div>`;
+    })() : ""}
+    ${clientLogoHtml && ["top-left", "top-center", "top-right"].includes(clientLogoPosition) ? (() => {
+      if (clientLogoPosition === "top-center") return `<div class="client-logo-inline">${clientLogoHtml}</div>`;
+      const pos = clientLogoPosition === "top-left" ? "top: 30px; left: 30px;" : "top: 30px; right: 30px;";
+      return `<div class="cover-logo-positioned" style="${pos}">${clientLogoHtml}</div>`;
+    })() : ""}
     <h1>${title}</h1>
     <div class="client-name">${esc(client.name)}</div>
-    ${clientLogoHtml ? `<div class="client-logo-inline">${clientLogoHtml}</div>` : ""}
+    ${clientLogoHtml && clientLogoPosition === "center" ? `<div class="client-logo-inline">${clientLogoHtml}</div>` : ""}
     ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ""}
-    <div class="date">${today}</div>
+    ${showDate ? `<div class="date">${today}</div>` : ""}
     ${message ? `<div class="message">${message}</div>` : ""}
+    ${clientLogoHtml && ["bottom-left", "bottom-center", "bottom-right"].includes(clientLogoPosition) ? (() => {
+      if (clientLogoPosition === "bottom-center") return `<div class="client-logo-inline" style="margin-top: auto;">${clientLogoHtml}</div>`;
+      const side = clientLogoPosition === "bottom-left" ? "left: 30px;" : "right: 30px;";
+      return `<div class="cover-logo-positioned" style="bottom: 30px; ${side}">${clientLogoHtml}</div>`;
+    })() : ""}
   </div>
 
   <div class="report-content">
