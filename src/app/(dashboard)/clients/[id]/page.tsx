@@ -309,9 +309,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   async function deleteInstallation(installId: string, productName: string) {
     if (!confirm(`Supprimer l'installation "${productName}" ?`)) return;
-    await fetch(`/api/installations/${installId}`, { method: "DELETE" });
-    const res = await fetch(`/api/clients/${id}`);
-    const data = await res.json();
+    const res = await fetch(`/api/installations/${installId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Erreur lors de la suppression");
+      return;
+    }
+    const clientRes = await fetch(`/api/clients/${id}`);
+    const data = await clientRes.json();
     setClient(data);
   }
 

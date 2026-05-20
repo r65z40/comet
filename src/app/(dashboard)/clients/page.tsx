@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import { useDebounce } from "@/lib/hooks/useDebounce";
+
+const STORAGE_KEY = "clients-filters";
 
 interface Contact {
   firstName: string | null;
@@ -24,15 +26,44 @@ interface Client {
   _count: { installations: number };
 }
 
+function readSaved(): Record<string, string> {
+  try {
+    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
+  } catch { return {}; }
+}
+
+function init(searchParams: URLSearchParams, key: string, fallback: string = ""): string {
+  return searchParams.get(key) || readSaved()[key] || fallback;
+}
+
 export default function ClientsPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const mountRef = useRef(false);
+
   const [clients, setClients] = useState<Client[]>([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => parseInt(init(searchParams, "page", "1")) || 1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [perPage, setPerPage] = useState(40);
+  const [search, setSearch] = useState(() => init(searchParams, "search"));
+  const [perPage, setPerPage] = useState(() => parseInt(init(searchParams, "perPage", "40")) || 40);
   const debouncedSearch = useDebounce(search);
+
+  useEffect(() => {
+    if (!mountRef.current) { mountRef.current = true; return; }
+    const params = new URLSearchParams();
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (page > 1) params.set("page", String(page));
+    if (perPage !== 40) params.set("perPage", String(perPage));
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    const save: Record<string, string> = {};
+    if (debouncedSearch) save.search = debouncedSearch;
+    if (page > 1) save.page = String(page);
+    if (perPage !== 40) save.perPage = String(perPage);
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(save));
+  }, [debouncedSearch, page, perPage, pathname, router]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);

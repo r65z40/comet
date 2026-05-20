@@ -37,17 +37,20 @@ export async function GET(req: NextRequest) {
     }),
     prisma.installation.findMany({
       where: {
+        deletedAt: null,
         OR: [
           { product: { name: { contains: q, mode: "insensitive" } } },
           { client: { name: { contains: q, mode: "insensitive" } } },
           { family: { contains: q, mode: "insensitive" } },
+          { supplier: { contains: q, mode: "insensitive" } },
+          { comParc: { contains: q, mode: "insensitive" } },
         ],
       },
       include: {
         client: { select: { name: true } },
         product: { select: { name: true } },
       },
-      take: 5,
+      take: 10,
     }),
   ]);
 
