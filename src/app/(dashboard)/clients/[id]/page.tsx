@@ -567,7 +567,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page .subtitle { font-size: 18px; color: #64748b; margin-bottom: 8px; }
     .cover-page .date { font-size: 16px; color: #94a3b8; margin-top: 40px; }
     .cover-page .message { font-size: 14px; color: #64748b; margin-top: 20px; max-width: 500px; line-height: 1.6; }
-    .cover-page .vertical-text { position: absolute; right: 0; top: 0; bottom: 0; writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; padding-right: 15px; }
+    .cover-page .vertical-text { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; text-orientation: mixed; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; }
     @media print { .cover-page { page-break-after: always; } }
 
     .report-content { padding: 5mm; }
