@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
 
   if (type === "installations") {
     const installations = await prisma.installation.findMany({
+      where: { deletedAt: null },
       include: {
         client: { select: { name: true } },
         product: { select: { name: true, family: true } },
@@ -79,6 +80,7 @@ export async function GET(req: NextRequest) {
 
   if (type === "clients") {
     const clients = await prisma.client.findMany({
+      where: { deletedAt: null },
       include: {
         _count: { select: { installations: true, invoices: true } },
       },
@@ -107,6 +109,7 @@ export async function GET(req: NextRequest) {
 
   if (type === "products") {
     const products = await prisma.product.findMany({
+      where: { deletedAt: null },
       include: {
         _count: { select: { installations: true } },
       },

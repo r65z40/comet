@@ -213,6 +213,8 @@ model InvoiceLine {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
+  @@index([invoiceId])
+  @@index([productId])
   @@map("invoice_lines")
 }
 

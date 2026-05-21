@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
   const [clients, products, installations] = await Promise.all([
     prisma.client.findMany({
       where: {
+        deletedAt: null,
         OR: [
           { name: { contains: q, mode: "insensitive" } },
           { email: { contains: q, mode: "insensitive" } },
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.product.findMany({
       where: {
+        deletedAt: null,
         OR: [
           { name: { contains: q, mode: "insensitive" } },
           { code: { contains: q, mode: "insensitive" } },

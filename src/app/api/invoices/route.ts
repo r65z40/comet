@@ -22,27 +22,31 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  const [invoices, total] = await Promise.all([
-    prisma.invoice.findMany({
-      where,
-      include: {
-        client: { select: { id: true, name: true } },
-        _count: { select: { lines: true, installations: true } },
-      },
-      orderBy: { invoiceDate: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.invoice.count({ where }),
-  ]);
+  try {
+    const [invoices, total] = await Promise.all([
+      prisma.invoice.findMany({
+        where,
+        include: {
+          client: { select: { id: true, name: true } },
+          _count: { select: { lines: true, installations: true } },
+        },
+        orderBy: { invoiceDate: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.invoice.count({ where }),
+    ]);
 
-  return NextResponse.json({
-    invoices,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  });
+    return NextResponse.json({
+      invoices,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch {
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
 }

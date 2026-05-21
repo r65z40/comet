@@ -89,7 +89,7 @@ export async function executeCronJob(): Promise<{
         const recentCutoff = new Date();
         recentCutoff.setHours(recentCutoff.getHours() - 36);
         const recentLogs = await prisma.syncLog.findMany({
-          where: { type: "EMAIL_ALERT", status: "SUCCESS", startedAt: { gte: recentCutoff } },
+          where: { type: "EMAIL_ALERT", status: "success", startedAt: { gte: recentCutoff } },
         });
         const alreadySent = recentLogs.find(log => log.message?.includes(todayStr));
 
@@ -98,7 +98,7 @@ export async function executeCronJob(): Promise<{
           await prisma.syncLog.create({
             data: {
               type: "EMAIL_ALERT",
-              status: result.sent ? "SUCCESS" : "SKIPPED",
+              status: result.sent ? "success" : "skipped",
               message: result.sent
                 ? `${todayStr} - ${result.count} notification(s) envoyée(s)`
                 : `${todayStr} - ${result.reason || "Aucune notification"}`,
@@ -120,7 +120,7 @@ export async function executeCronJob(): Promise<{
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await prisma.syncLog.create({
-      data: { type: "EMAIL_ALERT", status: "ERROR", message: `${todayStr} ${parisTimeStr} - ${message}`, startedAt: new Date(), completedAt: new Date() },
+      data: { type: "EMAIL_ALERT", status: "error", message: `${todayStr} ${parisTimeStr} - ${message}`, startedAt: new Date(), completedAt: new Date() },
     }).catch(() => {});
     alertResult = { skipped: true, reason: message };
   }
@@ -131,7 +131,7 @@ export async function executeCronJob(): Promise<{
   } catch (backupErr) {
     const backupMsg = backupErr instanceof Error ? backupErr.message : String(backupErr);
     await prisma.syncLog.create({
-      data: { type: "BACKUP", status: "ERROR", message: `${todayStr} - ${backupMsg}`, startedAt: new Date(), completedAt: new Date() },
+      data: { type: "BACKUP", status: "error", message: `${todayStr} - ${backupMsg}`, startedAt: new Date(), completedAt: new Date() },
     }).catch(() => {});
     backupResult = { done: false, reason: backupMsg };
   }
@@ -166,7 +166,7 @@ async function runAutoBackup(
   const recentCutoff = new Date();
   recentCutoff.setHours(recentCutoff.getHours() - 36);
   const recentLogs = await prisma.syncLog.findMany({
-    where: { type: "BACKUP", status: "SUCCESS", startedAt: { gte: recentCutoff } },
+    where: { type: "BACKUP", status: "success", startedAt: { gte: recentCutoff } },
   });
   if (recentLogs.find(log => log.message?.includes(todayStr))) {
     return { done: false, reason: "Backup déjà effectué aujourd'hui" };
@@ -179,7 +179,7 @@ async function runAutoBackup(
     await prisma.syncLog.create({
       data: {
         type: "BACKUP",
-        status: "SUCCESS",
+        status: "success",
         message: `${todayStr} - Backup auto: ${backup.filename} (${backup.sizeFormatted})${deleted > 0 ? ` — ${deleted} ancien(s) supprimé(s)` : ""}`,
         startedAt: new Date(),
         completedAt: new Date(),
@@ -190,7 +190,7 @@ async function runAutoBackup(
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     await prisma.syncLog.create({
-      data: { type: "BACKUP", status: "ERROR", message: `${todayStr} - Échec backup auto: ${errMsg}`, startedAt: new Date(), completedAt: new Date() },
+      data: { type: "BACKUP", status: "error", message: `${todayStr} - Échec backup auto: ${errMsg}`, startedAt: new Date(), completedAt: new Date() },
     }).catch(() => {});
 
     if (settings.notifyOnFailure) {

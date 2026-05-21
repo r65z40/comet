@@ -8,13 +8,13 @@ export async function GET() {
 
   const [families, suppliers] = await Promise.all([
     prisma.installation.findMany({
-      where: { family: { not: null } },
+      where: { family: { not: null }, deletedAt: null },
       select: { family: true },
       distinct: ["family"],
       orderBy: { family: "asc" },
     }),
     prisma.installation.findMany({
-      where: { supplier: { not: null } },
+      where: { supplier: { not: null }, deletedAt: null },
       select: { supplier: true },
       distinct: ["supplier"],
       orderBy: { supplier: "asc" },

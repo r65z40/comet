@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
+
+const STORAGE_KEY = "invoices-filters";
 
 interface Invoice {
   id: string;
@@ -17,15 +19,41 @@ interface Invoice {
   _count: { lines: number; installations: number };
 }
 
+function readSaved(): Record<string, string> {
+  try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; }
+}
+function init(sp: URLSearchParams, key: string, fb = ""): string {
+  return sp.get(key) || readSaved()[key] || fb;
+}
+
 export default function InvoicesPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const mountRef = useRef(false);
+
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => parseInt(init(searchParams, "page", "1")) || 1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [perPage, setPerPage] = useState(40);
+  const [search, setSearch] = useState(() => init(searchParams, "search"));
+  const [perPage, setPerPage] = useState(() => parseInt(init(searchParams, "perPage", "40")) || 40);
   const debouncedSearch = useDebounce(search);
+
+  useEffect(() => {
+    if (!mountRef.current) { mountRef.current = true; return; }
+    const p = new URLSearchParams();
+    if (debouncedSearch) p.set("search", debouncedSearch);
+    if (page > 1) p.set("page", String(page));
+    if (perPage !== 40) p.set("perPage", String(perPage));
+    const qs = p.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    const s: Record<string, string> = {};
+    if (debouncedSearch) s.search = debouncedSearch;
+    if (page > 1) s.page = String(page);
+    if (perPage !== 40) s.perPage = String(perPage);
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+  }, [debouncedSearch, page, perPage, pathname, router]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
