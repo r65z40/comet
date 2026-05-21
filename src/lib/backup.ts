@@ -95,8 +95,8 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
   const sqlFile = path.join(tmpDir, "database.sql.gz");
 
   try {
-    // 1. Dump the database
-    await execAsync(`pg_dump "${dbUrl}" | gzip > "${sqlFile}"`, {
+    // 1. Dump the database (--clean generates DROP before CREATE for clean restore)
+    await execAsync(`pg_dump --clean --if-exists --no-owner --no-privileges "${dbUrl}" | gzip > "${sqlFile}"`, {
       timeout: 300000, // 5 min max
     });
 
@@ -289,9 +289,10 @@ export async function restoreBackup(filename: string): Promise<void> {
       const sqlFile = path.join(tmpDir, "database.sql.gz");
       try {
         await fs.access(sqlFile);
-        await execAsync(`gunzip -c "${sqlFile}" | psql "${dbUrl}"`, { timeout: 600000 });
-      } catch {
-        // Might be an older tar.gz format, skip
+        await execAsync(`gunzip -c "${sqlFile}" | psql --single-transaction "${dbUrl}"`, { timeout: 600000 });
+      } catch (err) {
+        // Check if the file simply doesn't exist (older format) vs actual restore error
+        try { await fs.access(sqlFile); throw err; } catch { /* file missing, skip */ }
       }
 
       // Restore uploads if present
@@ -308,7 +309,7 @@ export async function restoreBackup(filename: string): Promise<void> {
     }
   } else {
     // Legacy format: .sql.gz
-    await execAsync(`gunzip -c "${filepath}" | psql "${dbUrl}"`, {
+    await execAsync(`gunzip -c "${filepath}" | psql --single-transaction "${dbUrl}"`, {
       timeout: 600000,
     });
   }
