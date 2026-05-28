@@ -600,14 +600,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page .vertical-text { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; text-orientation: mixed; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; }
 
     /* Corporate template */
+    .corporate-inner { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 0; }
     .corporate-logos { display: flex; align-items: center; justify-content: center; gap: ${corpLogoGap}px; margin-bottom: 40px; }
     .corporate-logos img { max-height: ${corpLogoHeight}px; max-width: ${Math.round(corpLogoHeight * 2)}px; object-fit: contain; }
     .corporate-logos .logo-divider { width: ${corpDividerWidth}px; height: ${corpDividerHeight}px; background: ${corpDividerColor}; flex-shrink: 0; }
     .corporate-title { font-size: ${corpTitleSize}px; font-weight: 300; color: ${corpTitleColor}; letter-spacing: 1px; margin-bottom: 20px; line-height: 1.2; }
     .corporate-client-name { font-size: ${corpNameSize}px; font-weight: 700; color: ${primaryColor}; margin-bottom: 24px; letter-spacing: 0.5px; }
-    .corporate-hr { width: ${corpHrWidth}px; height: ${corpHrHeight}px; background: ${primaryColor}; border: none; margin: 0 auto 20px; }
-    .corporate-tagline { font-size: ${corpTaglineSize}px; color: #64748b; font-style: italic; margin-bottom: 16px; letter-spacing: 0.5px; }
-    .corporate-date { font-size: ${corpDateSize}px; color: #94a3b8; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; }
+    .corporate-hr { width: ${corpHrWidth}px; height: ${corpHrHeight}px; background: ${primaryColor}; border: none; margin: 0 auto 24px; }
+    .corporate-tagline { font-size: ${corpTaglineSize}px; color: #64748b; font-style: italic; margin-bottom: 20px; letter-spacing: 0.5px; }
+    .corporate-date { font-size: ${corpDateSize}px; color: #64748b; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; margin-top: 8px; }
 
     /* Executive template */
     .exec-cover { position: relative; width: 100%; height: ${orientation === "landscape" ? "210mm" : "297mm"}; background: #ffffff; overflow: hidden; margin: 0; display: flex; }
@@ -678,16 +679,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   </div>` : coverTemplate === "corporate" ? `<div class="cover-page">
     ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
     ${showVerticalName ? `<div class="vertical-text">${esc(client.name)}</div>` : ""}
-    ${(companyLogo || client.logoUrl) ? `<div class="corporate-logos" style="position: relative; z-index: 1;">
-      ${companyLogo ? `<img src="${companyLogo}" alt="Logo société" />` : ""}
-      ${companyLogo && client.logoUrl ? `<div class="logo-divider"></div>` : ""}
-      ${client.logoUrl ? `<img src="${client.logoUrl}" alt="Logo client" />` : ""}
-    </div>` : ""}
-    <div class="corporate-title" style="position: relative; z-index: 1;">${corporateTitle}</div>
-    <div class="corporate-client-name" style="position: relative; z-index: 1;">${esc(client.name)}</div>
-    <hr class="corporate-hr" style="position: relative; z-index: 1;" />
-    ${corporateTagline ? `<div class="corporate-tagline" style="position: relative; z-index: 1;">${corporateTagline}</div>` : ""}
-    ${showDate ? `<div class="corporate-date" style="position: relative; z-index: 1;">${today}</div>` : ""}
+    <div class="corporate-inner">
+      ${(companyLogo || client.logoUrl) ? `<div class="corporate-logos">
+        ${companyLogo ? `<img src="${companyLogo}" alt="Logo société" />` : ""}
+        ${companyLogo && client.logoUrl ? `<div class="logo-divider"></div>` : ""}
+        ${client.logoUrl ? `<img src="${client.logoUrl}" alt="Logo client" />` : ""}
+      </div>` : ""}
+      <div class="corporate-title">${corporateTitle}</div>
+      <div class="corporate-client-name">${esc(client.name)}</div>
+      <hr class="corporate-hr" />
+      ${corporateTagline ? `<div class="corporate-tagline">${corporateTagline}</div>` : ""}
+      ${showDate ? `<div class="corporate-date">${today}</div>` : ""}
+    </div>
   </div>` : `<div class="cover-page">
     ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
     ${showVerticalName ? `<div class="vertical-text">${esc(client.name)}</div>` : ""}
