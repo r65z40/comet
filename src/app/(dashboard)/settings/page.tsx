@@ -106,6 +106,11 @@ export default function SettingsPage() {
   const [clientLogoTop, setClientLogoTop] = useState("70");
   const [reportShowDate, setReportShowDate] = useState(true);
 
+  // Cover template settings
+  const [coverTemplate, setCoverTemplate] = useState("classic");
+  const [corporateTitle, setCorporateTitle] = useState("Rapport client");
+  const [corporateTagline, setCorporateTagline] = useState("");
+
   // Client merge (two separate searches for target and source)
   type MergeClient = { id: string; name: string; _count: { installations: number; invoices: number } };
   const [mergeTargetSearch, setMergeTargetSearch] = useState("");
@@ -343,6 +348,9 @@ export default function SettingsPage() {
         setClientLogoSize(data.report_client_logo_size || "150");
         setClientLogoTop(data.report_client_logo_top || "70");
         setReportShowDate(data.report_show_date !== "false");
+        setCoverTemplate(data.report_cover_template || "classic");
+        setCorporateTitle(data.report_corporate_title || "Rapport client");
+        setCorporateTagline(data.report_corporate_tagline || "");
         setSiteLogo(data.site_logo || "");
         setSiteFavicon(data.site_favicon || "");
         setBroadcastEnabled(data.broadcast_enabled === "true");
@@ -557,6 +565,9 @@ export default function SettingsPage() {
         report_client_logo_size: clientLogoSize,
         report_client_logo_top: clientLogoTop,
         report_show_date: reportShowDate ? "true" : "false",
+        report_cover_template: coverTemplate,
+        report_corporate_title: corporateTitle,
+        report_corporate_tagline: corporateTagline,
       }),
     });
     setSavingReport(false);
@@ -1427,6 +1438,110 @@ export default function SettingsPage() {
           <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.report ? "rotate-180" : ""}`} />
         </button>
         {openSections.report && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
+
+        {/* Template selector */}
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-3">
+            Modèle de page de garde
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Classic card */}
+            <button
+              onClick={() => setCoverTemplate("classic")}
+              className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+                coverTemplate === "classic"
+                  ? "border-primary-500 bg-primary-50 ring-1 ring-primary-200"
+                  : "border-slate-200 bg-white hover:border-slate-300"
+              }`}
+            >
+              {coverTemplate === "classic" && (
+                <div className="absolute top-2.5 right-2.5 rounded-full bg-primary-600 p-0.5">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+              <div className="flex flex-col items-center gap-3">
+                {/* Mini preview */}
+                <div className="w-full h-28 rounded-lg border border-slate-200 bg-white flex flex-col items-center justify-center gap-1.5 px-3">
+                  <div className="w-10 h-5 rounded bg-slate-200" />
+                  <div className="w-24 h-2.5 rounded bg-slate-300" />
+                  <div className="w-28 h-3 rounded bg-primary-300 mt-1" />
+                  <div className="w-16 h-2 rounded bg-slate-200 mt-0.5" />
+                  <div className="w-12 h-2 rounded bg-slate-100 mt-1" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Classique</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Logo centré, titre, nom du client en grand, sous-titre et date.</p>
+                </div>
+              </div>
+            </button>
+            {/* Corporate card */}
+            <button
+              onClick={() => setCoverTemplate("corporate")}
+              className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+                coverTemplate === "corporate"
+                  ? "border-primary-500 bg-primary-50 ring-1 ring-primary-200"
+                  : "border-slate-200 bg-white hover:border-slate-300"
+              }`}
+            >
+              {coverTemplate === "corporate" && (
+                <div className="absolute top-2.5 right-2.5 rounded-full bg-primary-600 p-0.5">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+              <div className="flex flex-col items-center gap-3">
+                {/* Mini preview */}
+                <div className="w-full h-28 rounded-lg border border-slate-200 bg-white flex flex-col items-center justify-center gap-1.5 px-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-5 rounded bg-slate-200" />
+                    <div className="w-px h-6 bg-primary-400" />
+                    <div className="w-8 h-5 rounded bg-slate-200" />
+                  </div>
+                  <div className="w-20 h-2.5 rounded bg-slate-800 mt-1" />
+                  <div className="w-24 h-px bg-primary-400 mt-0.5" />
+                  <div className="w-16 h-2 rounded bg-slate-200 mt-0.5" />
+                  <div className="w-14 h-2 rounded bg-slate-100 mt-1" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Corporate</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Logos côte à côte, titre personnalisable, ligne de séparation et accroche.</p>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Corporate-specific settings */}
+        {coverTemplate === "corporate" && (
+          <div className="rounded-lg border border-primary-100 bg-primary-50/30 p-4 space-y-4">
+            <p className="text-xs font-semibold text-primary-700 uppercase tracking-wider">Options du modèle Corporate</p>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                Titre de la page de garde
+              </label>
+              <input
+                type="text"
+                value={corporateTitle}
+                onChange={(e) => setCorporateTitle(e.target.value)}
+                placeholder="Rapport client"
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+              <p className="text-xs text-slate-400 mt-1">Texte principal affiché sous les logos (par défaut : &quot;Rapport client&quot;)</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                Accroche / sous-titre
+              </label>
+              <input
+                type="text"
+                value={corporateTagline}
+                onChange={(e) => setCorporateTagline(e.target.value)}
+                placeholder="Ex: Suivi des garanties et échéances"
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+              <p className="text-xs text-slate-400 mt-1">Phrase optionnelle affichée sous la ligne de séparation</p>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1.5">

@@ -55,6 +55,20 @@ export async function PUT(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
+
+  // Batch reorder: accept { reorder: [{ id, position }, ...] }
+  if (body.reorder && Array.isArray(body.reorder)) {
+    await prisma.$transaction(
+      body.reorder.map((item: { id: string; position: number }) =>
+        prisma.boardColumn.update({
+          where: { id: item.id },
+          data: { position: item.position },
+        })
+      )
+    );
+    return NextResponse.json({ success: true });
+  }
+
   const { id, name, color, position } = body;
 
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });

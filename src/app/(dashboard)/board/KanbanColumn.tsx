@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Plus, MoreHorizontal, Pencil, Trash2, X, Check, Search, Building2, User, UserCheck } from "lucide-react";
+import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Plus, MoreHorizontal, Pencil, Trash2, X, Check, Search, Building2, User, UserCheck, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
 
@@ -79,7 +80,22 @@ export default function KanbanColumn({
   // Assignees for new card (multi-select)
   const [newCardAssigneeIds, setNewCardAssigneeIds] = useState<string[]>([]);
 
-  const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  // Column is both a sortable item (for reordering) and a droppable container (for cards)
+  const {
+    attributes: sortableAttributes,
+    listeners: sortableListeners,
+    setNodeRef: setSortableNodeRef,
+    transform,
+    transition,
+    isDragging: isColumnDragging,
+  } = useSortable({ id: column.id, data: { type: "column" } });
+
+  const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({ id: `card-drop-${column.id}` });
+
+  const columnStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   const searchClients = useCallback(async (q: string) => {
     if (q.length < 2) { setClientResults([]); return; }
@@ -170,9 +186,12 @@ export default function KanbanColumn({
 
   return (
     <div
+      ref={setSortableNodeRef}
+      style={columnStyle}
       className={cn(
         "flex-shrink-0 w-72 bg-slate-100 rounded-xl flex flex-col max-h-[calc(100vh-200px)]",
-        isOver && "ring-2 ring-primary-400 ring-offset-2"
+        isOver && "ring-2 ring-primary-400 ring-offset-2",
+        isColumnDragging && "opacity-50 shadow-lg"
       )}
     >
       {/* Column Header */}
@@ -203,6 +222,14 @@ export default function KanbanColumn({
         ) : (
           <>
             <div className="flex items-center gap-2">
+              {/* Column drag handle */}
+              <button
+                {...sortableAttributes}
+                {...sortableListeners}
+                className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing transition-colors"
+              >
+                <GripVertical className="h-4 w-4" />
+              </button>
               <div
                 className="w-3 h-3 rounded-full flex-shrink-0"
                 style={{ backgroundColor: column.color }}
@@ -250,7 +277,7 @@ export default function KanbanColumn({
 
       {/* Cards */}
       <div
-        ref={setNodeRef}
+        ref={setDroppableNodeRef}
         className={cn(
           "flex-1 overflow-y-auto px-3 pb-3 space-y-2 min-h-[80px] transition-colors rounded-lg",
           isOver && "bg-primary-50/60"

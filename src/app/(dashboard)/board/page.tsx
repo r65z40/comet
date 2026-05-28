@@ -17,6 +17,8 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
+  horizontalListSortingStrategy,
+  arrayMove,
 } from "@dnd-kit/sortable";
 import {
   ClipboardList,
@@ -125,6 +127,7 @@ export default function BoardPage() {
   const [columns, setColumns] = useState<BoardColumn[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCard, setActiveCard] = useState<BoardCard | null>(null);
+  const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(
     searchParams.get("card")
   );
@@ -326,17 +329,54 @@ export default function BoardPage() {
 
   function handleDragStart(event: DragStartEvent) {
     const { active } = event;
+    const isColumn = columns.some((col) => col.id === active.id);
+    if (isColumn) {
+      setActiveColumnId(active.id as string);
+      setActiveCard(null);
+      return;
+    }
     const card = columns
       .flatMap((col) => col.cards)
       .find((c) => c.id === active.id);
     setActiveCard(card || null);
+    setActiveColumnId(null);
   }
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveCard(null);
+    const wasDraggingColumn = activeColumnId;
+    setActiveColumnId(null);
 
     if (!over) return;
+
+    if (wasDraggingColumn) {
+      const oldIndex = columns.findIndex((c) => c.id === active.id);
+      const newIndex = columns.findIndex((c) => c.id === over.id);
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+      const snapshot = columns;
+      const reordered = arrayMove(columns, oldIndex, newIndex).map((col, i) => ({
+        ...col,
+        position: i,
+      }));
+      setColumns(reordered);
+
+      const updates = reordered.map((col, i) => ({ id: col.id, position: i }));
+      try {
+        const res = await fetch("/api/board/columns", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reorder: updates }),
+        });
+        if (!res.ok) throw new Error("Column reorder failed");
+      } catch (err) {
+        console.error("Column reorder failed, rolling back:", err);
+        setColumns(snapshot);
+        fetchBoard();
+      }
+      return;
+    }
 
     const activeCardId = active.id as string;
     const overId = over.id as string;
@@ -351,9 +391,12 @@ export default function BoardPage() {
     let targetColumnId: string;
     let targetPosition: number;
 
-    // Check if dropped on a column header
-    const targetColumn = columns.find((col) => col.id === overId);
-    if (targetColumn) {
+    // Check if dropped on a column droppable zone (prefixed) or column sortable
+    const dropPrefix = "card-drop-";
+    const isDropZone = overId.startsWith(dropPrefix);
+    const colId = isDropZone ? overId.slice(dropPrefix.length) : overId;
+    const targetColumn = columns.find((col) => col.id === colId);
+    if (targetColumn && (isDropZone || !columns.flatMap(c => c.cards).some(c => c.id === overId))) {
       targetColumnId = targetColumn.id;
       targetPosition = targetColumn.cards.length;
     } else {
@@ -410,7 +453,7 @@ export default function BoardPage() {
   }
 
   function handleDragOver(event: DragOverEvent) {
-    // Allow dropping on columns
+    if (activeColumnId) return;
   }
 
   function openCard(cardId: string) {
@@ -845,22 +888,53 @@ export default function BoardPage() {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4 w-full" style={{ minHeight: "60vh" }}>
-          {filteredColumns.map((column) => (
-            <KanbanColumn
-              key={column.id}
-              column={column}
-              users={users}
-              onDeleteColumn={deleteColumn}
-              onUpdateColumn={updateColumn}
-              onCardClick={openCard}
-              onCardCreated={fetchBoard}
-            />
-          ))}
-        </div>
+        <SortableContext
+          items={filteredColumns.map((c) => c.id)}
+          strategy={horizontalListSortingStrategy}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4 w-full" style={{ minHeight: "60vh" }}>
+            {filteredColumns.map((column) => (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                users={users}
+                onDeleteColumn={deleteColumn}
+                onUpdateColumn={updateColumn}
+                onCardClick={openCard}
+                onCardCreated={fetchBoard}
+              />
+            ))}
+          </div>
+        </SortableContext>
 
         <DragOverlay>
-          {activeCard ? (
+          {activeColumnId ? (
+            <div className="opacity-80 rotate-1">
+              {(() => {
+                const col = columns.find((c) => c.id === activeColumnId);
+                if (!col) return null;
+                return (
+                  <div className="w-72 bg-slate-100 rounded-xl p-3 shadow-xl border-2 border-primary-400">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: col.color }} />
+                      <span className="text-sm font-semibold text-slate-700">{col.name}</span>
+                      <span className="text-xs text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded-full">{col.cards.length}</span>
+                    </div>
+                    <div className="space-y-1">
+                      {col.cards.slice(0, 3).map((card) => (
+                        <div key={card.id} className="bg-white rounded-lg p-2 text-xs text-slate-600 truncate border border-slate-200">
+                          {card.title}
+                        </div>
+                      ))}
+                      {col.cards.length > 3 && (
+                        <div className="text-xs text-slate-400 text-center">+{col.cards.length - 3} carte(s)</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : activeCard ? (
             <div className="rotate-3 opacity-90">
               <KanbanCard card={activeCard} onClick={() => {}} isDragging />
             </div>
