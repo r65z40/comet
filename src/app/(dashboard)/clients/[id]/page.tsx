@@ -384,6 +384,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const coverTemplate = reportSettings.report_cover_template || "classic";
     const corporateTitle = esc(reportSettings.report_corporate_title || "Rapport client");
     const corporateTagline = esc(reportSettings.report_corporate_tagline || "");
+    const corpLogoHeight = parseInt(reportSettings.report_corp_logo_height || "90");
+    const corpLogoGap = parseInt(reportSettings.report_corp_logo_gap || "28");
+    const corpDividerHeight = parseInt(reportSettings.report_corp_divider_height || "70");
+    const corpDividerWidth = parseFloat(reportSettings.report_corp_divider_width || "1.5");
+    const corpDividerColor = reportSettings.report_corp_divider_color || primaryColor;
+    const corpTitleSize = parseInt(reportSettings.report_corp_title_size || "36");
+    const corpTitleColor = reportSettings.report_corp_title_color || "#1e293b";
+    const corpNameSize = parseInt(reportSettings.report_corp_name_size || "26");
+    const corpHrWidth = parseInt(reportSettings.report_corp_hr_width || "200");
+    const corpHrHeight = parseInt(reportSettings.report_corp_hr_height || "2");
+    const corpTaglineSize = parseInt(reportSettings.report_corp_tagline_size || "15");
+    const corpDateSize = parseInt(reportSettings.report_corp_date_size || "14");
     const hasClientLogo = !!client.logoUrl;
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
@@ -578,14 +590,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-page .vertical-text { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; text-orientation: mixed; font-size: 17px; font-weight: 800; color: ${primaryColor}90; letter-spacing: 5px; text-transform: uppercase; white-space: nowrap; }
 
     /* Corporate template */
-    .corporate-logos { display: flex; align-items: center; justify-content: center; gap: 28px; margin-bottom: 40px; }
-    .corporate-logos img { max-height: 90px; max-width: 180px; object-fit: contain; }
-    .corporate-logos .logo-divider { width: 1.5px; height: 70px; background: ${primaryColor}; flex-shrink: 0; }
-    .corporate-title { font-size: 36px; font-weight: 300; color: #1e293b; letter-spacing: 1px; margin-bottom: 20px; line-height: 1.2; }
-    .corporate-client-name { font-size: 26px; font-weight: 700; color: ${primaryColor}; margin-bottom: 24px; letter-spacing: 0.5px; }
-    .corporate-hr { width: 200px; height: 2px; background: ${primaryColor}; border: none; margin: 0 auto 20px; }
-    .corporate-tagline { font-size: 15px; color: #64748b; font-style: italic; margin-bottom: 16px; letter-spacing: 0.5px; }
-    .corporate-date { font-size: 14px; color: #94a3b8; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; }
+    .corporate-logos { display: flex; align-items: center; justify-content: center; gap: ${corpLogoGap}px; margin-bottom: 40px; }
+    .corporate-logos img { max-height: ${corpLogoHeight}px; max-width: ${Math.round(corpLogoHeight * 2)}px; object-fit: contain; }
+    .corporate-logos .logo-divider { width: ${corpDividerWidth}px; height: ${corpDividerHeight}px; background: ${corpDividerColor}; flex-shrink: 0; }
+    .corporate-title { font-size: ${corpTitleSize}px; font-weight: 300; color: ${corpTitleColor}; letter-spacing: 1px; margin-bottom: 20px; line-height: 1.2; }
+    .corporate-client-name { font-size: ${corpNameSize}px; font-weight: 700; color: ${primaryColor}; margin-bottom: 24px; letter-spacing: 0.5px; }
+    .corporate-hr { width: ${corpHrWidth}px; height: ${corpHrHeight}px; background: ${primaryColor}; border: none; margin: 0 auto 20px; }
+    .corporate-tagline { font-size: ${corpTaglineSize}px; color: #64748b; font-style: italic; margin-bottom: 16px; letter-spacing: 0.5px; }
+    .corporate-date { font-size: ${corpDateSize}px; color: #94a3b8; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; }
 
     @media print { .cover-page { page-break-after: always; } }
 

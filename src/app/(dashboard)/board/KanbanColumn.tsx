@@ -93,7 +93,7 @@ export default function KanbanColumn({
   const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({ id: `card-drop-${column.id}` });
 
   const columnStyle = {
-    transform: CSS.Transform.toString(transform),
+    transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined,
     transition,
   };
 

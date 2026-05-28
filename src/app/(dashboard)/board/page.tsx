@@ -351,8 +351,16 @@ export default function BoardPage() {
     if (!over) return;
 
     if (wasDraggingColumn) {
-      const oldIndex = columns.findIndex((c) => c.id === active.id);
-      const newIndex = columns.findIndex((c) => c.id === over.id);
+      const activeId = active.id as string;
+      let overId = over.id as string;
+
+      // over.id might be a card-drop zone, extract real column ID
+      if (overId.startsWith("card-drop-")) {
+        overId = overId.slice("card-drop-".length);
+      }
+
+      const oldIndex = columns.findIndex((c) => c.id === activeId);
+      const newIndex = columns.findIndex((c) => c.id === overId);
       if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
 
       const snapshot = columns;

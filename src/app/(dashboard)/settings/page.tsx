@@ -110,6 +110,18 @@ export default function SettingsPage() {
   const [coverTemplate, setCoverTemplate] = useState("classic");
   const [corporateTitle, setCorporateTitle] = useState("Rapport client");
   const [corporateTagline, setCorporateTagline] = useState("");
+  const [corpLogoHeight, setCorpLogoHeight] = useState("90");
+  const [corpLogoGap, setCorpLogoGap] = useState("28");
+  const [corpDividerHeight, setCorpDividerHeight] = useState("70");
+  const [corpDividerWidth, setCorpDividerWidth] = useState("1.5");
+  const [corpDividerColor, setCorpDividerColor] = useState("");
+  const [corpTitleSize, setCorpTitleSize] = useState("36");
+  const [corpTitleColor, setCorpTitleColor] = useState("#1e293b");
+  const [corpNameSize, setCorpNameSize] = useState("26");
+  const [corpHrWidth, setCorpHrWidth] = useState("200");
+  const [corpHrHeight, setCorpHrHeight] = useState("2");
+  const [corpTaglineSize, setCorpTaglineSize] = useState("15");
+  const [corpDateSize, setCorpDateSize] = useState("14");
 
   // Client merge (two separate searches for target and source)
   type MergeClient = { id: string; name: string; _count: { installations: number; invoices: number } };
@@ -351,6 +363,18 @@ export default function SettingsPage() {
         setCoverTemplate(data.report_cover_template || "classic");
         setCorporateTitle(data.report_corporate_title || "Rapport client");
         setCorporateTagline(data.report_corporate_tagline || "");
+        setCorpLogoHeight(data.report_corp_logo_height || "90");
+        setCorpLogoGap(data.report_corp_logo_gap || "28");
+        setCorpDividerHeight(data.report_corp_divider_height || "70");
+        setCorpDividerWidth(data.report_corp_divider_width || "1.5");
+        setCorpDividerColor(data.report_corp_divider_color || "");
+        setCorpTitleSize(data.report_corp_title_size || "36");
+        setCorpTitleColor(data.report_corp_title_color || "#1e293b");
+        setCorpNameSize(data.report_corp_name_size || "26");
+        setCorpHrWidth(data.report_corp_hr_width || "200");
+        setCorpHrHeight(data.report_corp_hr_height || "2");
+        setCorpTaglineSize(data.report_corp_tagline_size || "15");
+        setCorpDateSize(data.report_corp_date_size || "14");
         setSiteLogo(data.site_logo || "");
         setSiteFavicon(data.site_favicon || "");
         setBroadcastEnabled(data.broadcast_enabled === "true");
@@ -568,6 +592,18 @@ export default function SettingsPage() {
         report_cover_template: coverTemplate,
         report_corporate_title: corporateTitle,
         report_corporate_tagline: corporateTagline,
+        report_corp_logo_height: corpLogoHeight,
+        report_corp_logo_gap: corpLogoGap,
+        report_corp_divider_height: corpDividerHeight,
+        report_corp_divider_width: corpDividerWidth,
+        report_corp_divider_color: corpDividerColor,
+        report_corp_title_size: corpTitleSize,
+        report_corp_title_color: corpTitleColor,
+        report_corp_name_size: corpNameSize,
+        report_corp_hr_width: corpHrWidth,
+        report_corp_hr_height: corpHrHeight,
+        report_corp_tagline_size: corpTaglineSize,
+        report_corp_date_size: corpDateSize,
       }),
     });
     setSavingReport(false);
@@ -1512,33 +1548,110 @@ export default function SettingsPage() {
 
         {/* Corporate-specific settings */}
         {coverTemplate === "corporate" && (
-          <div className="rounded-lg border border-primary-100 bg-primary-50/30 p-4 space-y-4">
+          <div className="rounded-lg border border-primary-100 bg-primary-50/30 p-4 space-y-5">
             <p className="text-xs font-semibold text-primary-700 uppercase tracking-wider">Options du modèle Corporate</p>
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1.5">
-                Titre de la page de garde
-              </label>
-              <input
-                type="text"
-                value={corporateTitle}
-                onChange={(e) => setCorporateTitle(e.target.value)}
-                placeholder="Rapport client"
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              />
-              <p className="text-xs text-slate-400 mt-1">Texte principal affiché sous les logos (par défaut : &quot;Rapport client&quot;)</p>
+
+            {/* Textes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1.5">Titre</label>
+                <input type="text" value={corporateTitle} onChange={(e) => setCorporateTitle(e.target.value)} placeholder="Rapport client" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1.5">Accroche</label>
+                <input type="text" value={corporateTagline} onChange={(e) => setCorporateTagline(e.target.value)} placeholder="Ex: Suivi des garanties et échéances" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" />
+              </div>
             </div>
+
+            {/* Logos */}
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1.5">
-                Accroche / sous-titre
-              </label>
-              <input
-                type="text"
-                value={corporateTagline}
-                onChange={(e) => setCorporateTagline(e.target.value)}
-                placeholder="Ex: Suivi des garanties et échéances"
-                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              />
-              <p className="text-xs text-slate-400 mt-1">Phrase optionnelle affichée sous la ligne de séparation</p>
+              <p className="text-xs font-medium text-slate-500 mb-2">Logos</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Hauteur max ({corpLogoHeight}px)</label>
+                  <input type="range" min="40" max="200" value={corpLogoHeight} onChange={(e) => setCorpLogoHeight(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Espacement ({corpLogoGap}px)</label>
+                  <input type="range" min="10" max="80" value={corpLogoGap} onChange={(e) => setCorpLogoGap(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+              </div>
+            </div>
+
+            {/* Trait vertical (séparateur logos) */}
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">Trait vertical (entre les logos)</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Hauteur ({corpDividerHeight}px)</label>
+                  <input type="range" min="20" max="150" value={corpDividerHeight} onChange={(e) => setCorpDividerHeight(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Épaisseur ({corpDividerWidth}px)</label>
+                  <input type="range" min="0.5" max="5" step="0.5" value={corpDividerWidth} onChange={(e) => setCorpDividerWidth(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Couleur</label>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={corpDividerColor || reportPrimaryColor} onChange={(e) => setCorpDividerColor(e.target.value)} className="w-8 h-8 rounded border border-slate-200 cursor-pointer" />
+                    <button onClick={() => setCorpDividerColor("")} className="text-xs text-slate-400 hover:text-slate-600">Auto</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Taille et couleur du titre */}
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">Titre principal</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Taille ({corpTitleSize}px)</label>
+                  <input type="range" min="20" max="60" value={corpTitleSize} onChange={(e) => setCorpTitleSize(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Couleur</label>
+                  <input type="color" value={corpTitleColor} onChange={(e) => setCorpTitleColor(e.target.value)} className="w-8 h-8 rounded border border-slate-200 cursor-pointer" />
+                </div>
+              </div>
+            </div>
+
+            {/* Nom du client */}
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">Nom du client</p>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Taille ({corpNameSize}px)</label>
+                <input type="range" min="16" max="50" value={corpNameSize} onChange={(e) => setCorpNameSize(e.target.value)} className="w-full accent-primary-600" />
+              </div>
+            </div>
+
+            {/* Ligne horizontale */}
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">Trait horizontal</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Largeur ({corpHrWidth}px)</label>
+                  <input type="range" min="50" max="500" value={corpHrWidth} onChange={(e) => setCorpHrWidth(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Épaisseur ({corpHrHeight}px)</label>
+                  <input type="range" min="1" max="6" value={corpHrHeight} onChange={(e) => setCorpHrHeight(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+              </div>
+            </div>
+
+            {/* Accroche et date */}
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">Accroche et date</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Taille accroche ({corpTaglineSize}px)</label>
+                  <input type="range" min="10" max="24" value={corpTaglineSize} onChange={(e) => setCorpTaglineSize(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Taille date ({corpDateSize}px)</label>
+                  <input type="range" min="10" max="22" value={corpDateSize} onChange={(e) => setCorpDateSize(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+              </div>
             </div>
           </div>
         )}
