@@ -122,6 +122,16 @@ export default function SettingsPage() {
   const [corpHrHeight, setCorpHrHeight] = useState("2");
   const [corpTaglineSize, setCorpTaglineSize] = useState("15");
   const [corpDateSize, setCorpDateSize] = useState("14");
+  // Executive template settings
+  const [execBandAngle, setExecBandAngle] = useState("12");
+  const [execBandWidth, setExecBandWidth] = useState("45");
+  const [execBandColor, setExecBandColor] = useState("");
+  const [execTitleSize, setExecTitleSize] = useState("44");
+  const [execSubtitleSize, setExecSubtitleSize] = useState("18");
+  const [execTitle, setExecTitle] = useState("Rapport client");
+  const [execSubtitle, setExecSubtitle] = useState("");
+  const [execAccentWidth, setExecAccentWidth] = useState("60");
+  const [execAccentHeight, setExecAccentHeight] = useState("4");
 
   // Client merge (two separate searches for target and source)
   type MergeClient = { id: string; name: string; _count: { installations: number; invoices: number } };
@@ -375,6 +385,15 @@ export default function SettingsPage() {
         setCorpHrHeight(data.report_corp_hr_height || "2");
         setCorpTaglineSize(data.report_corp_tagline_size || "15");
         setCorpDateSize(data.report_corp_date_size || "14");
+        setExecBandAngle(data.report_exec_band_angle || "12");
+        setExecBandWidth(data.report_exec_band_width || "45");
+        setExecBandColor(data.report_exec_band_color || "");
+        setExecTitleSize(data.report_exec_title_size || "44");
+        setExecSubtitleSize(data.report_exec_subtitle_size || "18");
+        setExecTitle(data.report_exec_title || "Rapport client");
+        setExecSubtitle(data.report_exec_subtitle || "");
+        setExecAccentWidth(data.report_exec_accent_width || "60");
+        setExecAccentHeight(data.report_exec_accent_height || "4");
         setSiteLogo(data.site_logo || "");
         setSiteFavicon(data.site_favicon || "");
         setBroadcastEnabled(data.broadcast_enabled === "true");
@@ -604,6 +623,15 @@ export default function SettingsPage() {
         report_corp_hr_height: corpHrHeight,
         report_corp_tagline_size: corpTaglineSize,
         report_corp_date_size: corpDateSize,
+        report_exec_band_angle: execBandAngle,
+        report_exec_band_width: execBandWidth,
+        report_exec_band_color: execBandColor,
+        report_exec_title_size: execTitleSize,
+        report_exec_subtitle_size: execSubtitleSize,
+        report_exec_title: execTitle,
+        report_exec_subtitle: execSubtitle,
+        report_exec_accent_width: execAccentWidth,
+        report_exec_accent_height: execAccentHeight,
       }),
     });
     setSavingReport(false);
@@ -1480,7 +1508,7 @@ export default function SettingsPage() {
           <label className="block text-sm font-medium text-slate-600 mb-3">
             Modèle de page de garde
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* Classic card */}
             <button
               onClick={() => setCoverTemplate("classic")}
@@ -1496,7 +1524,6 @@ export default function SettingsPage() {
                 </div>
               )}
               <div className="flex flex-col items-center gap-3">
-                {/* Mini preview */}
                 <div className="w-full h-28 rounded-lg border border-slate-200 bg-white flex flex-col items-center justify-center gap-1.5 px-3">
                   <div className="w-10 h-5 rounded bg-slate-200" />
                   <div className="w-24 h-2.5 rounded bg-slate-300" />
@@ -1506,7 +1533,7 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Classique</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Logo centré, titre, nom du client en grand, sous-titre et date.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Logo centré, titre et nom du client.</p>
                 </div>
               </div>
             </button>
@@ -1525,7 +1552,6 @@ export default function SettingsPage() {
                 </div>
               )}
               <div className="flex flex-col items-center gap-3">
-                {/* Mini preview */}
                 <div className="w-full h-28 rounded-lg border border-slate-200 bg-white flex flex-col items-center justify-center gap-1.5 px-3">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-5 rounded bg-slate-200" />
@@ -1539,7 +1565,43 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Corporate</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Logos côte à côte, titre personnalisable, ligne de séparation et accroche.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Logos côte à côte, trait de séparation.</p>
+                </div>
+              </div>
+            </button>
+            {/* Executive card */}
+            <button
+              onClick={() => setCoverTemplate("executive")}
+              className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+                coverTemplate === "executive"
+                  ? "border-primary-500 bg-primary-50 ring-1 ring-primary-200"
+                  : "border-slate-200 bg-white hover:border-slate-300"
+              }`}
+            >
+              {coverTemplate === "executive" && (
+                <div className="absolute top-2.5 right-2.5 rounded-full bg-primary-600 p-0.5">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-full h-28 rounded-lg border border-slate-200 bg-white relative overflow-hidden">
+                  {/* Diagonal band */}
+                  <div className="absolute -left-4 bottom-0 w-[60%] h-full bg-primary-500 origin-bottom-left" style={{ transform: "skewX(-12deg)" }} />
+                  <div className="absolute left-3 bottom-3 flex flex-col gap-1 z-10">
+                    <div className="w-6 h-3 rounded-sm bg-white/80" />
+                    <div className="w-16 h-2 rounded bg-white/90" />
+                    <div className="w-12 h-1.5 rounded bg-white/60" />
+                  </div>
+                  <div className="absolute right-3 top-3 z-10">
+                    <div className="w-7 h-4 rounded-sm bg-slate-200" />
+                  </div>
+                  <div className="absolute right-3 bottom-4 z-10">
+                    <div className="w-10 h-1.5 rounded bg-slate-300" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Executive</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Bande colorée diagonale, design premium.</p>
                 </div>
               </div>
             </button>
@@ -1650,6 +1712,73 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-xs text-slate-500 mb-1">Taille date ({corpDateSize}px)</label>
                   <input type="range" min="10" max="22" value={corpDateSize} onChange={(e) => setCorpDateSize(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Executive-specific settings */}
+        {coverTemplate === "executive" && (
+          <div className="rounded-lg border border-primary-100 bg-primary-50/30 p-4 space-y-5">
+            <p className="text-xs font-semibold text-primary-700 uppercase tracking-wider">Options du modèle Executive</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1.5">Titre</label>
+                <input type="text" value={execTitle} onChange={(e) => setExecTitle(e.target.value)} placeholder="Rapport client" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1.5">Sous-titre</label>
+                <input type="text" value={execSubtitle} onChange={(e) => setExecSubtitle(e.target.value)} placeholder="Ex: Suivi des garanties informatiques" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">Bande diagonale</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Largeur ({execBandWidth}%)</label>
+                  <input type="range" min="25" max="65" value={execBandWidth} onChange={(e) => setExecBandWidth(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Inclinaison ({execBandAngle}deg)</label>
+                  <input type="range" min="5" max="25" value={execBandAngle} onChange={(e) => setExecBandAngle(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Couleur</label>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={execBandColor || reportPrimaryColor} onChange={(e) => setExecBandColor(e.target.value)} className="w-8 h-8 rounded border border-slate-200 cursor-pointer" />
+                    <button onClick={() => setExecBandColor("")} className="text-xs text-slate-400 hover:text-slate-600">Auto</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">Typographie</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Taille titre ({execTitleSize}px)</label>
+                  <input type="range" min="28" max="64" value={execTitleSize} onChange={(e) => setExecTitleSize(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Taille sous-titre ({execSubtitleSize}px)</label>
+                  <input type="range" min="12" max="28" value={execSubtitleSize} onChange={(e) => setExecSubtitleSize(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">Trait d&apos;accent</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Largeur ({execAccentWidth}px)</label>
+                  <input type="range" min="30" max="120" value={execAccentWidth} onChange={(e) => setExecAccentWidth(e.target.value)} className="w-full accent-primary-600" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Épaisseur ({execAccentHeight}px)</label>
+                  <input type="range" min="2" max="8" value={execAccentHeight} onChange={(e) => setExecAccentHeight(e.target.value)} className="w-full accent-primary-600" />
                 </div>
               </div>
             </div>

@@ -396,6 +396,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const corpHrHeight = parseInt(reportSettings.report_corp_hr_height || "2");
     const corpTaglineSize = parseInt(reportSettings.report_corp_tagline_size || "15");
     const corpDateSize = parseInt(reportSettings.report_corp_date_size || "14");
+    // Executive template
+    const execBandAngle = parseInt(reportSettings.report_exec_band_angle || "12");
+    const execBandWidth = parseInt(reportSettings.report_exec_band_width || "45");
+    const execBandColor = reportSettings.report_exec_band_color || primaryColor;
+    const execTitleSize = parseInt(reportSettings.report_exec_title_size || "44");
+    const execSubtitleSize = parseInt(reportSettings.report_exec_subtitle_size || "18");
+    const execTitle = esc(reportSettings.report_exec_title || "Rapport client");
+    const execSubtitle = esc(reportSettings.report_exec_subtitle || "");
+    const execAccentWidth = parseInt(reportSettings.report_exec_accent_width || "60");
+    const execAccentHeight = parseInt(reportSettings.report_exec_accent_height || "4");
     const hasClientLogo = !!client.logoUrl;
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 
@@ -599,7 +609,27 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .corporate-tagline { font-size: ${corpTaglineSize}px; color: #64748b; font-style: italic; margin-bottom: 16px; letter-spacing: 0.5px; }
     .corporate-date { font-size: ${corpDateSize}px; color: #94a3b8; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; }
 
-    @media print { .cover-page { page-break-after: always; } }
+    /* Executive template */
+    .exec-cover { position: relative; width: 100%; height: ${orientation === "landscape" ? "210mm" : "297mm"}; background: #ffffff; overflow: hidden; margin: 0; display: flex; }
+    .exec-band { position: absolute; top: 0; left: 0; width: ${execBandWidth}%; height: 100%; background: ${execBandColor}; transform-origin: top left; transform: skewX(-${execBandAngle}deg); z-index: 1; }
+    .exec-band::after { content: ''; position: absolute; top: 0; right: -30px; width: 30px; height: 100%; background: ${execBandColor}30; }
+    .exec-left { position: relative; z-index: 2; width: ${execBandWidth}%; display: flex; flex-direction: column; justify-content: flex-end; padding: 60px 50px; color: #ffffff; }
+    .exec-left .exec-company-logo { position: absolute; top: 50px; left: 50px; }
+    .exec-left .exec-company-logo img { max-height: 50px; max-width: 160px; object-fit: contain; filter: brightness(0) invert(1); }
+    .exec-title { font-size: ${execTitleSize}px; font-weight: 800; line-height: 1.1; letter-spacing: -0.5px; margin-bottom: 16px; color: #ffffff; }
+    .exec-accent { width: ${execAccentWidth}px; height: ${execAccentHeight}px; background: #ffffff; border-radius: 2px; margin-bottom: 20px; opacity: 0.8; }
+    .exec-subtitle { font-size: ${execSubtitleSize}px; font-weight: 300; color: rgba(255,255,255,0.85); letter-spacing: 0.5px; line-height: 1.4; }
+    .exec-right { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 60px 50px; }
+    .exec-client-logo { margin-bottom: 30px; }
+    .exec-client-logo img { max-height: 80px; max-width: 200px; object-fit: contain; }
+    .exec-client-name { font-size: 28px; font-weight: 700; color: #1e293b; letter-spacing: -0.3px; margin-bottom: 10px; }
+    .exec-meta { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 40px; }
+    .exec-meta-item { font-size: 12px; color: #94a3b8; letter-spacing: 1px; text-transform: uppercase; }
+    .exec-meta-value { font-size: 14px; color: #475569; font-weight: 600; letter-spacing: 0.3px; }
+    .exec-dots { position: absolute; bottom: 40px; right: 40px; display: grid; grid-template-columns: repeat(5, 6px); gap: 6px; opacity: 0.15; z-index: 2; }
+    .exec-dots span { width: 6px; height: 6px; border-radius: 50%; background: ${execBandColor}; }
+
+    @media print { .cover-page, .exec-cover { page-break-after: always; } }
 
     .report-content { padding: 5mm; }
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
@@ -627,7 +657,25 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   </style>
 </head>
 <body>
-  ${coverTemplate === "corporate" ? `<div class="cover-page">
+  ${coverTemplate === "executive" ? `<div class="exec-cover">
+    ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
+    <div class="exec-band"></div>
+    <div class="exec-left">
+      ${companyLogo ? `<div class="exec-company-logo"><img src="${companyLogo}" alt="Logo société" /></div>` : ""}
+      <div class="exec-title">${execTitle}</div>
+      <div class="exec-accent"></div>
+      ${execSubtitle ? `<div class="exec-subtitle">${execSubtitle}</div>` : ""}
+    </div>
+    <div class="exec-right">
+      ${client.logoUrl ? `<div class="exec-client-logo"><img src="${client.logoUrl}" alt="Logo client" /></div>` : ""}
+      <div class="exec-client-name">${esc(client.name)}</div>
+      ${showDate ? `<div class="exec-meta">
+        <div><span class="exec-meta-item">Date</span></div>
+        <div><span class="exec-meta-value">${today}</span></div>
+      </div>` : ""}
+    </div>
+    <div class="exec-dots">${Array(15).fill('<span></span>').join('')}</div>
+  </div>` : coverTemplate === "corporate" ? `<div class="cover-page">
     ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
     ${showVerticalName ? `<div class="vertical-text">${esc(client.name)}</div>` : ""}
     ${(companyLogo || client.logoUrl) ? `<div class="corporate-logos" style="position: relative; z-index: 1;">
