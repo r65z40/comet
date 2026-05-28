@@ -408,6 +408,63 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const execAccentHeight = parseInt(reportSettings.report_exec_accent_height || "4");
     const hasClientLogo = !!client.logoUrl;
     const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+    const todayShort = new Date().toLocaleDateString("fr-FR");
+
+    // Custom cover layout
+    function buildCustomCover(): string {
+      try {
+        const raw = reportSettings.report_cover_layout;
+        if (!raw) return "";
+        const layout = JSON.parse(raw);
+        if (!layout.elements) return "";
+
+        function resolveVar(s: string): string {
+          return s
+            .replace(/\{\{client_name\}\}/g, esc(client!.name))
+            .replace(/\{\{company_name\}\}/g, esc(companyName))
+            .replace(/\{\{date\}\}/g, todayShort)
+            .replace(/\{\{date_long\}\}/g, today)
+            .replace(/\{\{nb_installations\}\}/g, String(reportInstallations.length))
+            .replace(/\{\{nb_en_parc\}\}/g, String(reportInstallations.filter(i => i.status === "EN_PARC").length))
+            .replace(/\{\{nb_hors_parc\}\}/g, String(reportInstallations.filter(i => i.status === "HORS_PARC").length))
+            .replace(/\{\{company_logo\}\}/g, companyLogo);
+        }
+
+        const bg = layout.background || "#ffffff";
+        let bgImgHtml = "";
+        if (layout.backgroundImage) {
+          bgImgHtml = `<div style="position:absolute;inset:0;background-image:url('${layout.backgroundImage}');background-size:cover;background-position:center;opacity:${layout.backgroundOpacity ?? 0.15};"></div>`;
+        }
+
+        const elHtml = (layout.elements as Array<Record<string, unknown>>).map((el: Record<string, unknown>) => {
+          const style = `position:absolute;left:${el.x}%;top:${el.y}%;width:${el.width}%;height:${el.height}%;${el.rotation ? `transform:rotate(${el.rotation}deg);` : ""}`;
+
+          if (el.type === "text") {
+            const content = resolveVar(String(el.content || ""));
+            return `<div style="${style}display:flex;align-items:center;justify-content:${el.textAlign === "left" ? "flex-start" : el.textAlign === "right" ? "flex-end" : "center"};font-size:${el.fontSize || 16}px;font-weight:${el.fontWeight || "400"};font-style:${el.fontStyle || "normal"};color:${el.color || "#000"};text-align:${el.textAlign || "center"};letter-spacing:${el.letterSpacing || 0}px;text-transform:${el.textTransform || "none"};line-height:${el.lineHeight || 1.3};opacity:${el.opacity ?? 1};overflow:hidden;">${content}</div>`;
+          }
+          if (el.type === "rect" || el.type === "line") {
+            return `<div style="${style}background-color:${el.backgroundColor || primaryColor};border-radius:${el.borderRadius ?? 0}px;${el.borderWidth ? `border:${el.borderWidth}px solid ${el.borderColor || "#000"};` : ""}opacity:${el.opacity ?? 1};"></div>`;
+          }
+          if (el.type === "circle") {
+            return `<div style="${style}background-color:${el.backgroundColor || primaryColor};border-radius:50%;${el.borderWidth ? `border:${el.borderWidth}px solid ${el.borderColor || "#000"};` : ""}opacity:${el.opacity ?? 1};"></div>`;
+          }
+          if (el.type === "image") {
+            const src = resolveVar(String(el.src || ""));
+            if (!src) return `<div style="${style}"></div>`;
+            return `<div style="${style}display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="${src}" style="max-width:100%;max-height:100%;object-fit:${el.objectFit || "contain"};opacity:${el.opacity ?? 1};" /></div>`;
+          }
+          return "";
+        }).join("\n    ");
+
+        return `<div style="position:relative;width:100%;height:${orientation === "landscape" ? "210mm" : "297mm"};background:${bg};overflow:hidden;margin:0;">
+    ${bgImgHtml}
+    ${elHtml}
+  </div>`;
+      } catch {
+        return "";
+      }
+    }
 
     function getReportStatusLabel(status: string, endDate: string, alwaysInFleet?: boolean): string {
       if (alwaysInFleet) return "Toujours en parc";
@@ -658,7 +715,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   </style>
 </head>
 <body>
-  ${coverTemplate === "executive" ? `<div class="exec-cover">
+  ${coverTemplate === "custom" ? buildCustomCover() : coverTemplate === "executive" ? `<div class="exec-cover">
     ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
     <div class="exec-band"></div>
     <div class="exec-left">

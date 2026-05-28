@@ -95,10 +95,10 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
     transform,
     transition,
     isDragging: isSortableDragging,
-  } = useSortable({ id: card.id });
+  } = useSortable({ id: card.id, data: { type: "card" } });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined,
     transition,
   };
 

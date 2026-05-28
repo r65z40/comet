@@ -6,6 +6,8 @@ import {
   DndContext,
   DragOverlay,
   closestCorners,
+  pointerWithin,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -13,6 +15,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -165,6 +168,28 @@ export default function BoardPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor)
   );
+
+  const columnIds = useMemo(() => new Set(columns.map(c => c.id)), [columns]);
+
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    // When dragging a column, only collide with other columns
+    if (columnIds.has(args.active.id as string)) {
+      return closestCorners(args);
+    }
+
+    // When dragging a card, prefer card/droppable-zone collisions over column sortable
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      // Filter out bare column sortable IDs — prefer card-drop zones and cards
+      const filtered = pointerCollisions.filter(
+        c => !columnIds.has(c.id as string)
+      );
+      if (filtered.length > 0) return filtered;
+      return pointerCollisions;
+    }
+
+    return rectIntersection(args);
+  }, [columnIds]);
 
   const fetchBoard = useCallback(async () => {
     try {
@@ -891,7 +916,7 @@ export default function BoardPage() {
       {/* Kanban Board - Full width */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={collisionDetection}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}

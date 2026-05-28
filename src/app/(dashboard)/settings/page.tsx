@@ -1508,7 +1508,7 @@ export default function SettingsPage() {
           <label className="block text-sm font-medium text-slate-600 mb-3">
             Modèle de page de garde
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {/* Classic card */}
             <button
               onClick={() => setCoverTemplate("classic")}
@@ -1605,7 +1605,41 @@ export default function SettingsPage() {
                 </div>
               </div>
             </button>
+            {/* Custom editor card */}
+            <button
+              onClick={() => { setCoverTemplate("custom"); window.open("/settings/cover-editor", "_blank"); }}
+              className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+                coverTemplate === "custom"
+                  ? "border-primary-500 bg-primary-50 ring-1 ring-primary-200"
+                  : "border-slate-200 bg-white hover:border-slate-300"
+              }`}
+            >
+              {coverTemplate === "custom" && (
+                <div className="absolute top-2.5 right-2.5 rounded-full bg-primary-600 p-0.5">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-full h-28 rounded-lg border border-slate-200 bg-gradient-to-br from-primary-50 to-violet-50 flex flex-col items-center justify-center gap-1">
+                  <Palette className="h-6 w-6 text-primary-400" />
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-4 rounded bg-primary-200/60" />
+                    <div className="w-6 h-1.5 rounded bg-primary-300/60" />
+                    <div className="w-3 h-3 rounded-full bg-violet-200/60" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Personnalisé</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Éditeur visuel drag & drop.</p>
+                </div>
+              </div>
+            </button>
           </div>
+          {coverTemplate === "custom" && (
+            <a href="/settings/cover-editor" target="_blank" className="inline-flex items-center gap-1.5 mt-2 text-sm text-primary-600 hover:text-primary-700 font-medium">
+              <Palette className="h-4 w-4" /> Ouvrir l&apos;éditeur visuel
+            </a>
+          )}
         </div>
 
         {/* Corporate-specific settings */}
