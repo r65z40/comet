@@ -19,9 +19,10 @@ export default auth(async (req) => {
   const isApiAuth = pathname.startsWith("/api/auth");
   const isBranding = pathname === "/api/branding";
   const isCron = pathname === "/api/cron";
+  const isHealth = pathname === "/api/health";
 
   // Allow public endpoints
-  if (isApiAuth || isBranding || isCron) {
+  if (isApiAuth || isBranding || isCron || isHealth) {
     return addSecurityHeaders(NextResponse.next());
   }
 
