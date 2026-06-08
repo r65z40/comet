@@ -609,7 +609,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       : "";
 
     const html = `<!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" style="background:#ffffff;">
 <head>
   <meta charset="UTF-8" />
   <title>Rapport de suivi des garanties informatique - ${esc(client.name)}</title>
@@ -617,10 +617,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     @media print {
       @page { margin: 5mm; size: ${orientation === "landscape" ? "landscape" : "portrait"}; }
       @page:first { margin: 0; }
-      html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #ffffff !important; color-adjust: exact; }
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1a1a2e; }
+    html { background: #ffffff; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1a1a2e; background: #ffffff; }
 
     .cover-page {
       position: relative;
@@ -687,9 +688,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .exec-dots { position: absolute; bottom: 40px; right: 40px; display: grid; grid-template-columns: repeat(5, 6px); gap: 6px; opacity: 0.15; z-index: 2; }
     .exec-dots span { width: 6px; height: 6px; border-radius: 50%; background: ${execBandColor}; }
 
-    @media print { .cover-page, .exec-cover { page-break-after: always; } }
+    @media print { .cover-page, .exec-cover { page-break-after: always; } .report-content { background: #ffffff !important; } }
 
-    .report-content { padding: 5mm; }
+    .report-content { padding: 5mm; background: #ffffff; }
     .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #0f172a; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
 
     .stats { display: flex; gap: 16px; margin-bottom: 30px; flex-wrap: wrap; }
