@@ -125,9 +125,11 @@ export default function CalendarPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newName, url: newUrl, color: newColor }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = { error: text || `Erreur HTTP ${res.status}` }; }
       if (!res.ok) {
-        alert(data.error || "Erreur lors de l'ajout");
+        alert(data.error || `Erreur ${res.status}`);
         return;
       }
       resetForm();
