@@ -611,3 +611,18 @@ model TicketAttachment {
   @@index([ticketId])
   @@map("ticket_attachments")
 }
+
+// ─── Calendar ICS Feeds ──────────────────────────────
+model CalendarFeed {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  url       String
+  color     String   @default("#3b82f6")
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("calendar_feeds")
+}

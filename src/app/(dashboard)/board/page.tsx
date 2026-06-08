@@ -56,6 +56,7 @@ import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
 import KanbanCard from "./KanbanCard";
 import CardDetailModal from "./CardDetailModal";
+import CalendarPanel from "./CalendarPanel";
 
 interface CardTag {
   id: string;
@@ -974,6 +975,9 @@ export default function BoardPage() {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Calendar Panel */}
+      <CalendarPanel />
 
       {/* Notes Section - Full width */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full">
