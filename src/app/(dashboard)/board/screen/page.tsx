@@ -33,9 +33,28 @@ import {
   RefreshCw,
   Zap,
   GripVertical,
+  Settings,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
+import CalendarPanel from "../CalendarPanel";
+
+interface ScreenLayout {
+  showCyberNews: boolean;
+  showFeed: boolean;
+  showCalendar: boolean;
+  feedWidth: number;
+  calendarPosition: "bottom" | "right";
+}
+
+const DEFAULT_LAYOUT: ScreenLayout = {
+  showCyberNews: true,
+  showFeed: true,
+  showCalendar: false,
+  feedWidth: 320,
+  calendarPosition: "bottom",
+};
 
 interface CardTag {
   id: string;
@@ -166,14 +185,48 @@ export default function BoardScreenPage() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [cyberNews, setCyberNews] = useState<CyberNewsItem[]>([]);
   const [activeCard, setActiveCard] = useState<BoardCard | null>(null);
+  const [layout, setLayout] = useState<ScreenLayout>(DEFAULT_LAYOUT);
+  const [showLayoutSettings, setShowLayoutSettings] = useState(false);
   // Disable auto-refresh temporarily while user is dragging to avoid visual jumps
   const isDraggingRef = useRef(false);
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor),
   );
+
+  // Load layout from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("comet_screen_layout");
+      if (saved) setLayout(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  // Close settings popover when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowLayoutSettings(false);
+      }
+    }
+    if (showLayoutSettings) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showLayoutSettings]);
+
+  function updateLayout(patch: Partial<ScreenLayout>) {
+    setLayout((prev) => {
+      const next = { ...prev, ...patch };
+      try {
+        localStorage.setItem("comet_screen_layout", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
 
   const fetchColumns = useCallback(async () => {
     if (isDraggingRef.current) return;
@@ -345,7 +398,7 @@ export default function BoardScreenPage() {
     <div className="fixed inset-0 bg-slate-900 text-white z-[9999] flex flex-col overflow-hidden">
       <TicketToast />
       {/* Cyber news ticker */}
-      {cyberNews.length > 0 && (
+      {layout.showCyberNews && cyberNews.length > 0 && (
         <div className="shrink-0 bg-slate-950 border-b border-slate-800 overflow-hidden h-8 flex items-center">
           <div className="flex items-center gap-2 px-3 shrink-0 bg-red-600/90 h-full z-10">
             <Zap className="h-3.5 w-3.5 text-white" />
@@ -407,6 +460,133 @@ export default function BoardScreenPage() {
             {lastRefresh.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </div>
 
+          {/* Layout settings */}
+          <div className="relative" ref={settingsRef}>
+            <button
+              onClick={() => setShowLayoutSettings(!showLayoutSettings)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors",
+                showLayoutSettings
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-700 hover:bg-slate-600 text-slate-300"
+              )}
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+            {showLayoutSettings && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl p-4 z-50">
+                <h3 className="text-sm font-semibold text-white mb-3">Disposition</h3>
+
+                {/* Toggles */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm text-slate-300">Bandeau cyber</span>
+                    <button
+                      onClick={() => updateLayout({ showCyberNews: !layout.showCyberNews })}
+                      className={cn(
+                        "relative w-9 h-5 rounded-full transition-colors",
+                        layout.showCyberNews ? "bg-blue-600" : "bg-slate-600"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                          layout.showCyberNews ? "translate-x-4" : "translate-x-0.5"
+                        )}
+                      />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm text-slate-300">Flux en direct</span>
+                    <button
+                      onClick={() => updateLayout({ showFeed: !layout.showFeed })}
+                      className={cn(
+                        "relative w-9 h-5 rounded-full transition-colors",
+                        layout.showFeed ? "bg-blue-600" : "bg-slate-600"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                          layout.showFeed ? "translate-x-4" : "translate-x-0.5"
+                        )}
+                      />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm text-slate-300">Calendrier</span>
+                    <button
+                      onClick={() => updateLayout({ showCalendar: !layout.showCalendar })}
+                      className={cn(
+                        "relative w-9 h-5 rounded-full transition-colors",
+                        layout.showCalendar ? "bg-blue-600" : "bg-slate-600"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                          layout.showCalendar ? "translate-x-4" : "translate-x-0.5"
+                        )}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Feed width slider */}
+                {layout.showFeed && (
+                  <div className="py-2 border-t border-slate-700 mt-2">
+                    <label className="text-xs text-slate-400">
+                      Largeur flux ({layout.feedWidth}px)
+                    </label>
+                    <input
+                      type="range"
+                      min={200}
+                      max={500}
+                      value={layout.feedWidth}
+                      onChange={(e) =>
+                        updateLayout({ feedWidth: parseInt(e.target.value) })
+                      }
+                      className="w-full mt-1 accent-blue-500"
+                    />
+                  </div>
+                )}
+
+                {/* Calendar position */}
+                {layout.showCalendar && (
+                  <div className="py-2 border-t border-slate-700">
+                    <label className="text-xs text-slate-400 mb-1 block">
+                      Position calendrier
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => updateLayout({ calendarPosition: "bottom" })}
+                        className={cn(
+                          "flex-1 px-2 py-1.5 text-xs rounded-lg transition-colors",
+                          layout.calendarPosition === "bottom"
+                            ? "bg-blue-600 text-white"
+                            : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                        )}
+                      >
+                        Sous le board
+                      </button>
+                      <button
+                        onClick={() => updateLayout({ calendarPosition: "right" })}
+                        className={cn(
+                          "flex-1 px-2 py-1.5 text-xs rounded-lg transition-colors",
+                          layout.calendarPosition === "right"
+                            ? "bg-blue-600 text-white"
+                            : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                        )}
+                      >
+                        Panneau droit
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={exitScreen}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
@@ -419,33 +599,51 @@ export default function BoardScreenPage() {
 
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Kanban columns */}
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex-1 flex gap-3 overflow-x-auto p-4">
-            {columns.map((column) => (
-              <ScreenColumn
-                key={column.id}
-                column={column}
-                width={Math.max(260, Math.floor((100 - 25) / columns.length))}
-              />
-            ))}
+        {/* Kanban + calendar bottom area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Kanban columns */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex-1 flex gap-3 overflow-x-auto p-4">
+              {columns.map((column) => (
+                <ScreenColumn
+                  key={column.id}
+                  column={column}
+                  width={Math.max(260, Math.floor((100 - (layout.showFeed ? 25 : 5)) / columns.length))}
+                />
+              ))}
+            </div>
+            <DragOverlay>
+              {activeCard ? (
+                <div className="rotate-3 opacity-90">
+                  <ScreenCard card={activeCard} isDraggingOverlay />
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+
+          {/* Calendar panel - bottom position */}
+          {layout.showCalendar && layout.calendarPosition === "bottom" && (
+            <div className="shrink-0 mx-4 mb-4 rounded-xl overflow-hidden max-h-[280px] overflow-y-auto border border-slate-700">
+              <CalendarPanel />
+            </div>
+          )}
+        </div>
+
+        {/* Calendar panel - right position */}
+        {layout.showCalendar && layout.calendarPosition === "right" && (
+          <div className="w-80 shrink-0 border-l border-slate-700 overflow-hidden overflow-y-auto">
+            <CalendarPanel />
           </div>
-          <DragOverlay>
-            {activeCard ? (
-              <div className="rotate-3 opacity-90">
-                <ScreenCard card={activeCard} isDraggingOverlay />
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+        )}
 
         {/* Live feed sidebar */}
-        <div className="w-80 bg-slate-800/80 border-l border-slate-700 flex flex-col shrink-0 overflow-hidden">
+        {layout.showFeed && (
+        <div className="bg-slate-800/80 border-l border-slate-700 flex flex-col shrink-0 overflow-hidden" style={{ width: layout.feedWidth }}>
           {/* Feed tabs */}
           <div className="flex border-b border-slate-700 shrink-0">
             <button
@@ -593,6 +791,7 @@ export default function BoardScreenPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

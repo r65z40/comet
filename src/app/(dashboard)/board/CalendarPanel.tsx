@@ -82,6 +82,16 @@ export default function CalendarPanel() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
 
+  // Load cached data on mount
+  useEffect(() => {
+    try {
+      const cachedFeeds = localStorage.getItem("comet_calendar_feeds");
+      const cachedEvents = localStorage.getItem("comet_calendar_events");
+      if (cachedFeeds) setFeeds(JSON.parse(cachedFeeds));
+      if (cachedEvents) setEvents(JSON.parse(cachedEvents));
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     fetch("/api/auth/session")
       .then(r => r.json())
@@ -97,6 +107,7 @@ export default function CalendarPanel() {
       if (res.ok) {
         const data = await res.json();
         setFeeds(data.feeds);
+        try { localStorage.setItem("comet_calendar_feeds", JSON.stringify(data.feeds)); } catch {}
       }
     } catch { /* ignore */ }
   }, []);
@@ -108,6 +119,7 @@ export default function CalendarPanel() {
       if (res.ok) {
         const data = await res.json();
         setEvents(data.events || []);
+        try { localStorage.setItem("comet_calendar_events", JSON.stringify(data.events || [])); } catch {}
         setErrors(data.errors || []);
       }
     } catch { /* ignore */ }
