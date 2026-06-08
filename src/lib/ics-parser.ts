@@ -11,30 +11,35 @@ export interface CalendarEvent {
   feedColor: string;
 }
 
-function parseIcsDate(value: string): { date: Date; allDay: boolean } {
-  const clean = value.replace(/^[A-Z;=]+:/, "").trim();
+function parseIcsDate(value: string): { date: Date; allDay: boolean } | null {
+  // Extract just the date/time portion — strip any remaining params
+  const clean = value.replace(/.*:/, "").trim();
 
+  // All-day: 20250615
   if (/^\d{8}$/.test(clean)) {
     const y = parseInt(clean.slice(0, 4));
     const m = parseInt(clean.slice(4, 6)) - 1;
     const d = parseInt(clean.slice(6, 8));
-    return { date: new Date(y, m, d), allDay: true };
+    const date = new Date(y, m, d);
+    if (isNaN(date.getTime())) return null;
+    return { date, allDay: true };
   }
 
-  if (/^\d{8}T\d{6}Z?$/.test(clean)) {
-    const y = parseInt(clean.slice(0, 4));
-    const m = parseInt(clean.slice(4, 6)) - 1;
-    const d = parseInt(clean.slice(6, 8));
-    const hh = parseInt(clean.slice(9, 11));
-    const mm = parseInt(clean.slice(11, 13));
-    const ss = parseInt(clean.slice(13, 15));
-    if (clean.endsWith("Z")) {
-      return { date: new Date(Date.UTC(y, m, d, hh, mm, ss)), allDay: false };
-    }
-    return { date: new Date(y, m, d, hh, mm, ss), allDay: false };
+  // DateTime: 20250615T090000 or 20250615T090000Z
+  const dtMatch = clean.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
+  if (dtMatch) {
+    const [, ys, ms, ds, hs, mins, ss, z] = dtMatch;
+    const date = z
+      ? new Date(Date.UTC(+ys, +ms - 1, +ds, +hs, +mins, +ss))
+      : new Date(+ys, +ms - 1, +ds, +hs, +mins, +ss);
+    if (isNaN(date.getTime())) return null;
+    return { date, allDay: false };
   }
 
-  return { date: new Date(clean), allDay: false };
+  // Fallback: try native parsing
+  const date = new Date(clean);
+  if (isNaN(date.getTime())) return null;
+  return { date, allDay: false };
 }
 
 function unfoldLines(raw: string): string[] {
@@ -70,9 +75,10 @@ export function parseIcs(
       inEvent = false;
       if (current.DTSTART && current.SUMMARY) {
         const start = parseIcsDate(current.DTSTART);
-        const end = current.DTEND
-          ? parseIcsDate(current.DTEND)
-          : { date: start.date, allDay: start.allDay };
+        if (!start) continue;
+
+        const end = current.DTEND ? parseIcsDate(current.DTEND) : null;
+        const endDate = end || { date: start.date, allDay: start.allDay };
 
         events.push({
           uid: current.UID || `${feedId}-${events.length}`,
@@ -80,7 +86,7 @@ export function parseIcs(
           description: current.DESCRIPTION ? unescapeIcs(current.DESCRIPTION) : undefined,
           location: current.LOCATION ? unescapeIcs(current.LOCATION) : undefined,
           start: start.date.toISOString(),
-          end: end.date.toISOString(),
+          end: endDate.date.toISOString(),
           allDay: start.allDay,
           feedId,
           feedName,
@@ -93,10 +99,22 @@ export function parseIcs(
 
     const colonIdx = line.indexOf(":");
     if (colonIdx === -1) continue;
-    const key = line.slice(0, colonIdx).split(";")[0].toUpperCase();
+    const fullKey = line.slice(0, colonIdx);
+    const key = fullKey.split(";")[0].toUpperCase();
     const value = line.slice(colonIdx + 1);
-    if (["DTSTART", "DTEND", "SUMMARY", "DESCRIPTION", "LOCATION", "UID"].includes(key)) {
-      current[key] = key === "DTSTART" || key === "DTEND" ? line : value;
+
+    switch (key) {
+      case "DTSTART":
+      case "DTEND":
+        // Store value only; detect VALUE=DATE for all-day
+        current[key] = value;
+        break;
+      case "SUMMARY":
+      case "DESCRIPTION":
+      case "LOCATION":
+      case "UID":
+        current[key] = value;
+        break;
     }
   }
 

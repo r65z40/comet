@@ -42,7 +42,9 @@ interface CalendarFeed {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "--:--";
+  return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
 function formatDateShort(date: Date): string {
