@@ -15,6 +15,7 @@ import {
   EyeOff,
   X,
   AlertCircle,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,9 +35,10 @@ interface CalendarEvent {
 interface CalendarFeed {
   id: string;
   name: string;
-  url: string;
+  url?: string;
   color: string;
   enabled: boolean;
+  hidden: boolean;
 }
 
 function formatTime(iso: string): string {
@@ -68,13 +70,24 @@ export default function CalendarPanel() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [errors, setErrors] = useState<{ feedId: string; feedName: string; error: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAddFeed, setShowAddFeed] = useState(false);
+  const [editingFeed, setEditingFeed] = useState<CalendarFeed | null>(null);
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [newColor, setNewColor] = useState("#3b82f6");
   const [weekOffset, setWeekOffset] = useState(0);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then(r => r.json())
+      .then(data => {
+        if (data?.user?.role === "ADMIN") setIsAdmin(true);
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchFeeds = useCallback(async () => {
     try {
@@ -113,14 +126,28 @@ export default function CalendarPanel() {
         body: JSON.stringify({ name: newName, url: newUrl, color: newColor }),
       });
       if (res.ok) {
-        setNewName("");
-        setNewUrl("");
-        setNewColor("#3b82f6");
-        setShowAddFeed(false);
+        resetForm();
         await fetchFeeds();
         await fetchEvents();
       }
     } catch { /* ignore */ }
+  }
+
+  async function updateFeed() {
+    if (!editingFeed) return;
+    await fetch("/api/board/calendars", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: editingFeed.id,
+        name: newName || undefined,
+        url: newUrl || undefined,
+        color: newColor,
+      }),
+    });
+    resetForm();
+    await fetchFeeds();
+    await fetchEvents();
   }
 
   async function deleteFeed(id: string) {
@@ -130,35 +157,51 @@ export default function CalendarPanel() {
     await fetchEvents();
   }
 
-  async function toggleFeed(feed: CalendarFeed) {
+  async function toggleUserVisibility(feedId: string, currentlyHidden: boolean) {
     await fetch("/api/board/calendars", {
-      method: "PUT",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: feed.id, enabled: !feed.enabled }),
+      body: JSON.stringify({ action: "toggle_visibility", feedId, hidden: !currentlyHidden }),
     });
     await fetchFeeds();
     await fetchEvents();
+  }
+
+  function resetForm() {
+    setNewName("");
+    setNewUrl("");
+    setNewColor("#3b82f6");
+    setShowAddFeed(false);
+    setEditingFeed(null);
+  }
+
+  function startEdit(feed: CalendarFeed) {
+    setEditingFeed(feed);
+    setNewName(feed.name);
+    setNewUrl(feed.url || "");
+    setNewColor(feed.color);
+    setShowAddFeed(true);
   }
 
   const today = startOfDay(new Date());
   const weekStart = addDays(today, weekOffset * 7);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const enabledFeedIds = new Set(feeds.filter(f => f.enabled).map(f => f.id));
+  const visibleFeedIds = new Set(feeds.filter(f => !f.hidden).map(f => f.id));
 
   function getEventsForDay(day: Date): CalendarEvent[] {
     const dayStart = startOfDay(day).getTime();
     const dayEnd = dayStart + 86400000;
 
     return events.filter(e => {
-      if (!enabledFeedIds.has(e.feedId)) return false;
+      if (!visibleFeedIds.has(e.feedId)) return false;
       const eStart = new Date(e.start).getTime();
       const eEnd = new Date(e.end).getTime();
       return eStart < dayEnd && eEnd > dayStart;
     });
   }
 
-  const totalEvents = events.filter(e => enabledFeedIds.has(e.feedId)).length;
+  const totalEvents = events.length;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full">
@@ -186,7 +229,7 @@ export default function CalendarPanel() {
             <RefreshCw className="h-4 w-4" />
           </button>
           <button
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={() => { setShowSettings(!showSettings); if (showSettings) resetForm(); }}
             className={cn(
               "p-1.5 rounded-lg transition-colors",
               showSettings ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
@@ -202,17 +245,22 @@ export default function CalendarPanel() {
       {showSettings && (
         <div className="border-b border-slate-200 bg-slate-50 p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-700">Agendas connectés</h3>
-            <button
-              onClick={() => setShowAddFeed(!showAddFeed)}
-              className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Ajouter
-            </button>
+            <h3 className="text-sm font-semibold text-slate-700">
+              {isAdmin ? "Gestion des agendas" : "Mes agendas"}
+            </h3>
+            {isAdmin && (
+              <button
+                onClick={() => { setShowAddFeed(!showAddFeed); if (showAddFeed) resetForm(); }}
+                className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Ajouter
+              </button>
+            )}
           </div>
 
-          {showAddFeed && (
+          {/* Admin: add/edit form */}
+          {isAdmin && showAddFeed && (
             <div className="bg-white rounded-lg border border-slate-200 p-3 mb-3 space-y-2">
               <p className="text-xs text-slate-500 mb-2">
                 Pour obtenir l&apos;URL ICS : Outlook 365 → Paramètres → Calendrier → Calendriers partagés → Publier un calendrier → Copier le lien ICS.
@@ -241,17 +289,17 @@ export default function CalendarPanel() {
                 />
                 <div className="flex-1" />
                 <button
-                  onClick={() => setShowAddFeed(false)}
+                  onClick={resetForm}
                   className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
                 >
                   Annuler
                 </button>
                 <button
-                  onClick={addFeed}
-                  disabled={!newName.trim() || !newUrl.trim()}
+                  onClick={editingFeed ? updateFeed : addFeed}
+                  disabled={!newName.trim() || (!editingFeed && !newUrl.trim())}
                   className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Ajouter
+                  {editingFeed ? "Modifier" : "Ajouter"}
                 </button>
               </div>
             </div>
@@ -259,7 +307,9 @@ export default function CalendarPanel() {
 
           {feeds.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-4">
-              Aucun agenda connecté. Ajoutez un calendrier ICS pour voir vos événements.
+              {isAdmin
+                ? "Aucun agenda connecté. Ajoutez un calendrier ICS pour que l'équipe puisse voir les événements."
+                : "Aucun agenda disponible. Un administrateur doit d'abord ajouter des calendriers."}
             </p>
           ) : (
             <div className="space-y-1.5">
@@ -267,29 +317,44 @@ export default function CalendarPanel() {
                 <div key={feed.id} className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2">
                   <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: feed.color }} />
                   <span className="text-sm text-slate-700 flex-1 truncate">{feed.name}</span>
+
+                  {/* User: toggle visibility */}
                   <button
-                    onClick={() => toggleFeed(feed)}
+                    onClick={() => toggleUserVisibility(feed.id, feed.hidden)}
                     className={cn(
                       "p-1 rounded transition-colors",
-                      feed.enabled ? "text-blue-500 hover:text-blue-700" : "text-slate-300 hover:text-slate-500"
+                      !feed.hidden ? "text-blue-500 hover:text-blue-700" : "text-slate-300 hover:text-slate-500"
                     )}
-                    title={feed.enabled ? "Masquer" : "Afficher"}
+                    title={feed.hidden ? "Afficher" : "Masquer"}
                   >
-                    {feed.enabled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    {feed.hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>
-                  <button
-                    onClick={() => deleteFeed(feed.id)}
-                    className="p-1 text-slate-300 hover:text-red-500 rounded transition-colors"
-                    title="Supprimer"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+
+                  {/* Admin: edit + delete */}
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={() => startEdit(feed)}
+                        className="p-1 text-slate-300 hover:text-blue-500 rounded transition-colors"
+                        title="Modifier"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => deleteFeed(feed.id)}
+                        className="p-1 text-slate-300 hover:text-red-500 rounded transition-colors"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
           )}
 
-          {errors.length > 0 && (
+          {errors.length > 0 && isAdmin && (
             <div className="mt-3 space-y-1">
               {errors.map((err, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-1.5">
@@ -432,15 +497,19 @@ export default function CalendarPanel() {
           <Calendar className="h-10 w-10 text-slate-200 mb-3" />
           <p className="text-sm text-slate-400 mb-1">Aucun agenda connecté</p>
           <p className="text-xs text-slate-300 mb-4 max-w-xs">
-            Ajoutez des calendriers ICS (Outlook 365, Google Calendar...) pour visualiser vos événements ici.
+            {isAdmin
+              ? "Ajoutez des calendriers ICS (Outlook 365, Google Calendar...) pour que l'équipe puisse voir les événements."
+              : "Un administrateur doit d'abord ajouter des calendriers ICS."}
           </p>
-          <button
-            onClick={() => { setShowSettings(true); setShowAddFeed(true); }}
-            className="flex items-center gap-1.5 text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Connecter un agenda
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => { setShowSettings(true); setShowAddFeed(true); }}
+              className="flex items-center gap-1.5 text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Connecter un agenda
+            </button>
+          )}
         </div>
       )}
     </div>

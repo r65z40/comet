@@ -7,15 +7,26 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
+  const userId = session.user?.id;
+
   const feeds = await prisma.calendarFeed.findMany({
-    where: { userId: session.user?.id, enabled: true },
+    where: { enabled: true },
+    include: {
+      visibility: userId ? { where: { userId } } : false,
+    },
+  });
+
+  // Filter out feeds the user has hidden
+  const visibleFeeds = feeds.filter(feed => {
+    const vis = Array.isArray(feed.visibility) ? feed.visibility : [];
+    return vis.length === 0 || !vis[0].hidden;
   });
 
   const results: CalendarEvent[] = [];
   const errors: { feedId: string; feedName: string; error: string }[] = [];
 
   await Promise.allSettled(
-    feeds.map(async (feed) => {
+    visibleFeeds.map(async (feed) => {
       try {
         const events = await fetchIcsEvents(feed.url, feed.id, feed.name, feed.color);
         results.push(...events);

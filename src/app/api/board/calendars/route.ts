@@ -6,19 +6,59 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
+  const userId = session.user?.id;
+  const isAdmin = session.user?.role === "ADMIN";
+
   const feeds = await prisma.calendarFeed.findMany({
-    where: { userId: session.user?.id },
+    where: { enabled: true },
     orderBy: { createdAt: "asc" },
+    include: {
+      visibility: userId ? { where: { userId } } : false,
+    },
   });
 
-  return NextResponse.json({ feeds });
+  const result = feeds.map(feed => {
+    const vis = Array.isArray(feed.visibility) ? feed.visibility : [];
+    const userHidden = vis.length > 0 ? vis[0].hidden : false;
+    return {
+      id: feed.id,
+      name: feed.name,
+      url: isAdmin ? feed.url : undefined,
+      color: feed.color,
+      enabled: feed.enabled,
+      hidden: userHidden,
+    };
+  });
+
+  return NextResponse.json({ feeds: result });
 }
 
+// Admin-only: list all feeds (including disabled)
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
+
+  // User toggle visibility
+  if (body.action === "toggle_visibility") {
+    const { feedId, hidden } = body;
+    if (!feedId) return NextResponse.json({ error: "feedId requis" }, { status: 400 });
+
+    await prisma.calendarFeedVisibility.upsert({
+      where: { userId_feedId: { userId: session.user!.id!, feedId } },
+      update: { hidden: !!hidden },
+      create: { userId: session.user!.id!, feedId, hidden: !!hidden },
+    });
+
+    return NextResponse.json({ success: true });
+  }
+
+  // Admin: create feed
+  if (session.user?.role !== "ADMIN") {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  }
+
   const { name, url, color } = body;
 
   if (!name || !url) {
@@ -32,12 +72,7 @@ export async function POST(req: NextRequest) {
   }
 
   const feed = await prisma.calendarFeed.create({
-    data: {
-      userId: session.user!.id!,
-      name,
-      url,
-      color: color || "#3b82f6",
-    },
+    data: { name, url, color: color || "#3b82f6" },
   });
 
   return NextResponse.json(feed, { status: 201 });
@@ -46,15 +81,14 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
   const body = await req.json();
   const { id, name, url, color, enabled } = body;
 
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
-  const existing = await prisma.calendarFeed.findFirst({
-    where: { id, userId: session.user?.id },
-  });
+  const existing = await prisma.calendarFeed.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Non trouvé" }, { status: 404 });
 
   if (url) {
@@ -81,16 +115,12 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
-  const existing = await prisma.calendarFeed.findFirst({
-    where: { id, userId: session.user?.id },
-  });
-  if (!existing) return NextResponse.json({ error: "Non trouvé" }, { status: 404 });
-
-  await prisma.calendarFeed.delete({ where: { id } });
+  await prisma.calendarFeed.delete({ where: { id } }).catch(() => {});
   return NextResponse.json({ success: true });
 }

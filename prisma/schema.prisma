@@ -614,15 +614,26 @@ model TicketAttachment {
 
 // ─── Calendar ICS Feeds ──────────────────────────────
 model CalendarFeed {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String
-  url       String
-  color     String   @default("#3b82f6")
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  color       String   @default("#3b82f6")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  visibility  CalendarFeedVisibility[]
 
-  @@index([userId])
   @@map("calendar_feeds")
+}
+
+model CalendarFeedVisibility {
+  id       String       @id @default(cuid())
+  userId   String
+  feedId   String
+  feed     CalendarFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  hidden   Boolean      @default(false)
+
+  @@unique([userId, feedId])
+  @@index([userId])
+  @@map("calendar_feed_visibility")
 }
