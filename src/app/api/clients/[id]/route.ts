@@ -14,6 +14,7 @@ export async function GET(
     where: { id },
     include: {
       installations: {
+        where: { deletedAt: null },
         include: {
           product: { select: { id: true, name: true, code: true } },
           invoice: { select: { id: true, invoiceNumber: true, invoiceDate: true } },

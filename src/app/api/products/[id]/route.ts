@@ -13,9 +13,10 @@ export async function GET(
   const { id } = await params;
 
   const product = await prisma.product.findUnique({
-    where: { id },
+    where: { id, deletedAt: null },
     include: {
       installations: {
+        where: { deletedAt: null },
         include: {
           client: { select: { id: true, name: true } },
           invoice: { select: { id: true, invoiceNumber: true, invoiceDate: true } },

@@ -506,7 +506,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <td>${esc(name)}</td>
           ${showFamily ? `<td>${esc(inst.family || "—")}</td>` : ""}
           ${showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
-          ${showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
+          ${showComParc ? `<td style="white-space:normal;word-wrap:break-word;text-align:left;">${esc(inst.comParc || "—")}</td>` : ""}
           ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
           <td>${formatDate(inst.startDate)}</td>
           <td style="${getEndDateBgStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${formatDate(inst.endDate)}</td>
@@ -526,15 +526,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     function buildColgroup(includeFamily: boolean): string {
       const colW = 80;
       const narrow = 45;
+      const comParcW = 140;
       let fixedCols = 2; // Début, Fin
       if (includeFamily) fixedCols++;
       if (showSupplier) fixedCols++;
       if (showQuantity) fixedCols++;
-      if (showComParc) fixedCols++;
       if (showDuration) fixedCols++;
       if (showStatus) fixedCols++;
-      const fixedWidth = fixedCols * colW + (showQuantity ? narrow - colW : 0);
-      return `<colgroup><col style="width: calc(100% - ${fixedWidth}px);" />${includeFamily ? `<col style="width: ${colW}px;" />` : ""}${showSupplier ? `<col style="width: ${colW}px;" />` : ""}${showComParc ? `<col style="width: ${colW}px;" />` : ""}${showQuantity ? `<col style="width: ${narrow}px;" />` : ""}<col style="width: ${colW}px;" /><col style="width: ${colW}px;" />${showDuration ? `<col style="width: ${colW}px;" />` : ""}${showStatus ? `<col style="width: ${colW}px;" />` : ""}</colgroup>`;
+      let fixedWidth = fixedCols * colW + (showQuantity ? narrow - colW : 0);
+      if (showComParc) fixedWidth += comParcW;
+      return `<colgroup><col style="width: calc(100% - ${fixedWidth}px);" />${includeFamily ? `<col style="width: ${colW}px;" />` : ""}${showSupplier ? `<col style="width: ${colW}px;" />` : ""}${showComParc ? `<col style="width: ${comParcW}px;" />` : ""}${showQuantity ? `<col style="width: ${narrow}px;" />` : ""}<col style="width: ${colW}px;" /><col style="width: ${colW}px;" />${showDuration ? `<col style="width: ${colW}px;" />` : ""}${showStatus ? `<col style="width: ${colW}px;" />` : ""}</colgroup>`;
     }
 
     function buildTableHead(includeFamily: boolean): string {
@@ -572,7 +573,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <tr>
                   <td>${esc(name)}</td>
                   ${showSupplier ? `<td>${esc(inst.supplier || "—")}</td>` : ""}
-                  ${showComParc ? `<td>${esc(inst.comParc || "—")}</td>` : ""}
+                  ${showComParc ? `<td style="white-space:normal;word-wrap:break-word;text-align:left;">${esc(inst.comParc || "—")}</td>` : ""}
                   ${showQuantity ? `<td>${inst.quantity}</td>` : ""}
                   <td>${formatDate(inst.startDate)}</td>
                   <td style="${getEndDateBgStyle(inst.status, inst.endDate, inst.alwaysInFleet)}">${formatDate(inst.endDate)}</td>
@@ -707,11 +708,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .stat-blue { border-color: ${primaryColor}; } .stat-blue .value { color: ${primaryColor}; }
     .footer { text-align: center; font-size: 11px; color: #94a3b8; padding-top: 20px; margin-top: 40px; border-top: 1px solid #e2e8f0; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
-    th { background: #f1f5f9; padding: 4px 8px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
-    td { padding: 3px 8px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: fixed; }
+    th { background: #f1f5f9; padding: 2px 4px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 1px 4px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
     th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
-    th:not(:first-child), td:not(:first-child) { text-align: center; padding: 2px 6px; }
+    th:not(:first-child), td:not(:first-child) { text-align: center; padding: 1px 3px; }
     tr:nth-child(even) { background: #fafafa; }
 
     .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }

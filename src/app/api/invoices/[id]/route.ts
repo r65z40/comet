@@ -21,6 +21,7 @@ export async function GET(
         },
       },
       installations: {
+        where: { deletedAt: null },
         select: {
           id: true,
           invoiceLineId: true,

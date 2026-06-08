@@ -184,7 +184,8 @@ export default function InstallationDetailPage({ params }: { params: Promise<{ i
           <button
             onClick={async () => {
               if (!confirm("Supprimer cette installation ?")) return;
-              await fetch(`/api/installations/${installation.id}`, { method: "DELETE" });
+              const res = await fetch(`/api/installations/${installation.id}`, { method: "DELETE" });
+              if (!res.ok) { alert("Erreur lors de la suppression"); return; }
               router.push("/installations");
             }}
             className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"

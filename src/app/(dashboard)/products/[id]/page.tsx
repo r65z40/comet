@@ -110,7 +110,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           <button
             onClick={async () => {
               if (!confirm(`Supprimer le produit "${product.name}" et toutes ses installations associées ?`)) return;
-              await fetch(`/api/products/${product.id}`, { method: "DELETE" });
+              const res = await fetch(`/api/products/${product.id}`, { method: "DELETE" });
+              if (!res.ok) { alert("Erreur lors de la suppression"); return; }
               router.push("/products");
             }}
             className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
