@@ -617,7 +617,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     @media print {
       @page { margin: 5mm; size: ${orientation === "landscape" ? "landscape" : "portrait"}; }
       @page:first { margin: 0; }
-      html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #ffffff !important; color-adjust: exact; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+      html, body { background: #ffffff !important; }
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { background: #ffffff; }
@@ -641,11 +642,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .cover-bg {
       position: absolute;
       inset: 0;
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      opacity: ${coverBgOpacity};
       z-index: 0;
+      overflow: hidden;
+    }
+    .cover-bg img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      opacity: ${coverBgOpacity};
     }
     .cover-page > *:not(.cover-bg):not(.cover-logo-abs):not(.vertical-text) { position: relative; z-index: 1; }
     .cover-logo-abs { position: absolute; z-index: 1; }
@@ -717,7 +722,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 </head>
 <body>
   ${coverTemplate === "custom" ? buildCustomCover() : coverTemplate === "executive" ? `<div class="exec-cover">
-    ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
+    ${coverBg ? `<div class="cover-bg"><img src="${coverBg}" alt="" /></div>` : ""}
     <div class="exec-band"></div>
     <div class="exec-left">
       ${companyLogo ? `<div class="exec-company-logo"><img src="${companyLogo}" alt="Logo société" /></div>` : ""}
@@ -735,7 +740,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     </div>
     <div class="exec-dots">${Array(15).fill('<span></span>').join('')}</div>
   </div>` : coverTemplate === "corporate" ? `<div class="cover-page">
-    ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
+    ${coverBg ? `<div class="cover-bg"><img src="${coverBg}" alt="" /></div>` : ""}
     ${showVerticalName ? `<div class="vertical-text">${esc(client.name)}</div>` : ""}
     <div class="corporate-inner">
       ${(companyLogo || client.logoUrl) ? `<div class="corporate-logos">
@@ -750,7 +755,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       ${showDate ? `<div class="corporate-date">${today}</div>` : ""}
     </div>
   </div>` : `<div class="cover-page">
-    ${coverBg ? `<div class="cover-bg" style="background-image: url('${coverBg}');"></div>` : ""}
+    ${coverBg ? `<div class="cover-bg"><img src="${coverBg}" alt="" /></div>` : ""}
     ${showVerticalName ? `<div class="vertical-text">${esc(client.name)}</div>` : ""}
     ${companyLogoHtml ? (() => {
       const hAlign = companyLogoPosition === "top-left" ? "left: 30px;" : companyLogoPosition === "top-right" ? "right: 30px;" : "left: 50%; transform: translateX(-50%);";

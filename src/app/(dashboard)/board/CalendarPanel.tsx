@@ -125,26 +125,41 @@ export default function CalendarPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newName, url: newUrl, color: newColor }),
       });
-      if (res.ok) {
-        resetForm();
-        await fetchFeeds();
-        await fetchEvents();
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Erreur lors de l'ajout");
+        return;
       }
-    } catch { /* ignore */ }
+      resetForm();
+      await fetchFeeds();
+      await fetchEvents();
+    } catch (err) {
+      alert("Erreur réseau : " + (err instanceof Error ? err.message : String(err)));
+    }
   }
 
   async function updateFeed() {
     if (!editingFeed) return;
-    await fetch("/api/board/calendars", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: editingFeed.id,
-        name: newName || undefined,
-        url: newUrl || undefined,
-        color: newColor,
-      }),
-    });
+    try {
+      const res = await fetch("/api/board/calendars", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingFeed.id,
+          name: newName || undefined,
+          url: newUrl || undefined,
+          color: newColor,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Erreur lors de la modification");
+        return;
+      }
+    } catch (err) {
+      alert("Erreur réseau : " + (err instanceof Error ? err.message : String(err)));
+      return;
+    }
     resetForm();
     await fetchFeeds();
     await fetchEvents();
