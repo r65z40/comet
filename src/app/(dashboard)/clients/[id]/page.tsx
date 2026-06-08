@@ -562,9 +562,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         families.get(fam)!.push(inst);
       });
       const sortedFamilies = Array.from(families.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-      tableContent = sortedFamilies.map(([family, installs]) => `
-        <div style="margin-top: 20px;">
-          <h3 style="font-size: 14px; font-weight: 700; color: ${primaryColor}; margin-bottom: 8px; padding: 6px 10px; background: ${primaryColor}11; border-radius: 4px;">${esc(family)} (${installs.length})</h3>
+      tableContent = sortedFamilies.map(([family, installs], idx) => `
+        <div style="margin-top: ${idx === 0 ? 6 : 8}px;">
+          <h3 style="font-size: 12px; font-weight: 700; color: ${primaryColor}; margin-bottom: 2px; padding: 3px 8px; background: ${primaryColor}11; border-radius: 3px;">${esc(family)} (${installs.length})</h3>
           <table>
             ${buildColgroup(false)}
             ${buildTableHead(false)}
@@ -708,7 +708,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     .stat-blue { border-color: ${primaryColor}; } .stat-blue .value { color: ${primaryColor}; }
     .footer { text-align: center; font-size: 11px; color: #94a3b8; padding-top: 20px; margin-top: 40px; border-top: 1px solid #e2e8f0; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; table-layout: fixed; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 2px; table-layout: fixed; }
     th { background: #f1f5f9; padding: 2px 4px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; color: #475569; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
     td { padding: 1px 4px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
     th:first-child, td:first-child { white-space: normal; word-wrap: break-word; }
