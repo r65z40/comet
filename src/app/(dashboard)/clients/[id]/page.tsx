@@ -620,6 +620,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       @page:first { margin: 0; }
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       html, body { background: #ffffff !important; }
+      .cover-bg img { filter: brightness(1.03) saturate(1.02); }
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { background: #ffffff; }

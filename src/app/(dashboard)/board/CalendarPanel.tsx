@@ -484,6 +484,12 @@ export default function CalendarPanel() {
                             )}>
                               {event.summary}
                             </span>
+                            {!isExpanded && (
+                              <div className="flex items-center gap-1 mt-0.5 text-[9px] text-slate-400">
+                                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: event.feedColor }} />
+                                <span className="truncate">{event.feedName}</span>
+                              </div>
+                            )}
 
                             {isExpanded && (
                               <div className="mt-1.5 space-y-1">
