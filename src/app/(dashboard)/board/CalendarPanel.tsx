@@ -67,7 +67,7 @@ function addDays(d: Date, n: number): Date {
   return r;
 }
 
-export default function CalendarPanel() {
+export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
   const [feeds, setFeeds] = useState<CalendarFeed[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [errors, setErrors] = useState<{ feedId: string; feedName: string; error: string }[]>([]);
@@ -235,14 +235,17 @@ export default function CalendarPanel() {
   const totalEvents = events.length;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full">
+    <div className={cn(
+      "rounded-xl border shadow-sm w-full",
+      dark ? "bg-slate-800/60 border-slate-700" : "bg-white border-slate-200",
+    )}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-200">
+      <div className={cn("flex items-center justify-between p-4 border-b", dark ? "border-slate-700" : "border-slate-200")}>
         <div className="flex items-center gap-2">
           <Calendar className="h-5 w-5 text-blue-500" />
-          <h2 className="text-base font-semibold text-slate-800">Agendas</h2>
+          <h2 className={cn("text-base font-semibold", dark ? "text-slate-200" : "text-slate-800")}>Agendas</h2>
           {feeds.length > 0 && (
-            <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+            <span className={cn("text-xs px-2 py-0.5 rounded-full", dark ? "text-slate-400 bg-slate-700" : "text-slate-400 bg-slate-100")}>
               {feeds.length} agenda{feeds.length > 1 ? "s" : ""} · {totalEvents} événement{totalEvents > 1 ? "s" : ""}
             </span>
           )}
@@ -252,8 +255,9 @@ export default function CalendarPanel() {
             onClick={() => fetchEvents()}
             disabled={loading}
             className={cn(
-              "p-1.5 rounded-lg transition-colors text-slate-400 hover:text-slate-600 hover:bg-slate-100",
-              loading && "animate-spin"
+              "p-1.5 rounded-lg transition-colors",
+              dark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100",
+              loading && "animate-spin",
             )}
             title="Rafraîchir"
           >
@@ -263,7 +267,7 @@ export default function CalendarPanel() {
             onClick={() => { setShowSettings(!showSettings); if (showSettings) resetForm(); }}
             className={cn(
               "p-1.5 rounded-lg transition-colors",
-              showSettings ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              showSettings ? "bg-blue-50 text-blue-600" : dark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100",
             )}
             title="Gérer les agendas"
           >
@@ -401,21 +405,21 @@ export default function CalendarPanel() {
       {/* Week Navigation */}
       {feeds.length > 0 && (
         <>
-          <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100">
+          <div className={cn("flex items-center justify-between px-4 py-2 border-b", dark ? "border-slate-700" : "border-slate-100")}>
             <button
               onClick={() => setWeekOffset(w => w - 1)}
-              className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+              className={cn("p-1 rounded transition-colors", dark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100")}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-700">
+              <span className={cn("text-sm font-medium", dark ? "text-slate-300" : "text-slate-700")}>
                 {formatDateShort(days[0])} — {formatDateShort(days[6])}
               </span>
               {weekOffset !== 0 && (
                 <button
                   onClick={() => setWeekOffset(0)}
-                  className="text-xs text-blue-500 hover:text-blue-700 px-1.5 py-0.5 rounded hover:bg-blue-50"
+                  className={cn("text-xs text-blue-500 hover:text-blue-700 px-1.5 py-0.5 rounded", dark ? "hover:bg-blue-900/30" : "hover:bg-blue-50")}
                 >
                   Aujourd&apos;hui
                 </button>
@@ -423,31 +427,32 @@ export default function CalendarPanel() {
             </div>
             <button
               onClick={() => setWeekOffset(w => w + 1)}
-              className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+              className={cn("p-1 rounded transition-colors", dark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100")}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
 
           {/* Day columns */}
-          <div className="grid grid-cols-7 divide-x divide-slate-100">
+          <div className={cn("grid grid-cols-7 divide-x", dark ? "divide-slate-700" : "divide-slate-100")}>
             {days.map((day) => {
               const dayEvents = getEventsForDay(day);
               const isToday = isSameDay(day, today);
 
               return (
-                <div key={day.toISOString()} className={cn("min-h-[120px]", isToday && "bg-blue-50/40")}>
+                <div key={day.toISOString()} className={cn("min-h-[120px]", isToday && (dark ? "bg-blue-900/20" : "bg-blue-50/40"))}>
                   {/* Day header */}
                   <div className={cn(
-                    "text-center py-2 border-b border-slate-100",
-                    isToday && "bg-blue-50"
+                    "text-center py-2 border-b",
+                    dark ? "border-slate-700" : "border-slate-100",
+                    isToday && (dark ? "bg-blue-900/30" : "bg-blue-50"),
                   )}>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                    <div className={cn("text-[10px] uppercase tracking-wider", dark ? "text-slate-500" : "text-slate-400")}>
                       {day.toLocaleDateString("fr-FR", { weekday: "short" })}
                     </div>
                     <div className={cn(
                       "text-lg font-bold",
-                      isToday ? "text-blue-600" : "text-slate-700"
+                      isToday ? "text-blue-500" : dark ? "text-slate-300" : "text-slate-700",
                     )}>
                       {day.getDate()}
                     </div>
@@ -456,7 +461,7 @@ export default function CalendarPanel() {
                   {/* Events */}
                   <div className="p-1 space-y-1">
                     {dayEvents.length === 0 && (
-                      <div className="text-[10px] text-slate-300 text-center py-3">—</div>
+                      <div className={cn("text-[10px] text-center py-3", dark ? "text-slate-600" : "text-slate-300")}>—</div>
                     )}
                     {dayEvents.map(event => {
                       const isExpanded = expandedEvent === `${event.uid}-${day.toISOString()}`;
@@ -469,23 +474,25 @@ export default function CalendarPanel() {
                           <div
                             className={cn(
                               "rounded-md px-1.5 py-1 text-[11px] leading-tight transition-all border-l-2",
-                              isExpanded ? "bg-white shadow-sm border border-slate-200" : "hover:bg-white/80"
+                              isExpanded
+                                ? dark ? "bg-slate-700 shadow-sm border border-slate-600" : "bg-white shadow-sm border border-slate-200"
+                                : dark ? "hover:bg-slate-700/60" : "hover:bg-white/80",
                             )}
                             style={{ borderLeftColor: event.feedColor }}
                           >
                             {!event.allDay && (
-                              <span className="font-semibold text-slate-500" style={{ color: event.feedColor }}>
+                              <span className="font-semibold" style={{ color: event.feedColor }}>
                                 {formatTime(event.start)}{" "}
                               </span>
                             )}
                             <span className={cn(
-                              "text-slate-700",
-                              !isExpanded && "line-clamp-2"
+                              dark ? "text-slate-200" : "text-slate-700",
+                              !isExpanded && "line-clamp-2",
                             )}>
                               {event.summary}
                             </span>
                             {!isExpanded && (
-                              <div className="flex items-center gap-1 mt-0.5 text-[9px] text-slate-400">
+                              <div className={cn("flex items-center gap-1 mt-0.5 text-[9px]", dark ? "text-slate-500" : "text-slate-400")}>
                                 <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: event.feedColor }} />
                                 <span className="truncate">{event.feedName}</span>
                               </div>
@@ -494,23 +501,23 @@ export default function CalendarPanel() {
                             {isExpanded && (
                               <div className="mt-1.5 space-y-1">
                                 {!event.allDay && (
-                                  <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                                  <div className={cn("flex items-center gap-1 text-[10px]", dark ? "text-slate-400" : "text-slate-400")}>
                                     <Clock className="h-3 w-3" />
                                     {formatTime(event.start)} — {formatTime(event.end)}
                                   </div>
                                 )}
                                 {event.location && (
-                                  <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                                  <div className={cn("flex items-center gap-1 text-[10px]", dark ? "text-slate-400" : "text-slate-400")}>
                                     <MapPin className="h-3 w-3 flex-shrink-0" />
                                     <span className="truncate">{event.location}</span>
                                   </div>
                                 )}
                                 {event.description && (
-                                  <p className="text-[10px] text-slate-400 line-clamp-3 whitespace-pre-line">
+                                  <p className={cn("text-[10px] line-clamp-3 whitespace-pre-line", dark ? "text-slate-400" : "text-slate-400")}>
                                     {event.description}
                                   </p>
                                 )}
-                                <div className="flex items-center gap-1 text-[10px] text-slate-300">
+                                <div className={cn("flex items-center gap-1 text-[10px]", dark ? "text-slate-500" : "text-slate-300")}>
                                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: event.feedColor }} />
                                   {event.feedName}
                                 </div>
@@ -531,9 +538,9 @@ export default function CalendarPanel() {
       {/* Empty state */}
       {feeds.length === 0 && !showSettings && (
         <div className="flex flex-col items-center justify-center py-10 text-center">
-          <Calendar className="h-10 w-10 text-slate-200 mb-3" />
-          <p className="text-sm text-slate-400 mb-1">Aucun agenda connecté</p>
-          <p className="text-xs text-slate-300 mb-4 max-w-xs">
+          <Calendar className={cn("h-10 w-10 mb-3", dark ? "text-slate-600" : "text-slate-200")} />
+          <p className={cn("text-sm mb-1", dark ? "text-slate-400" : "text-slate-400")}>Aucun agenda connecté</p>
+          <p className={cn("text-xs mb-4 max-w-xs", dark ? "text-slate-500" : "text-slate-300")}>
             {isAdmin
               ? "Ajoutez des calendriers ICS (Outlook 365, Google Calendar...) pour que l'équipe puisse voir les événements."
               : "Un administrateur doit d'abord ajouter des calendriers ICS."}

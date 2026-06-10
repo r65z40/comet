@@ -125,101 +125,95 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "bg-white rounded-lg border border-slate-200 p-3 cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all group",
+        "bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all group overflow-hidden",
         (isSortableDragging || isDragging) && "opacity-50 shadow-lg",
         card.priority === 1 && "border-l-2 border-l-red-500",
         card.archived && "opacity-60"
       )}
       onClick={onClick}
     >
-      {/* Drag handle + Priority */}
-      <div className="flex items-start justify-between mb-1.5">
-        <div className="flex items-center gap-1.5">
-          <button
-            {...attributes}
-            {...listeners}
-            className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing transition-colors"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border",
-              priority.color
-            )}
-          >
-            <span className={cn("w-1.5 h-1.5 rounded-full", priority.dot)} />
-            {priority.label}
-          </span>
-          {card.archived && (
-            <Archive className="h-3 w-3 text-slate-400" />
+      {/* Client header */}
+      {card.client && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-50 border-b border-primary-100">
+          {card.client.logoUrl && (
+            <img src={card.client.logoUrl} alt={card.client.name} className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
           )}
+          <Building2 className="h-3 w-3 text-primary-500 flex-shrink-0" />
+          <span className="truncate text-xs font-bold text-primary-700">{card.client.name}</span>
         </div>
-        {/* Assignee avatars + Client logo */}
-        <div className="flex items-center gap-1">
-          {card.client?.logoUrl && (
-            <img
-              src={card.client.logoUrl}
-              alt={card.client.name}
-              title={card.client.name}
-              className="w-5 h-5 rounded-full object-cover flex-shrink-0"
-            />
-          )}
-          {assigneeNames.length > 0 ? (
-            <div className="flex -space-x-1">
-              {assigneeNames.slice(0, 3).map((name, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 border border-white",
-                    i === 0 ? "bg-primary-100 text-primary-700" :
-                    i === 1 ? "bg-emerald-100 text-emerald-700" :
-                    "bg-amber-100 text-amber-700"
-                  )}
-                  title={name}
-                >
-                  {name.charAt(0).toUpperCase()}
-                </div>
-              ))}
-              {assigneeNames.length > 3 && (
-                <div
-                  className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-600 border border-white flex-shrink-0"
-                  title={assigneeNames.slice(3).join(", ")}
-                >
-                  +{assigneeNames.length - 3}
-                </div>
+      )}
+
+      <div className="p-3">
+        {/* Drag handle + Priority */}
+        <div className="flex items-start justify-between mb-1.5">
+          <div className="flex items-center gap-1.5">
+            <button
+              {...attributes}
+              {...listeners}
+              className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border",
+                priority.color
               )}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Title */}
-      <h4 className="text-sm font-medium text-slate-800 mb-1 line-clamp-2">{card.title}</h4>
-
-      {/* Description preview */}
-      {card.description && (
-        <p className="text-xs text-slate-500 mb-2 line-clamp-2">{card.description}</p>
-      )}
-
-      {/* Client & Contact */}
-      {(card.client || contactName) && (
-        <div className="flex flex-col gap-0.5 mb-2">
-          {card.client && (
-            <span className="flex items-center gap-1.5 px-2 py-1 bg-primary-50 border border-primary-100 rounded-md">
-              <Building2 className="h-3.5 w-3.5 text-primary-600 flex-shrink-0" />
-              <span className="truncate text-xs font-semibold text-primary-700">{card.client.name}</span>
+            >
+              <span className={cn("w-1.5 h-1.5 rounded-full", priority.dot)} />
+              {priority.label}
             </span>
-          )}
-          {contactName && (
-            <span className="flex items-center gap-1 text-xs text-slate-500 pl-1">
-              <User className="h-3 w-3 text-slate-400 flex-shrink-0" />
-              <span className="truncate">{contactName}</span>
-            </span>
-          )}
+            {card.archived && (
+              <Archive className="h-3 w-3 text-slate-400" />
+            )}
+          </div>
+          {/* Assignee avatars */}
+          <div className="flex items-center gap-1">
+            {assigneeNames.length > 0 ? (
+              <div className="flex -space-x-1">
+                {assigneeNames.slice(0, 3).map((name, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 border border-white",
+                      i === 0 ? "bg-primary-100 text-primary-700" :
+                      i === 1 ? "bg-emerald-100 text-emerald-700" :
+                      "bg-amber-100 text-amber-700"
+                    )}
+                    title={name}
+                  >
+                    {name.charAt(0).toUpperCase()}
+                  </div>
+                ))}
+                {assigneeNames.length > 3 && (
+                  <div
+                    className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-600 border border-white flex-shrink-0"
+                    title={assigneeNames.slice(3).join(", ")}
+                  >
+                    +{assigneeNames.length - 3}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
-      )}
+
+        {/* Title */}
+        <h4 className="text-sm font-medium text-slate-800 mb-1 line-clamp-2">{card.title}</h4>
+
+        {/* Description preview */}
+        {card.description && (
+          <p className="text-xs text-slate-500 mb-2 line-clamp-2">{card.description}</p>
+        )}
+
+        {/* Contact */}
+        {contactName && (
+          <div className="flex items-center gap-1 text-xs text-slate-500 mb-2">
+            <User className="h-3 w-3 text-slate-400 flex-shrink-0" />
+            <span className="truncate">{contactName}</span>
+          </div>
+        )}
 
       {/* Checklist progress bar */}
       {checklistTotal > 0 && (
@@ -301,6 +295,7 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
             </span>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

@@ -134,7 +134,7 @@ const DEFAULT_VISIBILITY: ScreenVisibility = {
 };
 
 const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
-  { i: "cybernews", x: 0, y: 0, w: 12, h: 1, minW: 6, minH: 1, maxH: 2 },
+  { i: "cybernews", x: 0, y: 0, w: 12, h: 1, minW: 6, minH: 1, maxH: 1 },
   { i: "kanban", x: 0, y: 1, w: 8, h: 8, minW: 3, minH: 3 },
   { i: "feed", x: 8, y: 1, w: 4, h: 8, minW: 2, minH: 3 },
   { i: "calendar", x: 0, y: 9, w: 12, h: 3, minW: 3, minH: 2 },
@@ -423,7 +423,7 @@ export default function BoardScreenPage() {
           id: "calendar",
           title: "Calendrier",
           icon: <Calendar className="h-3 w-3 text-orange-400" />,
-          content: <CalendarPanel />,
+          content: <CalendarPanel dark />,
         }]
       : []),
   ];
