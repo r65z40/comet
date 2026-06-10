@@ -7,6 +7,7 @@ import {
   DragOverlay,
   closestCorners,
   PointerSensor,
+  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -32,7 +33,6 @@ import {
   ShieldAlert,
   RefreshCw,
   Zap,
-  GripVertical,
   Settings,
   Calendar,
   Rss,
@@ -134,10 +134,10 @@ const DEFAULT_VISIBILITY: ScreenVisibility = {
 };
 
 const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
-  { i: "cybernews", x: 0, y: 0, w: 12, h: 1, minW: 6, minH: 1 },
+  { i: "cybernews", x: 0, y: 0, w: 12, h: 1, minW: 6, minH: 1, maxH: 2 },
   { i: "kanban", x: 0, y: 1, w: 8, h: 8, minW: 3, minH: 3 },
   { i: "feed", x: 8, y: 1, w: 4, h: 8, minW: 2, minH: 3 },
-  { i: "calendar", x: 0, y: 9, w: 12, h: 4, minW: 3, minH: 2 },
+  { i: "calendar", x: 0, y: 9, w: 12, h: 3, minW: 3, minH: 2 },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -197,6 +197,7 @@ export default function BoardScreenPage() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
     useSensor(KeyboardSensor),
   );
 
@@ -510,7 +511,7 @@ export default function BoardScreenPage() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div ref={gridContainerRef} className="flex-1 overflow-hidden p-1">
+        <div ref={gridContainerRef} className="flex-1 overflow-auto p-1 pb-6">
           <DashboardGrid
             widgets={widgets}
             defaultLayout={SCREEN_DEFAULT_LAYOUT}
@@ -684,20 +685,27 @@ function ScreenCard({ card, isDraggingOverlay }: { card: BoardCard; isDraggingOv
   const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
 
   return (
-    <div ref={setNodeRef} style={style} className={cn("bg-slate-700/40 rounded-lg p-3 border-l-2 hover:bg-slate-700/60 transition-colors group", priorityColors[card.priority] || "border-l-slate-600", isDragging && "opacity-30")}>
-      <div className="flex items-start gap-1.5">
-        <button {...attributes} {...listeners} className="text-slate-500 hover:text-slate-300 cursor-grab active:cursor-grabbing transition-colors opacity-0 group-hover:opacity-100 shrink-0 mt-0.5" aria-label="Glisser">
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white line-clamp-2">{card.title}</p>
-          {card.client && (
-            <div className="inline-flex items-center gap-1.5 mt-1.5 px-2 py-1 rounded-md bg-blue-500/15 border border-blue-500/30">
-              {card.client.logoUrl && <img src={card.client.logoUrl} alt="" className="h-4 w-4 rounded-full object-cover" />}
-              <span className="text-xs font-semibold text-blue-300 truncate">{card.client.name}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        "bg-slate-700/40 rounded-lg border-l-2 hover:bg-slate-700/60 transition-colors cursor-grab active:cursor-grabbing touch-none select-none",
+        priorityColors[card.priority] || "border-l-slate-600",
+        isDragging && "opacity-30",
+      )}
+    >
+      {card.client && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border-b border-blue-500/20 rounded-t-lg">
+          {card.client.logoUrl && <img src={card.client.logoUrl} alt="" className="h-4 w-4 rounded-full object-cover" />}
+          <span className="text-xs font-bold text-blue-300 truncate">{card.client.name}</span>
+        </div>
+      )}
+      <div className="px-3 py-2">
+        <p className="text-sm font-medium text-white line-clamp-2">{card.title}</p>
+        {(card.tags.length > 0 || card.dueDate) && (
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {card.tags.slice(0, 3).map((t) => (
               <span key={t.id} className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: t.tag.color + "30", color: t.tag.color }}>
                 {t.tag.name}
@@ -710,7 +718,7 @@ function ScreenCard({ card, isDraggingOverlay }: { card: BoardCard; isDraggingOv
               </span>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

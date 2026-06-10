@@ -152,7 +152,12 @@ export default function DashboardGrid({
                   {widget.title}
                 </span>
               </div>
-              <div className="flex-1 overflow-auto min-h-0">
+              <div
+                className="flex-1 overflow-auto min-h-0"
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+              >
                 {widget.content}
               </div>
             </div>
