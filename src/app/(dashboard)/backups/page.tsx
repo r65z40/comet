@@ -524,34 +524,58 @@ export default function BackupsPage() {
                           Assigner à un client
                         </button>
                         {assigningFor === account.organizationId && (
-                          <div className="absolute left-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-lg shadow-lg z-50 p-2">
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <Search className="h-3 w-3 text-slate-400" />
-                              <input
-                                type="text"
-                                placeholder="Chercher un client..."
-                                value={clientSearch}
-                                onChange={(e) => setClientSearch(e.target.value)}
-                                className="flex-1 text-xs border-none outline-none placeholder-slate-300"
-                                autoFocus
-                              />
-                              <button onClick={() => setAssigningFor(null)} className="text-slate-300 hover:text-slate-500"><X className="h-3 w-3" /></button>
-                            </div>
-                            <div className="max-h-40 overflow-y-auto space-y-0.5">
-                              {unlinkedClients
-                                .filter((c) => !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase()))
-                                .slice(0, 20)
-                                .map((c) => (
-                                  <button
-                                    key={c.id}
-                                    onClick={() => assignClient(account.organizationId, c.id)}
-                                    className="w-full text-left px-2 py-1.5 text-xs text-slate-600 hover:bg-primary-50 hover:text-primary-700 rounded transition-colors truncate"
-                                  >
-                                    {c.name}
-                                  </button>
-                                ))}
-                              {unlinkedClients.filter((c) => !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase())).length === 0 && (
-                                <p className="text-[10px] text-slate-400 text-center py-2">Aucun client disponible</p>
+                          <div className="fixed inset-0 z-[60]" onClick={() => setAssigningFor(null)}>
+                            <div
+                              className="absolute w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-[70]"
+                              style={{ left: assignRef.current?.getBoundingClientRect().left ?? 0, top: Math.min(assignRef.current?.getBoundingClientRect().top ?? 0, window.innerHeight - 340) }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="p-3 border-b border-slate-100">
+                                <div className="relative">
+                                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                  <input
+                                    type="text"
+                                    placeholder="Rechercher un client..."
+                                    value={clientSearch}
+                                    onChange={(e) => setClientSearch(e.target.value)}
+                                    className="w-full pl-8 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
+                                    autoFocus
+                                  />
+                                  {clientSearch && (
+                                    <button onClick={() => setClientSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="max-h-60 overflow-y-auto p-1.5">
+                                {(() => {
+                                  const results = unlinkedClients.filter((c) => !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase()));
+                                  if (results.length === 0) return (
+                                    <p className="text-xs text-slate-400 text-center py-4">Aucun client disponible</p>
+                                  );
+                                  return results.slice(0, 50).map((c) => (
+                                    <button
+                                      key={c.id}
+                                      onClick={() => assignClient(account.organizationId, c.id)}
+                                      className="w-full flex items-center gap-2.5 px-2.5 py-2 text-sm text-slate-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left"
+                                    >
+                                      {c.logoUrl ? (
+                                        <img src={c.logoUrl} alt="" className="h-6 w-6 rounded object-cover shrink-0 border border-slate-100" />
+                                      ) : (
+                                        <div className="h-6 w-6 rounded bg-slate-100 flex items-center justify-center shrink-0 text-[10px] font-bold text-slate-400">
+                                          {c.name.charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+                                      <span className="truncate">{c.name}</span>
+                                    </button>
+                                  ));
+                                })()}
+                              </div>
+                              {unlinkedClients.filter((c) => !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase())).length > 50 && (
+                                <div className="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400 text-center">
+                                  Utilisez la recherche pour affiner les résultats
+                                </div>
                               )}
                             </div>
                           </div>
