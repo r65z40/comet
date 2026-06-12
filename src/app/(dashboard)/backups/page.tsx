@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   HardDrive,
@@ -18,7 +18,10 @@ import {
   Database,
   FolderOpen,
   Settings,
-  ArrowUpDown,
+  Users,
+  X,
+  LinkIcon,
+  Unlink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -56,16 +59,16 @@ interface CloudUsage {
   currentUsage: number;
 }
 
-interface ClientLink {
+interface CometClient {
   id: string;
   name: string;
   oxiboxId: string | null;
 }
 
 const STATUS_CONFIG = {
-  OK: { label: "OK", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", icon: CheckCircle, dot: "bg-emerald-500" },
-  ALERT: { label: "Alerte", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", icon: AlertTriangle, dot: "bg-amber-500" },
-  ERROR: { label: "Erreur", color: "text-red-600", bg: "bg-red-50", border: "border-red-200", icon: XCircle, dot: "bg-red-500" },
+  OK: { label: "OK", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", icon: CheckCircle, dot: "bg-emerald-500", ring: "ring-emerald-200" },
+  ALERT: { label: "Alerte", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", icon: AlertTriangle, dot: "bg-amber-500", ring: "ring-amber-200" },
+  ERROR: { label: "Erreur", color: "text-red-600", bg: "bg-red-50", border: "border-red-200", icon: XCircle, dot: "bg-red-500", ring: "ring-red-200" },
 };
 
 function formatBytes(bytes: number): string {
@@ -73,10 +76,6 @@ function formatBytes(bytes: number): string {
   const units = ["o", "Ko", "Mo", "Go", "To"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(i > 1 ? 1 : 0)} ${units[i]}`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function formatDateTime(iso: string): string {
@@ -100,14 +99,15 @@ export default function BackupsPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OK" | "ALERT" | "ERROR">("ALL");
-  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [expandedMachines, setExpandedMachines] = useState<Set<string>>(new Set());
   const [cloudUsage, setCloudUsage] = useState<Record<string, CloudUsage>>({});
   const [loadingUsage, setLoadingUsage] = useState<Set<string>>(new Set());
-  const [clients, setClients] = useState<ClientLink[]>([]);
+  const [allClients, setAllClients] = useState<CometClient[]>([]);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [sortField, setSortField] = useState<"name" | "status">("name");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [assigningFor, setAssigningFor] = useState<string | null>(null);
+  const [clientSearch, setClientSearch] = useState("");
+  const assignRef = useRef<HTMLDivElement>(null);
 
   const fetchAccounts = useCallback(async () => {
     setError(null);
@@ -116,7 +116,6 @@ export default function BackupsPage() {
       let skip = 0;
       const limit = 200;
       let hasMore = true;
-
       while (hasMore) {
         const res = await fetch(`/api/oxibox/status?limit=${limit}&skip=${skip}`);
         if (!res.ok) {
@@ -135,14 +134,15 @@ export default function BackupsPage() {
           hasMore = false;
         }
       }
-
       setAccounts(all);
       setLastRefresh(new Date());
+      for (const a of all) fetchUsage(a.organizationId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchClients = useCallback(async () => {
@@ -150,10 +150,9 @@ export default function BackupsPage() {
       const res = await fetch("/api/clients?limit=9999");
       if (res.ok) {
         const data = await res.json();
-        const list = (data.clients || data || [])
-          .filter((c: ClientLink) => c.oxiboxId)
-          .map((c: ClientLink) => ({ id: c.id, name: c.name, oxiboxId: c.oxiboxId }));
-        setClients(list);
+        setAllClients(
+          (data.clients || data || []).map((c: CometClient) => ({ id: c.id, name: c.name, oxiboxId: c.oxiboxId })),
+        );
       }
     } catch {}
   }, []);
@@ -162,6 +161,16 @@ export default function BackupsPage() {
     fetchAccounts();
     fetchClients();
   }, [fetchAccounts, fetchClients]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (assignRef.current && !assignRef.current.contains(e.target as Node)) setAssigningFor(null);
+    }
+    if (assigningFor) {
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }
+  }, [assigningFor]);
 
   async function fetchUsage(orgId: string) {
     if (cloudUsage[orgId] || loadingUsage.has(orgId)) return;
@@ -173,48 +182,41 @@ export default function BackupsPage() {
         setCloudUsage((prev) => ({ ...prev, [orgId]: data }));
       }
     } catch {}
-    setLoadingUsage((prev) => {
-      const next = new Set(prev);
-      next.delete(orgId);
-      return next;
-    });
-  }
-
-  function toggleAccount(orgId: string) {
-    setExpandedAccounts((prev) => {
-      const next = new Set(prev);
-      if (next.has(orgId)) {
-        next.delete(orgId);
-      } else {
-        next.add(orgId);
-        fetchUsage(orgId);
-      }
-      return next;
-    });
-  }
-
-  function toggleMachine(key: string) {
-    setExpandedMachines((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setLoadingUsage((prev) => { const n = new Set(prev); n.delete(orgId); return n; });
   }
 
   function loadJobsForAccount(orgId: string) {
     fetch(`/api/oxibox/status?orgId=${encodeURIComponent(orgId)}&include=jobs`)
-      .then((r) => r.ok ? r.json() : null)
+      .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data) return;
-        setAccounts((prev) =>
-          prev.map((a) => (a.organizationId === orgId ? { ...a, machines: data.machines || a.machines } : a)),
-        );
+        setAccounts((prev) => prev.map((a) => (a.organizationId === orgId ? { ...a, machines: data.machines || a.machines } : a)));
       })
       .catch(() => {});
   }
 
-  const clientByOxiboxId = new Map(clients.map((c) => [c.oxiboxId, c]));
+  async function assignClient(oxiboxId: string, clientId: string) {
+    await fetch(`/api/clients/${clientId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ oxiboxId }),
+    });
+    setAssigningFor(null);
+    setClientSearch("");
+    fetchClients();
+  }
+
+  async function unlinkClient(clientId: string) {
+    await fetch(`/api/clients/${clientId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ oxiboxId: "" }),
+    });
+    fetchClients();
+  }
+
+  const clientByOxiboxId = new Map(allClients.filter((c) => c.oxiboxId).map((c) => [c.oxiboxId!, c]));
+  const unlinkedClients = allClients.filter((c) => !c.oxiboxId);
 
   const filtered = accounts
     .filter((a) => {
@@ -222,21 +224,18 @@ export default function BackupsPage() {
       if (search) {
         const q = search.toLowerCase();
         const matchOrg = a.organizationId.toLowerCase().includes(q);
-        const linkedClient = clientByOxiboxId.get(a.organizationId);
-        const matchClient = linkedClient?.name.toLowerCase().includes(q);
+        const linked = clientByOxiboxId.get(a.organizationId);
+        const matchClient = linked?.name.toLowerCase().includes(q);
         const matchMachine = a.machines.some((m) => m.id.toLowerCase().includes(q));
         if (!matchOrg && !matchClient && !matchMachine) return false;
       }
       return true;
     })
     .sort((a, b) => {
-      if (sortField === "status") {
-        const order = { ERROR: 0, ALERT: 1, OK: 2 };
-        const diff = order[a.status] - order[b.status];
-        return sortDir === "asc" ? diff : -diff;
-      }
-      const cmp = a.organizationId.localeCompare(b.organizationId);
-      return sortDir === "asc" ? cmp : -cmp;
+      const order = { ERROR: 0, ALERT: 1, OK: 2 };
+      const diff = order[a.status] - order[b.status];
+      if (diff !== 0) return diff;
+      return a.organizationId.localeCompare(b.organizationId);
     });
 
   const stats = {
@@ -300,9 +299,7 @@ export default function BackupsPage() {
             <h1 className="text-xl font-bold text-slate-900">Sauvegardes</h1>
             <p className="text-sm text-slate-500">
               {accounts.length} compte{accounts.length > 1 ? "s" : ""} Oxibox
-              {lastRefresh && (
-                <span className="text-slate-400"> · Actualisé {timeAgo(lastRefresh.toISOString())}</span>
-              )}
+              {lastRefresh && <span className="text-slate-400"> · {timeAgo(lastRefresh.toISOString())}</span>}
             </p>
           </div>
         </div>
@@ -326,9 +323,7 @@ export default function BackupsPage() {
         ].map(({ label, value, color, bg, icon: Icon }) => (
           <div key={label} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex items-center gap-2 mb-1">
-              <div className={cn("rounded-lg p-1.5", bg)}>
-                <Icon className={cn("h-4 w-4", color)} />
-              </div>
+              <div className={cn("rounded-lg p-1.5", bg)}><Icon className={cn("h-4 w-4", color)} /></div>
               <span className="text-xs text-slate-400">{label}</span>
             </div>
             <p className={cn("text-2xl font-bold", color)}>{value}</p>
@@ -340,227 +335,229 @@ export default function BackupsPage() {
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Rechercher un compte, client, machine..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
+          <input type="text" placeholder="Rechercher un compte, client, machine..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
         </div>
         <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
           {(["ALL", "OK", "ALERT", "ERROR"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                statusFilter === s ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-700",
-              )}
-            >
+            <button key={s} onClick={() => setStatusFilter(s)} className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-colors", statusFilter === s ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-700")}>
               {s === "ALL" ? "Tous" : STATUS_CONFIG[s].label}
             </button>
           ))}
         </div>
-        <button
-          onClick={() => {
-            if (sortField === "status") setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-            else { setSortField("status"); setSortDir("asc"); }
-          }}
-          className="flex items-center gap-1 px-3 py-2 text-xs text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-        >
-          <ArrowUpDown className="h-3.5 w-3.5" />
-          Trier par {sortField === "status" ? "statut" : "nom"}
-        </button>
       </div>
 
-      {/* Accounts list */}
+      {/* Cards grid */}
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
           <Database className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-          <p className="text-sm text-slate-400">
-            {accounts.length === 0 ? "Aucun compte Oxibox trouvé" : "Aucun résultat pour ce filtre"}
-          </p>
+          <p className="text-sm text-slate-400">{accounts.length === 0 ? "Aucun compte Oxibox trouvé" : "Aucun résultat pour ce filtre"}</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((account) => {
             const cfg = STATUS_CONFIG[account.status];
-            const isExpanded = expandedAccounts.has(account.organizationId);
+            const StatusIcon = cfg.icon;
             const usage = cloudUsage[account.organizationId];
             const linkedClient = clientByOxiboxId.get(account.organizationId);
+            const isExpanded = expandedCard === account.organizationId;
+            const usagePercent = usage ? Math.round((usage.currentUsage / usage.allocatedQuota) * 100) : null;
 
             return (
-              <div key={account.organizationId} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-                {/* Account header */}
-                <button
-                  onClick={() => toggleAccount(account.organizationId)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
-                >
-                  {isExpanded ? <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />}
+              <div key={account.organizationId} className={cn("rounded-xl border bg-white overflow-hidden transition-shadow hover:shadow-md", account.status === "ERROR" ? "border-red-200" : account.status === "ALERT" ? "border-amber-200" : "border-slate-200")}>
+                {/* Status bar top */}
+                <div className={cn("h-1", cfg.dot)} />
 
-                  <div className={cn("w-2.5 h-2.5 rounded-full shrink-0", cfg.dot)} />
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-800 truncate">{account.organizationId}</span>
-                      {linkedClient && (
-                        <Link
-                          href={`/clients/${linkedClient.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition-colors truncate max-w-[200px]"
-                        >
-                          {linkedClient.name}
-                        </Link>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                      <span className="flex items-center gap-1">
-                        <Monitor className="h-3 w-3" />
-                        {account.machines.length} machine{account.machines.length > 1 ? "s" : ""}
-                      </span>
-                      {account.ongoingBackup && (
-                        <span className="flex items-center gap-1 text-purple-500">
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                          Sauvegarde en cours
+                <div className="p-4">
+                  {/* Header row */}
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-slate-800 truncate">{account.organizationId}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                          <Monitor className="h-3 w-3" />
+                          {account.machines.length} machine{account.machines.length > 1 ? "s" : ""}
                         </span>
-                      )}
+                        {account.ongoingBackup && (
+                          <span className="flex items-center gap-1 text-[11px] text-purple-500">
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                            En cours
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <span className={cn("shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold", cfg.bg, cfg.color)}>
+                      <StatusIcon className="h-3.5 w-3.5" />
+                      {cfg.label}
+                    </span>
                   </div>
 
-                  <span className={cn("shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border", cfg.bg, cfg.color, cfg.border)}>
-                    <cfg.icon className="h-3.5 w-3.5" />
-                    {cfg.label}
-                  </span>
-                </button>
-
-                {/* Expanded: machines */}
-                {isExpanded && (
-                  <div className="border-t border-slate-100 bg-slate-50/50">
-                    {/* Cloud usage */}
-                    {usage && (
-                      <div className="px-5 py-3 border-b border-slate-100">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="text-slate-500 flex items-center gap-1.5">
-                            <Database className="h-3.5 w-3.5" />
-                            Stockage cloud
-                          </span>
-                          <span className="text-slate-600 font-medium">
-                            {formatBytes(usage.currentUsage)} / {formatBytes(usage.allocatedQuota)}
-                          </span>
+                  {/* Quota bar */}
+                  <div className="mb-3">
+                    {usage ? (
+                      <>
+                        <div className="flex items-center justify-between text-[11px] mb-1">
+                          <span className="text-slate-400">Stockage</span>
+                          <span className="text-slate-600 font-medium">{formatBytes(usage.currentUsage)} / {formatBytes(usage.allocatedQuota)}</span>
                         </div>
-                        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
-                            className={cn(
-                              "h-full rounded-full transition-all",
-                              usage.currentUsage / usage.allocatedQuota > 0.9 ? "bg-red-500" :
-                              usage.currentUsage / usage.allocatedQuota > 0.7 ? "bg-amber-500" : "bg-emerald-500",
-                            )}
-                            style={{ width: `${Math.min(100, (usage.currentUsage / usage.allocatedQuota) * 100)}%` }}
+                            className={cn("h-full rounded-full transition-all", usagePercent! > 90 ? "bg-red-500" : usagePercent! > 70 ? "bg-amber-500" : "bg-emerald-500")}
+                            style={{ width: `${Math.min(100, usagePercent!)}%` }}
                           />
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          {Math.round((usage.currentUsage / usage.allocatedQuota) * 100)}% utilisé
-                        </p>
-                      </div>
-                    )}
-                    {loadingUsage.has(account.organizationId) && (
-                      <div className="px-5 py-2 border-b border-slate-100 flex items-center gap-2 text-xs text-slate-400">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Chargement du stockage...
-                      </div>
-                    )}
-
-                    {account.machines.length === 0 ? (
-                      <div className="px-5 py-6 text-center text-sm text-slate-400">Aucune machine configurée</div>
+                        <p className="text-[10px] text-slate-400 mt-0.5 text-right">{usagePercent}%</p>
+                      </>
+                    ) : loadingUsage.has(account.organizationId) ? (
+                      <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden animate-pulse" />
                     ) : (
-                      <div className="divide-y divide-slate-100">
-                        {account.machines.map((machine) => {
-                          const mCfg = STATUS_CONFIG[machine.status];
-                          const mKey = `${account.organizationId}::${machine.id}`;
-                          const mExpanded = expandedMachines.has(mKey);
-                          const hasJobs = machine.jobs && machine.jobs.length > 0;
-
-                          return (
-                            <div key={machine.id}>
-                              <button
-                                onClick={() => {
-                                  if (!machine.jobs) loadJobsForAccount(account.organizationId);
-                                  toggleMachine(mKey);
-                                }}
-                                className="w-full flex items-center gap-3 px-5 py-2.5 text-left hover:bg-white transition-colors"
-                              >
-                                {mExpanded ? <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />}
-                                <Server className="h-4 w-4 text-slate-400 shrink-0" />
-                                <span className="text-sm text-slate-700 font-medium flex-1 truncate">{machine.id}</span>
-                                {machine.ongoingBackup && (
-                                  <RefreshCw className="h-3.5 w-3.5 text-purple-500 animate-spin shrink-0" />
-                                )}
-                                <span className={cn("flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border", mCfg.bg, mCfg.color, mCfg.border)}>
-                                  <mCfg.icon className="h-3 w-3" />
-                                  {mCfg.label}
-                                </span>
-                              </button>
-
-                              {/* Jobs */}
-                              {mExpanded && hasJobs && (
-                                <div className="pl-14 pr-5 pb-3 space-y-1.5">
-                                  {machine.jobs!.map((job, ji) => {
-                                    const jCfg = STATUS_CONFIG[job.status];
-                                    const log = job.lastRelevantBackupLog;
-                                    return (
-                                      <div key={ji} className="flex items-start gap-3 p-2.5 rounded-lg bg-white border border-slate-100">
-                                        <FolderOpen className="h-4 w-4 text-slate-300 shrink-0 mt-0.5" />
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs font-mono text-slate-600 truncate">{job.path}</span>
-                                            <span className={cn("shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full border", jCfg.bg, jCfg.color, jCfg.border)}>
-                                              {jCfg.label}
-                                            </span>
-                                            {job.ongoingBackup && <RefreshCw className="h-3 w-3 text-purple-500 animate-spin shrink-0" />}
-                                          </div>
-                                          {log && (
-                                            <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-400">
-                                              <span className="flex items-center gap-1">
-                                                <Clock className="h-3 w-3" />
-                                                {formatDateTime(log.startedAt)}
-                                              </span>
-                                              <span>{formatBytes(log.totalBytesProcessed)}</span>
-                                              <span className={log.success ? "text-emerald-500" : "text-red-500"}>
-                                                {log.success ? "Succès" : "Échec"}
-                                              </span>
-                                              <span className="text-slate-300">{timeAgo(log.endedAt)}</span>
-                                            </div>
-                                          )}
-                                          {!log && (
-                                            <p className="text-[10px] text-slate-300 mt-1">Aucune sauvegarde enregistrée</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                              {mExpanded && !hasJobs && !machine.jobs && (
-                                <div className="pl-14 pr-5 pb-3">
-                                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                    Chargement des jobs...
-                                  </div>
-                                </div>
-                              )}
-                              {mExpanded && machine.jobs && machine.jobs.length === 0 && (
-                                <div className="pl-14 pr-5 pb-3">
-                                  <p className="text-xs text-slate-400">Aucun jeu de sauvegarde configuré</p>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <div className="h-2.5 bg-slate-50 rounded-full" />
                     )}
                   </div>
-                )}
+
+                  {/* Machines mini-list */}
+                  {account.machines.length > 0 && (
+                    <div className="space-y-1 mb-3">
+                      {account.machines.slice(0, isExpanded ? undefined : 3).map((m) => {
+                        const mCfg = STATUS_CONFIG[m.status];
+                        return (
+                          <div key={m.id} className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded-lg bg-slate-50">
+                            <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", mCfg.dot)} />
+                            <Server className="h-3 w-3 text-slate-300 shrink-0" />
+                            <span className="text-slate-600 truncate flex-1">{m.id}</span>
+                            {m.ongoingBackup && <RefreshCw className="h-2.5 w-2.5 text-purple-400 animate-spin shrink-0" />}
+                            <span className={cn("text-[10px] font-medium", mCfg.color)}>{mCfg.label}</span>
+                          </div>
+                        );
+                      })}
+                      {!isExpanded && account.machines.length > 3 && (
+                        <button onClick={() => { setExpandedCard(account.organizationId); loadJobsForAccount(account.organizationId); }} className="text-[11px] text-primary-600 hover:underline px-2">
+                          +{account.machines.length - 3} machine(s)...
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Expanded: jobs detail */}
+                  {isExpanded && account.machines.length > 0 && (
+                    <div className="space-y-2 mb-3 border-t border-slate-100 pt-3">
+                      {account.machines.map((machine) => {
+                        const mKey = `${account.organizationId}::${machine.id}`;
+                        const mExpanded = expandedMachines.has(mKey);
+                        return (
+                          <div key={machine.id}>
+                            <button
+                              onClick={() => {
+                                if (!machine.jobs) loadJobsForAccount(account.organizationId);
+                                setExpandedMachines((prev) => { const n = new Set(prev); if (n.has(mKey)) n.delete(mKey); else n.add(mKey); return n; });
+                              }}
+                              className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-slate-700 w-full text-left"
+                            >
+                              {mExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                              <Server className="h-3 w-3" />
+                              <span className="font-medium">{machine.id}</span>
+                              {machine.jobs && <span className="text-slate-300 ml-auto">{machine.jobs.length} job(s)</span>}
+                            </button>
+                            {mExpanded && machine.jobs && machine.jobs.length > 0 && (
+                              <div className="ml-5 mt-1 space-y-1">
+                                {machine.jobs.map((job, ji) => {
+                                  const jCfg = STATUS_CONFIG[job.status];
+                                  const log = job.lastRelevantBackupLog;
+                                  return (
+                                    <div key={ji} className="flex items-start gap-2 p-2 rounded bg-white border border-slate-100 text-[10px]">
+                                      <FolderOpen className="h-3 w-3 text-slate-300 shrink-0 mt-0.5" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-mono text-slate-500 truncate">{job.path}</span>
+                                          <span className={cn("font-medium", jCfg.color)}>{jCfg.label}</span>
+                                        </div>
+                                        {log && (
+                                          <div className="flex items-center gap-2 mt-0.5 text-slate-400">
+                                            <Clock className="h-2.5 w-2.5" />
+                                            {formatDateTime(log.startedAt)} · {formatBytes(log.totalBytesProcessed)} · <span className={log.success ? "text-emerald-500" : "text-red-500"}>{log.success ? "OK" : "Échec"}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {mExpanded && !machine.jobs && (
+                              <div className="ml-5 mt-1 text-[10px] text-slate-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Chargement...</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Footer: client link + expand */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                    {linkedClient ? (
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <Link href={`/clients/${linkedClient.id}`} className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600 hover:text-blue-800 truncate">
+                          <Users className="h-3 w-3 shrink-0" />
+                          {linkedClient.name}
+                        </Link>
+                        <button onClick={() => unlinkClient(linkedClient.id)} className="p-0.5 text-slate-300 hover:text-red-400 transition-colors" title="Dissocier">
+                          <Unlink className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative flex-1" ref={assigningFor === account.organizationId ? assignRef : undefined}>
+                        <button
+                          onClick={() => { setAssigningFor(assigningFor === account.organizationId ? null : account.organizationId); setClientSearch(""); }}
+                          className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-primary-600 transition-colors"
+                        >
+                          <LinkIcon className="h-3 w-3" />
+                          Assigner à un client
+                        </button>
+                        {assigningFor === account.organizationId && (
+                          <div className="absolute left-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-lg shadow-lg z-50 p-2">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Search className="h-3 w-3 text-slate-400" />
+                              <input
+                                type="text"
+                                placeholder="Chercher un client..."
+                                value={clientSearch}
+                                onChange={(e) => setClientSearch(e.target.value)}
+                                className="flex-1 text-xs border-none outline-none placeholder-slate-300"
+                                autoFocus
+                              />
+                              <button onClick={() => setAssigningFor(null)} className="text-slate-300 hover:text-slate-500"><X className="h-3 w-3" /></button>
+                            </div>
+                            <div className="max-h-40 overflow-y-auto space-y-0.5">
+                              {unlinkedClients
+                                .filter((c) => !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+                                .slice(0, 20)
+                                .map((c) => (
+                                  <button
+                                    key={c.id}
+                                    onClick={() => assignClient(account.organizationId, c.id)}
+                                    className="w-full text-left px-2 py-1.5 text-xs text-slate-600 hover:bg-primary-50 hover:text-primary-700 rounded transition-colors truncate"
+                                  >
+                                    {c.name}
+                                  </button>
+                                ))}
+                              {unlinkedClients.filter((c) => !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase())).length === 0 && (
+                                <p className="text-[10px] text-slate-400 text-center py-2">Aucun client disponible</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (isExpanded) { setExpandedCard(null); } else { setExpandedCard(account.organizationId); loadJobsForAccount(account.organizationId); }
+                      }}
+                      className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-0.5 shrink-0"
+                    >
+                      {isExpanded ? "Réduire" : "Détails"}
+                      {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </button>
+                  </div>
+                </div>
               </div>
             );
           })}

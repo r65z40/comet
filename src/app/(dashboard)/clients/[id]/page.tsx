@@ -1095,26 +1095,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <p className="text-slate-700 whitespace-pre-line text-xs">{client.notes}</p>
                 </div>
               )}
-              <div>
-                <p className="text-xs text-slate-400 mb-0.5">ID Oxibox</p>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    value={client.oxiboxId || ""}
-                    onChange={(e) => setClient({ ...client, oxiboxId: e.target.value })}
-                    onBlur={async () => {
-                      await fetch(`/api/clients/${client.id}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ oxiboxId: client.oxiboxId }),
-                      });
-                    }}
-                    placeholder="ex: nom-du-compte"
-                    className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-700 placeholder-slate-300"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-300 mt-0.5">Organization ID du compte Oxibox pour le suivi des sauvegardes</p>
-              </div>
             </div>
           </div>
 
