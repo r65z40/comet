@@ -54,6 +54,7 @@ import {
   Monitor,
   Calendar,
   HardDrive,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -61,6 +62,7 @@ import KanbanCard from "./KanbanCard";
 import CardDetailModal from "./CardDetailModal";
 import CalendarPanel from "./CalendarPanel";
 import BackupsWidget from "./BackupsWidget";
+import AteraAlertsWidget from "./AteraAlertsWidget";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 
 interface CardTag {
@@ -132,9 +134,10 @@ const defaultFilters: FilterState = {
 
 const BOARD_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "kanban", x: 0, y: 0, w: 12, h: 7, minW: 4, minH: 3 },
-  { i: "calendar", x: 0, y: 7, w: 5, h: 5, minW: 3, minH: 2 },
-  { i: "notes", x: 5, y: 7, w: 4, h: 5, minW: 3, minH: 2 },
-  { i: "backups", x: 9, y: 7, w: 3, h: 5, minW: 2, minH: 2 },
+  { i: "calendar", x: 0, y: 7, w: 4, h: 5, minW: 3, minH: 2 },
+  { i: "notes", x: 4, y: 7, w: 4, h: 5, minW: 3, minH: 2 },
+  { i: "backups", x: 8, y: 7, w: 2, h: 5, minW: 2, minH: 2 },
+  { i: "atera", x: 10, y: 7, w: 2, h: 5, minW: 2, minH: 2 },
 ];
 
 export default function BoardPage() {
@@ -728,6 +731,12 @@ export default function BoardPage() {
       title: "Sauvegardes",
       icon: <HardDrive className="h-3 w-3 text-emerald-500" />,
       content: <BackupsWidget />,
+    },
+    {
+      id: "atera",
+      title: "Alertes Atera",
+      icon: <Bell className="h-3 w-3 text-red-500" />,
+      content: <AteraAlertsWidget />,
     },
   ];
 
