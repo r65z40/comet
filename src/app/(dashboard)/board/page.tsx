@@ -63,6 +63,7 @@ import CardDetailModal from "./CardDetailModal";
 import CalendarPanel from "./CalendarPanel";
 import BackupsWidget from "./BackupsWidget";
 import AteraAlertsWidget from "./AteraAlertsWidget";
+import CriticalAlertOverlay from "./CriticalAlertOverlay";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 
 interface CardTag {
@@ -966,6 +967,8 @@ export default function BoardPage() {
       {selectedCardId && (
         <CardDetailModal cardId={selectedCardId} users={users} onClose={closeCard} />
       )}
+
+      <CriticalAlertOverlay />
     </div>
   );
 }

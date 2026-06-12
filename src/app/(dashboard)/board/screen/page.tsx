@@ -44,6 +44,7 @@ import TicketToast from "@/components/layout/TicketToast";
 import CalendarPanel from "../CalendarPanel";
 import BackupsWidget from "../BackupsWidget";
 import AteraAlertsWidget from "../AteraAlertsWidget";
+import CriticalAlertOverlay from "../CriticalAlertOverlay";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 
 interface CardTag {
@@ -556,6 +557,8 @@ export default function BoardScreenPage() {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <CriticalAlertOverlay dark />
     </div>
   );
 }
