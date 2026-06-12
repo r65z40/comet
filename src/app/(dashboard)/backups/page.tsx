@@ -63,6 +63,7 @@ interface CometClient {
   id: string;
   name: string;
   oxiboxId: string | null;
+  logoUrl: string | null;
 }
 
 const STATUS_CONFIG = {
@@ -151,7 +152,7 @@ export default function BackupsPage() {
       if (res.ok) {
         const data = await res.json();
         setAllClients(
-          (data.clients || data || []).map((c: CometClient) => ({ id: c.id, name: c.name, oxiboxId: c.oxiboxId })),
+          (data.clients || data || []).map((c: CometClient) => ({ id: c.id, name: c.name, oxiboxId: c.oxiboxId, logoUrl: c.logoUrl })),
         );
       }
     } catch {}
@@ -370,19 +371,29 @@ export default function BackupsPage() {
                 <div className="p-4">
                   {/* Header row */}
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-slate-800 truncate">{account.organizationId}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="flex items-center gap-1 text-[11px] text-slate-400">
-                          <Monitor className="h-3 w-3" />
-                          {account.machines.length} machine{account.machines.length > 1 ? "s" : ""}
-                        </span>
-                        {account.ongoingBackup && (
-                          <span className="flex items-center gap-1 text-[11px] text-purple-500">
-                            <RefreshCw className="h-3 w-3 animate-spin" />
-                            En cours
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {linkedClient?.logoUrl ? (
+                        <img src={linkedClient.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0 border border-slate-200" />
+                      ) : linkedClient ? (
+                        <div className="h-8 w-8 rounded-lg bg-primary-100 flex items-center justify-center shrink-0 text-xs font-bold text-primary-600">
+                          {linkedClient.name.charAt(0).toUpperCase()}
+                        </div>
+                      ) : null}
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold text-slate-800 truncate">{linkedClient ? linkedClient.name : account.organizationId}</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {linkedClient && <span className="text-[10px] text-slate-400 truncate">{account.organizationId}</span>}
+                          <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                            <Monitor className="h-3 w-3" />
+                            {account.machines.length} machine{account.machines.length > 1 ? "s" : ""}
                           </span>
-                        )}
+                          {account.ongoingBackup && (
+                            <span className="flex items-center gap-1 text-[11px] text-purple-500">
+                              <RefreshCw className="h-3 w-3 animate-spin" />
+                              En cours
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <span className={cn("shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold", cfg.bg, cfg.color)}>
@@ -495,9 +506,9 @@ export default function BackupsPage() {
                   <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                     {linkedClient ? (
                       <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                        <Link href={`/clients/${linkedClient.id}`} className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600 hover:text-blue-800 truncate">
+                        <Link href={`/clients/${linkedClient.id}`} className="flex items-center gap-1.5 text-[11px] font-medium text-primary-600 hover:text-primary-800 truncate">
                           <Users className="h-3 w-3 shrink-0" />
-                          {linkedClient.name}
+                          Voir le client
                         </Link>
                         <button onClick={() => unlinkClient(linkedClient.id)} className="p-0.5 text-slate-300 hover:text-red-400 transition-colors" title="Dissocier">
                           <Unlink className="h-3 w-3" />

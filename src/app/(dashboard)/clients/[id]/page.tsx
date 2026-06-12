@@ -1780,19 +1780,23 @@ function MiniDonut({ enParc, horsParc, renouvele }: { enParc: number; horsParc: 
 
 function OxiboxBackupSection({ oxiboxId }: { oxiboxId: string }) {
   const [data, setData] = useState<{ status: string; ongoingBackup: boolean; machines: { id: string; status: string; ongoingBackup: boolean; jobs?: { path: string; status: string; ongoingBackup: boolean; lastRelevantBackupLog?: { success: boolean; startedAt: string; endedAt: string; totalBytesProcessed: number } }[] }[] } | null>(null);
+  const [usage, setUsage] = useState<{ allocatedQuota: number; currentUsage: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/oxibox/status?orgId=${encodeURIComponent(oxiboxId)}&include=jobs`)
-      .then((r) => r.ok ? r.json() : Promise.reject())
-      .then(setData)
+    Promise.all([
+      fetch(`/api/oxibox/status?orgId=${encodeURIComponent(oxiboxId)}&include=jobs`).then((r) => r.ok ? r.json() : Promise.reject()),
+      fetch(`/api/oxibox/usage?orgId=${encodeURIComponent(oxiboxId)}`).then((r) => r.ok ? r.json() : null),
+    ])
+      .then(([statusData, usageData]) => { setData(statusData); setUsage(usageData); })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [oxiboxId]);
 
   if (loading) return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex items-center gap-2 text-sm text-slate-400">
         <Loader2 className="h-4 w-4 animate-spin" />
         Chargement des sauvegardes...
@@ -1801,87 +1805,121 @@ function OxiboxBackupSection({ oxiboxId }: { oxiboxId: string }) {
   );
 
   if (error || !data) return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex items-center gap-2 text-sm text-slate-400">
         <HardDrive className="h-4 w-4" />
-        Impossible de charger les sauvegardes pour {oxiboxId}
+        Impossible de charger les sauvegardes
       </div>
     </div>
   );
 
-  const statusCfg: Record<string, { icon: typeof CheckCircle; color: string; bg: string; label: string }> = {
-    OK: { icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50", label: "OK" },
-    ALERT: { icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50", label: "Alerte" },
-    ERROR: { icon: XCircle, color: "text-red-600", bg: "bg-red-50", label: "Erreur" },
+  const statusCfg: Record<string, { icon: typeof CheckCircle; color: string; bg: string; label: string; dot: string }> = {
+    OK: { icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50", label: "OK", dot: "bg-emerald-500" },
+    ALERT: { icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50", label: "Alerte", dot: "bg-amber-500" },
+    ERROR: { icon: XCircle, color: "text-red-600", bg: "bg-red-50", label: "Erreur", dot: "bg-red-500" },
   };
 
   const cfg = statusCfg[data.status] || statusCfg.OK;
   const StatusIcon = cfg.icon;
+  const usagePercent = usage ? Math.round((usage.currentUsage / usage.allocatedQuota) * 100) : null;
+
+  function fmtBytes(bytes: number): string {
+    if (bytes === 0) return "0 o";
+    const units = ["o", "Ko", "Mo", "Go", "To"];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(i > 1 ? 1 : 0)} ${units[i]}`;
+  }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
-          <HardDrive className="h-4 w-4 text-slate-400" />
-          Sauvegardes Oxibox
-        </h3>
-        <div className="flex items-center gap-2">
-          {data.ongoingBackup && (
-            <span className="flex items-center gap-1 text-[10px] text-purple-500">
-              <RefreshCw className="h-3 w-3 animate-spin" />
-              En cours
-            </span>
-          )}
-          <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>
-            <StatusIcon className="h-3.5 w-3.5" />
-            {cfg.label}
-          </span>
-          <Link href="/backups" className="text-[10px] text-primary-600 hover:underline">Voir tout</Link>
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-3 p-4 hover:bg-slate-50/50 transition-colors text-left"
+      >
+        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${cfg.bg} shrink-0`}>
+          <HardDrive className={`h-4 w-4 ${cfg.color}`} />
         </div>
-      </div>
-
-      {data.machines.length === 0 ? (
-        <p className="text-xs text-slate-400">Aucune machine configurée</p>
-      ) : (
-        <div className="space-y-2">
-          {data.machines.map((m) => {
-            const mCfg = statusCfg[m.status] || statusCfg.OK;
-            const MIcon = mCfg.icon;
-            return (
-              <div key={m.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Server className="h-3.5 w-3.5 text-slate-400" />
-                  <span className="text-xs font-medium text-slate-700 flex-1 truncate">{m.id}</span>
-                  {m.ongoingBackup && <RefreshCw className="h-3 w-3 text-purple-500 animate-spin" />}
-                  <span className={`flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${mCfg.bg} ${mCfg.color}`}>
-                    <MIcon className="h-3 w-3" />
-                    {mCfg.label}
-                  </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-900">Sauvegardes Oxibox</span>
+            <span className={`flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>
+              <StatusIcon className="h-3 w-3" />
+              {cfg.label}
+            </span>
+            {data.ongoingBackup && (
+              <span className="flex items-center gap-1 text-[10px] text-purple-500">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-1">
+            <span className="text-[11px] text-slate-400">{data.machines.length} machine{data.machines.length > 1 ? "s" : ""}</span>
+            {usage && (
+              <div className="flex items-center gap-2 flex-1">
+                <div className="flex-1 max-w-[140px] h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${usagePercent! > 90 ? "bg-red-500" : usagePercent! > 70 ? "bg-amber-500" : "bg-emerald-500"}`}
+                    style={{ width: `${Math.min(100, usagePercent!)}%` }}
+                  />
                 </div>
-                {m.jobs && m.jobs.length > 0 && (
-                  <div className="space-y-1 mt-2">
-                    {m.jobs.map((j, i) => {
-                      const jCfg = statusCfg[j.status] || statusCfg.OK;
-                      const log = j.lastRelevantBackupLog;
-                      return (
-                        <div key={i} className="flex items-center gap-2 text-[11px] bg-white rounded px-2 py-1.5 border border-slate-100">
-                          <FolderOpen className="h-3 w-3 text-slate-300 shrink-0" />
-                          <span className="font-mono text-slate-500 truncate flex-1">{j.path}</span>
-                          {log && (
-                            <span className="text-slate-400 flex items-center gap-1 shrink-0">
-                              <Clock className="h-3 w-3" />
-                              {new Date(log.endedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
-                            </span>
-                          )}
-                          <span className={`text-[10px] font-medium ${jCfg.color}`}>{jCfg.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <span className="text-[10px] text-slate-400">{fmtBytes(usage.currentUsage)} / {fmtBytes(usage.allocatedQuota)} ({usagePercent}%)</span>
               </div>
-            );
-          })}
+            )}
+          </div>
+        </div>
+        <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] text-slate-400 font-mono">{oxiboxId}</span>
+            <Link href="/backups" className="text-[10px] text-primary-600 hover:underline">Voir toutes les sauvegardes</Link>
+          </div>
+          {data.machines.length === 0 ? (
+            <p className="text-xs text-slate-400">Aucune machine configurée</p>
+          ) : (
+            <div className="space-y-2">
+              {data.machines.map((m) => {
+                const mCfg = statusCfg[m.status] || statusCfg.OK;
+                const MIcon = mCfg.icon;
+                return (
+                  <div key={m.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Server className="h-3.5 w-3.5 text-slate-400" />
+                      <span className="text-xs font-medium text-slate-700 flex-1 truncate">{m.id}</span>
+                      {m.ongoingBackup && <RefreshCw className="h-3 w-3 text-purple-500 animate-spin" />}
+                      <span className={`flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${mCfg.bg} ${mCfg.color}`}>
+                        <MIcon className="h-3 w-3" />
+                        {mCfg.label}
+                      </span>
+                    </div>
+                    {m.jobs && m.jobs.length > 0 && (
+                      <div className="space-y-1 mt-2">
+                        {m.jobs.map((j, i) => {
+                          const jCfg = statusCfg[j.status] || statusCfg.OK;
+                          const log = j.lastRelevantBackupLog;
+                          return (
+                            <div key={i} className="flex items-center gap-2 text-[11px] bg-white rounded px-2 py-1.5 border border-slate-100">
+                              <FolderOpen className="h-3 w-3 text-slate-300 shrink-0" />
+                              <span className="font-mono text-slate-500 truncate flex-1">{j.path}</span>
+                              {log && (
+                                <span className="text-slate-400 flex items-center gap-1 shrink-0">
+                                  <Clock className="h-3 w-3" />
+                                  {new Date(log.endedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                                </span>
+                              )}
+                              <span className={`text-[10px] font-medium ${jCfg.color}`}>{jCfg.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
