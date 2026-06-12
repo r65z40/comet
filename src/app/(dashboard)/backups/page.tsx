@@ -22,6 +22,10 @@ import {
   X,
   LinkIcon,
   Unlink,
+  Download,
+  ArrowUpDown,
+  Sparkles,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -59,12 +63,19 @@ interface CloudUsage {
   currentUsage: number;
 }
 
+interface SnapshotDay {
+  date: string;
+  status: string;
+}
+
 interface CometClient {
   id: string;
   name: string;
   oxiboxId: string | null;
   logoUrl: string | null;
 }
+
+type SortMode = "status" | "quota" | "name" | "lastBackup";
 
 const STATUS_CONFIG = {
   OK: { label: "OK", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", icon: CheckCircle, dot: "bg-emerald-500", ring: "ring-emerald-200" },
@@ -109,6 +120,9 @@ export default function BackupsPage() {
   const [assigningFor, setAssigningFor] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState("");
   const [dropdownPos, setDropdownPos] = useState<{ left: number; top: number } | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>("status");
+  const [snapshots, setSnapshots] = useState<Record<string, SnapshotDay[]>>({});
+  const [showSortMenu, setShowSortMenu] = useState(false);
 
   const fetchAccounts = useCallback(async () => {
     setError(null);
@@ -118,7 +132,7 @@ export default function BackupsPage() {
       const limit = 200;
       let hasMore = true;
       while (hasMore) {
-        const res = await fetch(`/api/oxibox/status?limit=${limit}&skip=${skip}`);
+        const res = await fetch(`/api/oxibox/status?limit=${limit}&skip=${skip}&include=jobs`);
         if (!res.ok) {
           const data = await res.json();
           throw new Error(data.error || `Erreur ${res.status}`);
@@ -207,6 +221,78 @@ export default function BackupsPage() {
     fetchClients();
   }
 
+  const fetchSnapshots = useCallback(async (orgIds: string[]) => {
+    for (const orgId of orgIds) {
+      try {
+        const res = await fetch(`/api/oxibox/snapshots?orgId=${encodeURIComponent(orgId)}&days=14`);
+        if (res.ok) {
+          const data = await res.json();
+          setSnapshots((prev) => ({ ...prev, [orgId]: data }));
+        }
+      } catch {}
+    }
+  }, []);
+
+  useEffect(() => {
+    if (accounts.length > 0) fetchSnapshots(accounts.map((a) => a.organizationId));
+  }, [accounts, fetchSnapshots]);
+
+  function getLastBackupDate(account: OxiboxAccount): string | null {
+    let latest: string | null = null;
+    for (const m of account.machines) {
+      if (!m.jobs) continue;
+      for (const j of m.jobs) {
+        const log = j.lastRelevantBackupLog;
+        if (log?.success && log.endedAt) {
+          if (!latest || log.endedAt > latest) latest = log.endedAt;
+        }
+      }
+    }
+    return latest;
+  }
+
+  function exportCSV() {
+    const rows = [["Compte", "Client", "Statut", "Machines", "Quota Utilisé", "Quota Total", "% Utilisé", "Dernière sauvegarde"]];
+    for (const a of accounts) {
+      const linked = clientByOxiboxId.get(a.organizationId);
+      const usage = cloudUsage[a.organizationId];
+      const lastBackup = getLastBackupDate(a);
+      rows.push([
+        a.organizationId,
+        linked?.name || "",
+        a.status,
+        String(a.machines.length),
+        usage ? formatBytes(usage.currentUsage) : "",
+        usage ? formatBytes(usage.allocatedQuota) : "",
+        usage ? `${Math.round((usage.currentUsage / usage.allocatedQuota) * 100)}%` : "",
+        lastBackup ? new Date(lastBackup).toLocaleString("fr-FR") : "",
+      ]);
+    }
+    const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sauvegardes-oxibox-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function suggestMatch(orgId: string): CometClient | null {
+    const orgLower = orgId.toLowerCase().replace(/[-_.\s]/g, "");
+    let best: CometClient | null = null;
+    let bestScore = 0;
+    for (const c of unlinkedClients) {
+      const nameLower = c.name.toLowerCase().replace(/[-_.\s]/g, "");
+      if (nameLower === orgLower) return c;
+      if (orgLower.includes(nameLower) || nameLower.includes(orgLower)) {
+        const score = Math.min(nameLower.length, orgLower.length) / Math.max(nameLower.length, orgLower.length);
+        if (score > bestScore && score > 0.4) { best = c; bestScore = score; }
+      }
+    }
+    return best;
+  }
+
   const clientByOxiboxId = new Map(allClients.filter((c) => c.oxiboxId).map((c) => [c.oxiboxId!, c]));
   const unlinkedClients = allClients.filter((c) => !c.oxiboxId);
 
@@ -224,6 +310,23 @@ export default function BackupsPage() {
       return true;
     })
     .sort((a, b) => {
+      if (sortMode === "quota") {
+        const uA = cloudUsage[a.organizationId];
+        const uB = cloudUsage[b.organizationId];
+        const pA = uA ? uA.currentUsage / uA.allocatedQuota : -1;
+        const pB = uB ? uB.currentUsage / uB.allocatedQuota : -1;
+        return pB - pA;
+      }
+      if (sortMode === "name") {
+        const nA = clientByOxiboxId.get(a.organizationId)?.name || a.organizationId;
+        const nB = clientByOxiboxId.get(b.organizationId)?.name || b.organizationId;
+        return nA.localeCompare(nB);
+      }
+      if (sortMode === "lastBackup") {
+        const dA = getLastBackupDate(a) || "";
+        const dB = getLastBackupDate(b) || "";
+        return dA.localeCompare(dB);
+      }
       const order = { ERROR: 0, ALERT: 1, OK: 2 };
       const diff = order[a.status] - order[b.status];
       if (diff !== 0) return diff;
@@ -295,13 +398,22 @@ export default function BackupsPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => { setLoading(true); fetchAccounts(); }}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Actualiser
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => { setLoading(true); fetchAccounts(); }}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Actualiser
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -335,6 +447,26 @@ export default function BackupsPage() {
               {s === "ALL" ? "Tous" : STATUS_CONFIG[s].label}
             </button>
           ))}
+        </div>
+        <div className="relative">
+          <button onClick={() => setShowSortMenu(!showSortMenu)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            {sortMode === "status" ? "Statut" : sortMode === "quota" ? "Quota" : sortMode === "name" ? "Nom" : "Dernière sauvegarde"}
+          </button>
+          {showSortMenu && (
+            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 w-48 py-1">
+              {([
+                { key: "status" as SortMode, label: "Par statut (critique d'abord)" },
+                { key: "quota" as SortMode, label: "Par quota (plus rempli d'abord)" },
+                { key: "name" as SortMode, label: "Par nom (A-Z)" },
+                { key: "lastBackup" as SortMode, label: "Par dernière sauvegarde" },
+              ]).map(({ key, label }) => (
+                <button key={key} onClick={() => { setSortMode(key); setShowSortMenu(false); }} className={cn("w-full text-left px-3 py-1.5 text-xs transition-colors", sortMode === key ? "bg-emerald-50 text-emerald-700 font-medium" : "text-slate-600 hover:bg-slate-50")}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -415,6 +547,51 @@ export default function BackupsPage() {
                       <div className="h-2.5 bg-slate-50 rounded-full" />
                     )}
                   </div>
+
+                  {/* Last backup + history */}
+                  <div className="flex items-center gap-3 mb-3">
+                    {(() => {
+                      const lastBackup = getLastBackupDate(account);
+                      return lastBackup ? (
+                        <div className="flex items-center gap-1.5 text-[11px]">
+                          <CheckCircle className="h-3 w-3 text-emerald-500" />
+                          <span className="text-slate-500">Dernière sauvegarde :</span>
+                          <span className="text-slate-700 font-medium">{timeAgo(lastBackup)}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                          <Clock className="h-3 w-3" />
+                          <span>Aucune sauvegarde récente</span>
+                        </div>
+                      );
+                    })()}
+                    {snapshots[account.organizationId] && snapshots[account.organizationId].length > 1 && (
+                      <div className="flex items-center gap-0.5 ml-auto" title="Historique 14 jours">
+                        {snapshots[account.organizationId].slice(-14).map((s, i) => (
+                          <div
+                            key={i}
+                            className={cn("w-1.5 h-4 rounded-sm", s.status === "OK" ? "bg-emerald-400" : s.status === "ALERT" ? "bg-amber-400" : "bg-red-400")}
+                            title={`${new Date(s.date).toLocaleDateString("fr-FR")} — ${s.status}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Auto-match suggestion */}
+                  {!linkedClient && (() => {
+                    const match = suggestMatch(account.organizationId);
+                    if (!match) return null;
+                    return (
+                      <button
+                        onClick={() => assignClient(account.organizationId, match.id)}
+                        className="flex items-center gap-1.5 w-full px-2.5 py-1.5 mb-3 text-[11px] bg-primary-50 border border-primary-100 rounded-lg text-primary-700 hover:bg-primary-100 transition-colors"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        Assigner automatiquement à <span className="font-semibold">{match.name}</span> ?
+                      </button>
+                    );
+                  })()}
 
                   {/* Machines mini-list */}
                   {account.machines.length > 0 && (

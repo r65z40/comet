@@ -8,7 +8,8 @@ export type NotificationType =
   | "card_archived"
   | "card_due"
   | "ticket_new"
-  | "ticket_reply";
+  | "ticket_reply"
+  | "backup_error";
 
 // Maps notification type to the preference field name
 const TYPE_TO_PREF: Record<NotificationType, string> = {
@@ -19,6 +20,7 @@ const TYPE_TO_PREF: Record<NotificationType, string> = {
   card_due: "cardDueDate",
   ticket_new: "ticketNew",
   ticket_reply: "ticketReply",
+  backup_error: "backupError",
 };
 
 const TYPE_TO_EMAIL_PREF: Partial<Record<NotificationType, string>> = {

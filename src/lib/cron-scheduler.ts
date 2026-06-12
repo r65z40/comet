@@ -125,6 +125,16 @@ export async function executeCronJob(): Promise<{
     alertResult = { skipped: true, reason: message };
   }
 
+  // === Oxibox daily snapshot + alerts (every run, de-duplicated internally) ===
+  try {
+    const oxiboxKey = await prisma.setting.findUnique({ where: { key: "oxibox_api_key" } });
+    if (oxiboxKey?.value) {
+      await runOxiboxJobs(todayStr);
+    }
+  } catch (err) {
+    console.error("[cron-scheduler] Oxibox jobs error:", err);
+  }
+
   // === Automatic Backup ===
   try {
     backupResult = await runAutoBackup(parisHour, parisMinute, todayStr);
@@ -198,6 +208,115 @@ async function runAutoBackup(
     }
     return { done: false, reason: errMsg };
   }
+}
+
+async function runOxiboxJobs(todayStr: string) {
+  const OXIBOX_API = "https://api.oxibox.com";
+  const row = await prisma.setting.findUnique({ where: { key: "oxibox_api_key" } });
+  const token = row?.value;
+  if (!token) return;
+
+  // De-duplicate: only run once per day
+  const recentSnap = await prisma.syncLog.findFirst({
+    where: { type: "OXIBOX_SNAPSHOT", status: "success", message: { contains: todayStr } },
+  });
+  if (recentSnap) return;
+
+  // Fetch all accounts
+  let allAccounts: { organizationId: string; status: string; ongoingBackup: boolean; machines: { id: string }[] }[] = [];
+  let skip = 0;
+  try {
+    while (true) {
+      const res = await fetch(`${OXIBOX_API}/status?limit=200&skip=${skip}`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+      if (!res.ok) break;
+      const data = await res.json();
+      if (data.data) {
+        allAccounts = [...allAccounts, ...data.data];
+        if (allAccounts.length >= (data.total || 0)) break;
+        skip += 200;
+      } else if (data.organizationId) {
+        allAccounts = [data];
+        break;
+      } else break;
+    }
+  } catch { return; }
+
+  if (allAccounts.length === 0) return;
+
+  const today = new Date(todayStr + "T00:00:00.000Z");
+
+  // Save snapshots
+  for (const account of allAccounts) {
+    let quota: { allocatedQuota?: number; currentUsage?: number } = {};
+    try {
+      const uRes = await fetch(`${OXIBOX_API}/usage/cloud/${encodeURIComponent(account.organizationId)}`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+      if (uRes.ok) quota = await uRes.json();
+    } catch {}
+
+    await prisma.oxiboxSnapshot.upsert({
+      where: { organizationId_date: { organizationId: account.organizationId, date: today } },
+      update: {
+        status: account.status,
+        machineCount: account.machines?.length || 0,
+        ongoingBackup: account.ongoingBackup || false,
+        allocatedQuota: quota.allocatedQuota ? BigInt(quota.allocatedQuota) : null,
+        currentUsage: quota.currentUsage ? BigInt(quota.currentUsage) : null,
+      },
+      create: {
+        organizationId: account.organizationId,
+        date: today,
+        status: account.status,
+        machineCount: account.machines?.length || 0,
+        ongoingBackup: account.ongoingBackup || false,
+        allocatedQuota: quota.allocatedQuota ? BigInt(quota.allocatedQuota) : null,
+        currentUsage: quota.currentUsage ? BigInt(quota.currentUsage) : null,
+      },
+    }).catch(() => {});
+  }
+
+  await prisma.syncLog.create({
+    data: { type: "OXIBOX_SNAPSHOT", status: "success", message: `${todayStr} - ${allAccounts.length} snapshot(s)`, itemCount: allAccounts.length, startedAt: new Date(), completedAt: new Date() },
+  }).catch(() => {});
+
+  // Check for ERROR accounts and send alerts
+  const errorAccounts = allAccounts.filter((a) => a.status === "ERROR");
+  if (errorAccounts.length === 0) return;
+
+  const recentAlert = await prisma.syncLog.findFirst({
+    where: { type: "OXIBOX_ALERT", status: "success", message: { contains: todayStr } },
+  });
+  if (recentAlert) return;
+
+  try {
+    const { sendEmail, getNotificationConfig } = await import("@/lib/email");
+    const { notifyAdmins } = await import("@/lib/notifications");
+    const { emails } = await getNotificationConfig();
+
+    if (emails.length > 0) {
+      const html = `
+        <h2 style="color:#dc2626">⚠️ Alerte Sauvegardes Oxibox</h2>
+        <p>${errorAccounts.length} compte(s) en erreur :</p>
+        <ul>${errorAccounts.map((a) => `<li><strong>${a.organizationId}</strong> — ${a.machines?.length || 0} machine(s)</li>`).join("")}</ul>
+        <p style="margin-top:16px;font-size:12px;color:#6b7280">Vérifiez les détails sur la page Sauvegardes de Comet.</p>
+      `;
+      await sendEmail(emails, "🔴 Alerte Sauvegarde Oxibox — Comptes en erreur", html);
+    }
+
+    await notifyAdmins({
+      type: "backup_error",
+      title: "Alerte Sauvegarde Oxibox",
+      message: `${errorAccounts.length} compte(s) en erreur : ${errorAccounts.map((a) => a.organizationId).join(", ")}`,
+      link: "/backups",
+    });
+  } catch {}
+
+  await prisma.syncLog.create({
+    data: { type: "OXIBOX_ALERT", status: "success", message: `${todayStr} - ${errorAccounts.length} compte(s) en erreur`, itemCount: errorAccounts.length, startedAt: new Date(), completedAt: new Date() },
+  }).catch(() => {});
 }
 
 // Built-in scheduler — runs executeCronJob every 5 minutes

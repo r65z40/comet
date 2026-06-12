@@ -991,6 +991,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
+      {/* Backup error alert */}
+      {client.oxiboxId && <BackupAlertBanner oxiboxId={client.oxiboxId} />}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <button
           onClick={() => setStatusFilter(statusFilter === "all" ? "all" : "all")}
@@ -1922,6 +1925,32 @@ function OxiboxBackupSection({ oxiboxId }: { oxiboxId: string }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function BackupAlertBanner({ oxiboxId }: { oxiboxId: string }) {
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/oxibox/status?orgId=${encodeURIComponent(oxiboxId)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.status) setStatus(data.status); })
+      .catch(() => {});
+  }, [oxiboxId]);
+
+  if (status !== "ERROR") return null;
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-red-200 bg-red-50 animate-pulse">
+      <XCircle className="h-5 w-5 text-red-500 shrink-0" />
+      <div>
+        <p className="text-sm font-medium text-red-800">Alerte Sauvegarde</p>
+        <p className="text-xs text-red-600">Une ou plusieurs sauvegardes Oxibox de ce client sont en erreur</p>
+      </div>
+      <Link href="/backups" className="ml-auto text-xs text-red-700 hover:text-red-900 font-medium shrink-0">
+        Voir les sauvegardes →
+      </Link>
     </div>
   );
 }

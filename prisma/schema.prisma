@@ -638,3 +638,23 @@ model CalendarFeedVisibility {
   @@index([userId])
   @@map("calendar_feed_visibility")
 }
+
+// ─── Oxibox Backup Snapshots ────────────────────────────
+
+model OxiboxSnapshot {
+  id              String    @id @default(cuid())
+  organizationId  String
+  status          String    // "OK", "ALERT", or "ERROR"
+  machineCount    Int       @default(0)
+  ongoingBackup   Boolean   @default(false)
+  allocatedQuota  BigInt?   // bytes
+  currentUsage    BigInt?   // bytes
+  date            DateTime  // one snapshot per org per day
+  createdAt       DateTime  @default(now())
+
+  @@unique([organizationId, date])
+  @@index([organizationId])
+  @@index([date])
+  @@index([status])
+  @@map("oxibox_snapshots")
+}

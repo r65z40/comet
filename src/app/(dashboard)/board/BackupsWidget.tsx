@@ -127,7 +127,7 @@ export default function BackupsWidget({ dark }: { dark?: boolean }) {
           </div>
         )}
         {stats.error > 0 && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 animate-pulse">
             <XCircle className="h-3.5 w-3.5 text-red-500" />
             <span className={cn("text-xs font-bold", dark ? "text-red-400" : "text-red-600")}>{stats.error}</span>
           </div>
@@ -149,7 +149,11 @@ export default function BackupsWidget({ dark }: { dark?: boolean }) {
           return (
             <div
               key={account.organizationId}
-              className={cn("flex items-center gap-2 px-3 py-1.5 border-b", dark ? "border-slate-700/50 hover:bg-slate-700/30" : "border-slate-50 hover:bg-slate-50")}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 border-b",
+                dark ? "border-slate-700/50 hover:bg-slate-700/30" : "border-slate-50 hover:bg-slate-50",
+                account.status === "ERROR" && (dark ? "bg-red-500/10 animate-pulse" : "bg-red-50 animate-pulse"),
+              )}
             >
               <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", sc.dot)} />
 
