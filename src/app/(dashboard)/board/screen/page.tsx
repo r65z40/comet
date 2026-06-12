@@ -36,10 +36,12 @@ import {
   Settings,
   Calendar,
   Rss,
+  HardDrive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
 import CalendarPanel from "../CalendarPanel";
+import BackupsWidget from "../BackupsWidget";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 
 interface CardTag {
@@ -125,18 +127,21 @@ interface ScreenVisibility {
   showCyberNews: boolean;
   showFeed: boolean;
   showCalendar: boolean;
+  showBackups: boolean;
 }
 
 const DEFAULT_VISIBILITY: ScreenVisibility = {
   showCyberNews: true,
   showFeed: true,
   showCalendar: false,
+  showBackups: true,
 };
 
 const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "cybernews", x: 0, y: 0, w: 12, h: 1, minW: 6, minH: 1, maxH: 1 },
   { i: "kanban", x: 0, y: 1, w: 8, h: 8, minW: 3, minH: 3 },
-  { i: "feed", x: 8, y: 1, w: 4, h: 8, minW: 2, minH: 3 },
+  { i: "feed", x: 8, y: 1, w: 4, h: 5, minW: 2, minH: 3 },
+  { i: "backups", x: 8, y: 6, w: 4, h: 3, minW: 2, minH: 2 },
   { i: "calendar", x: 0, y: 9, w: 12, h: 3, minW: 3, minH: 2 },
 ];
 
@@ -418,6 +423,14 @@ export default function BoardScreenPage() {
           content: <FeedContent feed={feed} feedTab={feedTab} setFeedTab={setFeedTab} />,
         }]
       : []),
+    ...(visibility.showBackups
+      ? [{
+          id: "backups",
+          title: "Sauvegardes",
+          icon: <HardDrive className="h-3 w-3 text-emerald-400" />,
+          content: <BackupsWidget dark />,
+        }]
+      : []),
     ...(visibility.showCalendar
       ? [{
           id: "calendar",
@@ -481,6 +494,7 @@ export default function BoardScreenPage() {
                 {[
                   { key: "showCyberNews" as const, label: "Bandeau cyber" },
                   { key: "showFeed" as const, label: "Flux en direct" },
+                  { key: "showBackups" as const, label: "Sauvegardes" },
                   { key: "showCalendar" as const, label: "Calendrier" },
                 ].map(({ key, label }) => (
                   <div key={key} className="flex items-center justify-between py-2">
