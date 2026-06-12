@@ -108,7 +108,7 @@ export default function BackupsPage() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [assigningFor, setAssigningFor] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState("");
-  const assignRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ left: number; top: number } | null>(null);
 
   const fetchAccounts = useCallback(async () => {
     setError(null);
@@ -163,15 +163,6 @@ export default function BackupsPage() {
     fetchClients();
   }, [fetchAccounts, fetchClients]);
 
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (assignRef.current && !assignRef.current.contains(e.target as Node)) setAssigningFor(null);
-    }
-    if (assigningFor) {
-      document.addEventListener("mousedown", handleClick);
-      return () => document.removeEventListener("mousedown", handleClick);
-    }
-  }, [assigningFor]);
 
   async function fetchUsage(orgId: string) {
     if (cloudUsage[orgId] || loadingUsage.has(orgId)) return;
@@ -515,19 +506,33 @@ export default function BackupsPage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="relative flex-1" ref={assigningFor === account.organizationId ? assignRef : undefined}>
+                      <div className="relative flex-1">
                         <button
-                          onClick={() => { setAssigningFor(assigningFor === account.organizationId ? null : account.organizationId); setClientSearch(""); }}
+                          onClick={(e) => {
+                            if (assigningFor === account.organizationId) {
+                              setAssigningFor(null);
+                            } else {
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setDropdownPos({ left: rect.left, top: rect.top });
+                              setAssigningFor(account.organizationId);
+                              setClientSearch("");
+                            }
+                          }}
                           className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-primary-600 transition-colors"
                         >
                           <LinkIcon className="h-3 w-3" />
                           Assigner à un client
                         </button>
-                        {assigningFor === account.organizationId && (
+                        {assigningFor === account.organizationId && dropdownPos && (
                           <div className="fixed inset-0 z-[60]" onClick={() => setAssigningFor(null)}>
                             <div
                               className="absolute w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-[70]"
-                              style={{ left: assignRef.current?.getBoundingClientRect().left ?? 0, top: Math.min(assignRef.current?.getBoundingClientRect().top ?? 0, window.innerHeight - 340) }}
+                              style={{
+                                left: Math.min(dropdownPos.left, window.innerWidth - 300),
+                                top: dropdownPos.top + 24 + 260 > window.innerHeight
+                                  ? Math.max(8, dropdownPos.top - 280)
+                                  : dropdownPos.top + 24,
+                              }}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <div className="p-3 border-b border-slate-100">
