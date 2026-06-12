@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, FileText, ChevronDown, Calendar, ClipboardList, BookOpen } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, FileText, ChevronDown, Calendar, ClipboardList, BookOpen, HardDrive, Server, CheckCircle, AlertTriangle, XCircle, FolderOpen, Clock } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -53,6 +53,7 @@ interface ClientDetail {
   country: string | null;
   notes: string | null;
   logoUrl: string | null;
+  oxiboxId: string | null;
   installations: Installation[];
   invoices: {
     id: string;
@@ -1094,6 +1095,26 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <p className="text-slate-700 whitespace-pre-line text-xs">{client.notes}</p>
                 </div>
               )}
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">ID Oxibox</p>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={client.oxiboxId || ""}
+                    onChange={(e) => setClient({ ...client, oxiboxId: e.target.value })}
+                    onBlur={async () => {
+                      await fetch(`/api/clients/${client.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ oxiboxId: client.oxiboxId }),
+                      });
+                    }}
+                    placeholder="ex: nom-du-compte"
+                    className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-700 placeholder-slate-300"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-300 mt-0.5">Organization ID du compte Oxibox pour le suivi des sauvegardes</p>
+              </div>
             </div>
           </div>
 
@@ -1151,6 +1172,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           )}
         </div>
       )}
+
+      {/* Sauvegardes Oxibox */}
+      {client.oxiboxId && <OxiboxBackupSection oxiboxId={client.oxiboxId} />}
 
       {/* Cartes du tableau de bord */}
       {client.boardCards && client.boardCards.length > 0 && (
@@ -1771,5 +1795,115 @@ function MiniDonut({ enParc, horsParc, renouvele }: { enParc: number; horsParc: 
       })}
       <text x="16" y="16" textAnchor="middle" dominantBaseline="central" className="fill-slate-700" style={{ fontSize: "8px", fontWeight: 700 }}>{total}</text>
     </svg>
+  );
+}
+
+function OxiboxBackupSection({ oxiboxId }: { oxiboxId: string }) {
+  const [data, setData] = useState<{ status: string; ongoingBackup: boolean; machines: { id: string; status: string; ongoingBackup: boolean; jobs?: { path: string; status: string; ongoingBackup: boolean; lastRelevantBackupLog?: { success: boolean; startedAt: string; endedAt: string; totalBytesProcessed: number } }[] }[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/oxibox/status?orgId=${encodeURIComponent(oxiboxId)}&include=jobs`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then(setData)
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [oxiboxId]);
+
+  if (loading) return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
+      <div className="flex items-center gap-2 text-sm text-slate-400">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Chargement des sauvegardes...
+      </div>
+    </div>
+  );
+
+  if (error || !data) return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
+      <div className="flex items-center gap-2 text-sm text-slate-400">
+        <HardDrive className="h-4 w-4" />
+        Impossible de charger les sauvegardes pour {oxiboxId}
+      </div>
+    </div>
+  );
+
+  const statusCfg: Record<string, { icon: typeof CheckCircle; color: string; bg: string; label: string }> = {
+    OK: { icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50", label: "OK" },
+    ALERT: { icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50", label: "Alerte" },
+    ERROR: { icon: XCircle, color: "text-red-600", bg: "bg-red-50", label: "Erreur" },
+  };
+
+  const cfg = statusCfg[data.status] || statusCfg.OK;
+  const StatusIcon = cfg.icon;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+          <HardDrive className="h-4 w-4 text-slate-400" />
+          Sauvegardes Oxibox
+        </h3>
+        <div className="flex items-center gap-2">
+          {data.ongoingBackup && (
+            <span className="flex items-center gap-1 text-[10px] text-purple-500">
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              En cours
+            </span>
+          )}
+          <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>
+            <StatusIcon className="h-3.5 w-3.5" />
+            {cfg.label}
+          </span>
+          <Link href="/backups" className="text-[10px] text-primary-600 hover:underline">Voir tout</Link>
+        </div>
+      </div>
+
+      {data.machines.length === 0 ? (
+        <p className="text-xs text-slate-400">Aucune machine configurée</p>
+      ) : (
+        <div className="space-y-2">
+          {data.machines.map((m) => {
+            const mCfg = statusCfg[m.status] || statusCfg.OK;
+            const MIcon = mCfg.icon;
+            return (
+              <div key={m.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Server className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="text-xs font-medium text-slate-700 flex-1 truncate">{m.id}</span>
+                  {m.ongoingBackup && <RefreshCw className="h-3 w-3 text-purple-500 animate-spin" />}
+                  <span className={`flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${mCfg.bg} ${mCfg.color}`}>
+                    <MIcon className="h-3 w-3" />
+                    {mCfg.label}
+                  </span>
+                </div>
+                {m.jobs && m.jobs.length > 0 && (
+                  <div className="space-y-1 mt-2">
+                    {m.jobs.map((j, i) => {
+                      const jCfg = statusCfg[j.status] || statusCfg.OK;
+                      const log = j.lastRelevantBackupLog;
+                      return (
+                        <div key={i} className="flex items-center gap-2 text-[11px] bg-white rounded px-2 py-1.5 border border-slate-100">
+                          <FolderOpen className="h-3 w-3 text-slate-300 shrink-0" />
+                          <span className="font-mono text-slate-500 truncate flex-1">{j.path}</span>
+                          {log && (
+                            <span className="text-slate-400 flex items-center gap-1 shrink-0">
+                              <Clock className="h-3 w-3" />
+                              {new Date(log.endedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                            </span>
+                          )}
+                          <span className={`text-[10px] font-medium ${jCfg.color}`}>{jCfg.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

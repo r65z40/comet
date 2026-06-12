@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough, ChevronDown } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough, ChevronDown, HardDrive } from "lucide-react";
 
 interface User {
   id: string;
@@ -195,6 +195,13 @@ export default function SettingsPage() {
   const [savedAtera, setSavedAtera] = useState(false);
   const [testingAtera, setTestingAtera] = useState(false);
   const [ateraTestResult, setAteraTestResult] = useState<{ success: boolean; error?: string } | null>(null);
+
+  // Oxibox settings
+  const [oxiboxApiKey, setOxiboxApiKey] = useState("");
+  const [savingOxibox, setSavingOxibox] = useState(false);
+  const [savedOxibox, setSavedOxibox] = useState(false);
+  const [testingOxibox, setTestingOxibox] = useState(false);
+  const [oxiboxTestResult, setOxiboxTestResult] = useState<{ success: boolean; error?: string; total?: number } | null>(null);
 
   // Collapsible sections
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -400,6 +407,7 @@ export default function SettingsPage() {
         setBroadcastMessage(data.broadcast_message || "");
         setAteraApiKey(data.atera_api_key || "");
         setAteraEnabled(data.atera_enabled === "true");
+        setOxiboxApiKey(data.oxibox_api_key || "");
       })
       .finally(() => setLoading(false));
 
@@ -1227,6 +1235,100 @@ export default function SettingsPage() {
           {ateraTestResult && (
             <div className={`p-3 rounded-lg text-sm ${ateraTestResult.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
               {ateraTestResult.success ? "Connexion Atera réussie !" : `Erreur : ${ateraTestResult.error}`}
+            </div>
+          )}
+        </div>}
+      </div>}
+
+      {/* Oxibox Backup Integration */}
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("oxibox")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-emerald-50 p-2">
+              <HardDrive className="h-4 w-4 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Sauvegardes Oxibox</h3>
+              <p className="text-xs text-slate-400">Supervision des sauvegardes clients via Oxibox</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {oxiboxApiKey && !oxiboxApiKey.startsWith("••••") && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-medium">Configuré</span>}
+            {oxiboxApiKey && oxiboxApiKey.startsWith("••••") && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-medium">Configuré</span>}
+            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.oxibox ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+        {openSections.oxibox && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Clé API Oxibox (Bearer Token)</label>
+            <input
+              type="password"
+              value={oxiboxApiKey}
+              onChange={(e) => setOxiboxApiKey(e.target.value)}
+              placeholder="Token communiqué par Oxibox"
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+            <p className="text-xs text-slate-400 mt-1">Ce token est utilisé pour accéder à l&apos;API Oxibox (https://api.oxibox.com). Contactez Oxibox pour l&apos;obtenir.</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={async () => {
+                setSavingOxibox(true);
+                setSavedOxibox(false);
+                try {
+                  await fetch("/api/settings", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ oxibox_api_key: oxiboxApiKey }),
+                  });
+                  setSavedOxibox(true);
+                  setTimeout(() => setSavedOxibox(false), 3000);
+                } finally {
+                  setSavingOxibox(false);
+                }
+              }}
+              disabled={savingOxibox}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            >
+              {savingOxibox ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Enregistrer
+            </button>
+            <button
+              onClick={async () => {
+                setTestingOxibox(true);
+                setOxiboxTestResult(null);
+                try {
+                  await fetch("/api/settings", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ oxibox_api_key: oxiboxApiKey }),
+                  });
+                  const res = await fetch("/api/oxibox/status", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "test" }),
+                  });
+                  const data = await res.json();
+                  setOxiboxTestResult(data);
+                } catch {
+                  setOxiboxTestResult({ success: false, error: "Erreur de connexion" });
+                } finally {
+                  setTestingOxibox(false);
+                }
+              }}
+              disabled={testingOxibox || !oxiboxApiKey}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              {testingOxibox ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Tester la connexion
+            </button>
+            {savedOxibox && <span className="text-xs text-emerald-600">Enregistré</span>}
+          </div>
+
+          {oxiboxTestResult && (
+            <div className={`p-3 rounded-lg text-sm ${oxiboxTestResult.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              {oxiboxTestResult.success ? `Connexion Oxibox réussie ! ${oxiboxTestResult.total} compte(s) trouvé(s).` : `Erreur : ${oxiboxTestResult.error}`}
             </div>
           )}
         </div>}

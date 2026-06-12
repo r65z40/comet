@@ -17,6 +17,7 @@ import {
   ClipboardList,
   BookOpen,
   Ticket,
+  HardDrive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ const navigation = [
   { name: "Board", href: "/board", icon: ClipboardList },
   { name: "Tickets", href: "/tickets", icon: Ticket },
   { name: "Base de connaissances", href: "/knowledge", icon: BookOpen },
+  { name: "Sauvegardes", href: "/backups", icon: HardDrive },
   { name: "Paramètres", href: "/settings", icon: Settings },
 ];
 

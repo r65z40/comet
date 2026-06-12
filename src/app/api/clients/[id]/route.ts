@@ -58,6 +58,7 @@ export async function PATCH(
 
   const data: Record<string, string | null> = {};
   if (body.logoUrl !== undefined) data.logoUrl = body.logoUrl;
+  if (body.oxiboxId !== undefined) data.oxiboxId = body.oxiboxId || null;
 
   const client = await prisma.client.update({
     where: { id },

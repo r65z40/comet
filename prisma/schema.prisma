@@ -43,6 +43,7 @@ model PasswordReset {
 model Client {
   id                String         @id @default(cuid())
   axonautId         Int?           @unique
+  oxiboxId          String?
   name              String
   email             String?
   phone             String?
