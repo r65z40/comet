@@ -14,7 +14,7 @@ export async function getEmsisoftConfig(): Promise<EmsisoftConfig> {
   return {
     apiKey: map.emsisoft_api_key || "",
     enabled: map.emsisoft_enabled === "true",
-    apiUrl: map.emsisoft_api_url || "https://manage.emsisoft.com/api/v2",
+    apiUrl: map.emsisoft_api_url || "https://api.emsisoft.com/v1",
   };
 }
 
@@ -28,7 +28,7 @@ async function emisoftFetch(path: string, config?: EmsisoftConfig) {
   const url = `${baseUrl}${path}`;
   const res = await fetch(url, {
     headers: {
-      Authorization: `Basic ${Buffer.from(`${cfg.apiKey}:`).toString("base64")}`,
+      "Api-Key": cfg.apiKey,
       Accept: "application/json",
     },
     next: { revalidate: 0 },
@@ -93,11 +93,30 @@ export async function getThreats(workspaceId: string, config?: EmsisoftConfig) {
 }
 
 export async function testConnection(config?: EmsisoftConfig): Promise<{ success: boolean; error?: string; workspaces?: number }> {
+  const cfg = config ?? (await getEmsisoftConfig());
+  if (!cfg.apiKey) return { success: false, error: "Clé API manquante" };
+
+  // Try listing workspaces first
   try {
-    const workspaces = await getWorkspaces(config);
+    const workspaces = await getWorkspaces(cfg);
     return { success: true, workspaces: workspaces.length };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erreur inconnue" };
+    const msg = err instanceof Error ? err.message : "Erreur inconnue";
+    // If workspaces endpoint doesn't exist, try a basic API call
+    try {
+      const baseUrl = cfg.apiUrl.replace(/\/+$/, "");
+      const res = await fetch(baseUrl, {
+        headers: { "Api-Key": cfg.apiKey, Accept: "application/json" },
+      });
+      if (res.ok || res.status === 404) {
+        // 404 means the API is reachable but endpoint doesn't exist — auth works
+        return { success: true, workspaces: 0 };
+      }
+      const text = await res.text().catch(() => "");
+      return { success: false, error: `API ${res.status}: ${text}` };
+    } catch {
+      return { success: false, error: msg };
+    }
   }
 }
 

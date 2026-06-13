@@ -206,7 +206,7 @@ export default function SettingsPage() {
 
   // Emsisoft settings
   const [emsisoftApiKey, setEmsisoftApiKey] = useState("");
-  const [emsisoftApiUrl, setEmsisoftApiUrl] = useState("https://manage.emsisoft.com/api/v2");
+  const [emsisoftApiUrl, setEmsisoftApiUrl] = useState("https://api.emsisoft.com/v1");
   const [emsisoftEnabled, setEmsisoftEnabled] = useState(false);
   const [savingEmsisoft, setSavingEmsisoft] = useState(false);
   const [savedEmsisoft, setSavedEmsisoft] = useState(false);
@@ -429,7 +429,7 @@ export default function SettingsPage() {
         setAteraEnabled(data.atera_enabled === "true");
         setOxiboxApiKey(data.oxibox_api_key || "");
         setEmsisoftApiKey(data.emsisoft_api_key || "");
-        setEmsisoftApiUrl(data.emsisoft_api_url || "https://manage.emsisoft.com/api/v2");
+        setEmsisoftApiUrl(data.emsisoft_api_url || "https://api.emsisoft.com/v1");
         setEmsisoftEnabled(data.emsisoft_enabled === "true");
       })
       .finally(() => setLoading(false));
@@ -1430,7 +1430,7 @@ export default function SettingsPage() {
               type="text"
               value={emsisoftApiUrl}
               onChange={(e) => setEmsisoftApiUrl(e.target.value)}
-              placeholder="https://manage.emsisoft.com/api/v2"
+              placeholder="https://api.emsisoft.com/v1"
               className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
             <p className="text-[11px] text-slate-400 mt-1">URL de base de l&apos;API Emsisoft Management Console</p>
