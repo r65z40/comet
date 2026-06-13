@@ -55,6 +55,10 @@ import {
   Calendar,
   HardDrive,
   Bell,
+  Activity,
+  LayoutGrid,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -64,6 +68,7 @@ import CalendarPanel from "./CalendarPanel";
 import BackupsWidget from "./BackupsWidget";
 import AteraAlertsWidget from "./AteraAlertsWidget";
 import CriticalAlertOverlay from "./CriticalAlertOverlay";
+import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 
 interface CardTag {
@@ -139,7 +144,17 @@ const BOARD_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "notes", x: 4, y: 7, w: 4, h: 5, minW: 3, minH: 2 },
   { i: "backups", x: 8, y: 7, w: 2, h: 5, minW: 2, minH: 2 },
   { i: "atera", x: 10, y: 7, w: 2, h: 5, minW: 2, minH: 2 },
+  { i: "activity_feed", x: 0, y: 12, w: 4, h: 5, minW: 2, minH: 2 },
 ];
+
+const BOARD_WIDGET_REGISTRY: Record<string, { label: string; icon: typeof ClipboardList; description: string }> = {
+  kanban: { label: "Kanban", icon: ClipboardList, description: "Tableau de cartes par colonnes" },
+  calendar: { label: "Calendrier", icon: Calendar, description: "Calendrier des échéances" },
+  notes: { label: "Notes & Informations", icon: StickyNote, description: "Notes partagées de l'équipe" },
+  backups: { label: "Sauvegardes", icon: HardDrive, description: "État des sauvegardes" },
+  atera: { label: "Alertes Atera", icon: Bell, description: "Alertes de supervision Atera" },
+  activity_feed: { label: "Fil d'activité", icon: Activity, description: "Flux global d'activité en temps réel" },
+};
 
 export default function BoardPage() {
   const router = useRouter();
@@ -171,6 +186,11 @@ export default function BoardPage() {
 
   // Available clients for filter
   const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
+
+  // Widget visibility
+  const [widgetVisibility, setWidgetVisibility] = useState<Record<string, boolean>>({});
+  const [showWidgetPicker, setShowWidgetPicker] = useState(false);
+  const widgetPickerRef = useRef<HTMLDivElement>(null);
 
   // Notes state
   const [noteContent, setNoteContent] = useState("");
@@ -287,6 +307,35 @@ export default function BoardPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, columns.length]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("comet_board_widget_visibility");
+      if (saved) setWidgetVisibility(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (widgetPickerRef.current && !widgetPickerRef.current.contains(e.target as Node)) {
+        setShowWidgetPicker(false);
+      }
+    }
+    if (showWidgetPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showWidgetPicker]);
+
+  function toggleWidget(widgetId: string) {
+    setWidgetVisibility((prev) => {
+      const next = { ...prev, [widgetId]: prev[widgetId] === false ? true : false };
+      // Don't allow hiding kanban
+      if (widgetId === "kanban") delete next[widgetId];
+      try { localStorage.setItem("comet_board_widget_visibility", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
 
   const enrichedColumns = useMemo(() => {
     return columns.map((col) => ({
@@ -739,7 +788,17 @@ export default function BoardPage() {
       icon: <Bell className="h-3 w-3 text-red-500" />,
       content: <AteraAlertsWidget />,
     },
+    {
+      id: "activity_feed",
+      title: "Fil d'activité",
+      icon: <Activity className="h-3 w-3 text-blue-500" />,
+      content: <ActivityFeedWidget />,
+    },
   ];
+
+  const visibleWidgets = widgets.filter(
+    (w) => widgetVisibility[w.id] !== false
+  );
 
   return (
     <div className="space-y-4 -mx-4 sm:-mx-6 px-4 sm:px-6">
@@ -895,6 +954,54 @@ export default function BoardPage() {
             )}
           </div>
 
+          {/* Widget picker */}
+          <div className="relative" ref={widgetPickerRef}>
+            <button
+              onClick={() => setShowWidgetPicker(!showWidgetPicker)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg transition-colors",
+                showWidgetPicker ? "border-primary-300 bg-primary-50 text-primary-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+              )}
+              title="Gérer les widgets"
+            >
+              <LayoutGrid className="h-4 w-4" />
+              Widgets
+            </button>
+            {showWidgetPicker && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 w-72 p-3">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Widgets</h3>
+                <div className="space-y-1">
+                  {Object.entries(BOARD_WIDGET_REGISTRY).map(([id, info]) => {
+                    const isVisible = widgetVisibility[id] !== false;
+                    const isKanban = id === "kanban";
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => !isKanban && toggleWidget(id)}
+                        className={cn(
+                          "flex items-center gap-3 w-full rounded-lg p-2.5 text-left transition-colors",
+                          isKanban ? "opacity-60 cursor-not-allowed" : "hover:bg-slate-50"
+                        )}
+                        disabled={isKanban}
+                      >
+                        <div className={cn("rounded-lg p-1.5", isVisible ? "bg-primary-50" : "bg-slate-100")}>
+                          <info.icon className={cn("h-4 w-4", isVisible ? "text-primary-600" : "text-slate-400")} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("text-sm font-medium", isVisible ? "text-slate-900" : "text-slate-400")}>{info.label}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{info.description}</p>
+                        </div>
+                        {!isKanban && (
+                          isVisible ? <Eye className="h-4 w-4 text-primary-500" /> : <EyeOff className="h-4 w-4 text-slate-300" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Screen mode */}
           <button onClick={() => router.push("/board/screen")} className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors" title="Mode écran">
             <Monitor className="h-4 w-4" />
@@ -928,7 +1035,7 @@ export default function BoardPage() {
         onDragEnd={handleDragEnd}
       >
         <DashboardGrid
-          widgets={widgets}
+          widgets={visibleWidgets}
           defaultLayout={BOARD_DEFAULT_LAYOUT}
           storageKey="comet_board_grid"
         />

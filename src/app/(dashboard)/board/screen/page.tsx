@@ -46,6 +46,7 @@ import BackupsWidget from "../BackupsWidget";
 import AteraAlertsWidget from "../AteraAlertsWidget";
 import CriticalAlertOverlay from "../CriticalAlertOverlay";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
+import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
 
 interface CardTag {
   id: string;
@@ -132,6 +133,7 @@ interface ScreenVisibility {
   showCalendar: boolean;
   showBackups: boolean;
   showAtera: boolean;
+  showActivityFeed: boolean;
 }
 
 const DEFAULT_VISIBILITY: ScreenVisibility = {
@@ -140,6 +142,7 @@ const DEFAULT_VISIBILITY: ScreenVisibility = {
   showCalendar: false,
   showBackups: true,
   showAtera: true,
+  showActivityFeed: true,
 };
 
 const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
@@ -148,6 +151,7 @@ const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "feed", x: 8, y: 1, w: 4, h: 4, minW: 2, minH: 2 },
   { i: "backups", x: 8, y: 5, w: 2, h: 4, minW: 2, minH: 2 },
   { i: "atera", x: 10, y: 5, w: 2, h: 4, minW: 2, minH: 2 },
+  { i: "activity_feed", x: 0, y: 12, w: 4, h: 4, minW: 2, minH: 2 },
   { i: "calendar", x: 0, y: 9, w: 12, h: 3, minW: 3, minH: 2 },
 ];
 
@@ -445,6 +449,14 @@ export default function BoardScreenPage() {
           content: <AteraAlertsWidget dark />,
         }]
       : []),
+    ...(visibility.showActivityFeed
+      ? [{
+          id: "activity_feed",
+          title: "Fil d'activité",
+          icon: <Activity className="h-3 w-3 text-blue-400" />,
+          content: <ActivityFeedWidget dark />,
+        }]
+      : []),
     ...(visibility.showCalendar
       ? [{
           id: "calendar",
@@ -510,6 +522,7 @@ export default function BoardScreenPage() {
                   { key: "showFeed" as const, label: "Flux en direct" },
                   { key: "showBackups" as const, label: "Sauvegardes" },
                   { key: "showAtera" as const, label: "Alertes Atera" },
+                  { key: "showActivityFeed" as const, label: "Fil d'activité" },
                   { key: "showCalendar" as const, label: "Calendrier" },
                 ].map(({ key, label }) => (
                   <div key={key} className="flex items-center justify-between py-2">

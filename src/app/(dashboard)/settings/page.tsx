@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough, ChevronDown, HardDrive } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough, ChevronDown, HardDrive, Settings2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface User {
   id: string;
@@ -210,6 +211,16 @@ export default function SettingsPage() {
   function toggleSection(key: string) {
     setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
   }
+
+  // Tabbed navigation
+  const [activeTab, setActiveTab] = useState<string>("general");
+  const SETTINGS_TABS = [
+    { id: "general", label: "Général", icon: Settings2 },
+    { id: "integrations", label: "Intégrations", icon: Plug },
+    { id: "email", label: "Email & Alertes", icon: Mail },
+    { id: "reports", label: "Rapports", icon: FileText },
+    { id: "admin", label: "Administration", icon: Users },
+  ];
 
   // Product merge
   const [mergeProductSearch, setMergeProductSearch] = useState("");
@@ -719,14 +730,60 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="lg:col-span-2">
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
         <h1 className="text-2xl font-bold text-slate-900">Paramètres</h1>
         <p className="text-sm text-slate-500 mt-1">Configuration de l&apos;application</p>
       </div>
 
+      {/* Mobile tab bar */}
+      <div className="lg:hidden flex gap-1 overflow-x-auto pb-2 -mx-4 px-4">
+        {SETTINGS_TABS.filter(tab => tab.id !== "admin" || isAdmin).map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-colors shrink-0",
+              activeTab === tab.id
+                ? "bg-primary-50 text-primary-700"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            <tab.icon className={cn("h-4 w-4", activeTab === tab.id ? "text-primary-600" : "text-slate-400")} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-6">
+        {/* Sidebar navigation */}
+        <nav className="w-56 shrink-0 hidden lg:block">
+          <div className="sticky top-6 space-y-1">
+            {SETTINGS_TABS.filter(tab => tab.id !== "admin" || isAdmin).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-left",
+                  activeTab === tab.id
+                    ? "bg-primary-50 text-primary-700"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                )}
+              >
+                <tab.icon className={cn("h-4 w-4", activeTab === tab.id ? "text-primary-600" : "text-slate-400")} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        {/* Content area */}
+        <div className="flex-1 min-w-0 space-y-6">
+
+      {activeTab === "general" && (<>
       {/* Outils */}
-      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="rounded-lg bg-slate-100 p-2">
             <Plug className="h-4 w-4 text-slate-600" />
@@ -909,7 +966,9 @@ export default function SettingsPage() {
         </div>
       </div>}
       </div>}
+      </>)}
 
+      {activeTab === "integrations" && (<>
       {/* API Axonaut (admin only) */}
       {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("axonaut")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
@@ -979,7 +1038,9 @@ export default function SettingsPage() {
         </div>
       </div>}
       </div>}
+      </>)}
 
+      {activeTab === "email" && (<>
       {/* Configuration SMTP (admin only) */}
       {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("smtp")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
@@ -1126,7 +1187,9 @@ export default function SettingsPage() {
         )}
       </div>}
       </div>}
+      </>)}
 
+      {activeTab === "integrations" && (<>
       {/* Atera Integration */}
       {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("atera")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
@@ -1333,7 +1396,9 @@ export default function SettingsPage() {
           )}
         </div>}
       </div>}
+      </>)}
 
+      {activeTab === "email" && (<>
       {/* Notifications par email */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("notifications")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
@@ -1410,7 +1475,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Planification des alertes email */}
-      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("alerts")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary-50 p-2">
@@ -1588,7 +1653,9 @@ export default function SettingsPage() {
         )}
       </div>}
       </div>
+      </>)}
 
+      {activeTab === "reports" && (<>
       {/* Personnalisation du rapport */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("report")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
@@ -2441,7 +2508,9 @@ export default function SettingsPage() {
         </div>
       </div>}
       </div>
+      </>)}
 
+      {activeTab === "admin" && (<>
       {/* Gestion des utilisateurs (admin only) */}
       {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("users")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
@@ -2675,7 +2744,9 @@ export default function SettingsPage() {
         )}
       </div>}
       </div>}
+      </>)}
 
+      {activeTab === "general" && (<>
       {/* Message broadcast (admin only) */}
       {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("broadcast")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
@@ -2818,7 +2889,9 @@ export default function SettingsPage() {
         </div>
       </div>}
       </div>}
+      </>)}
 
+      {activeTab === "admin" && (<>
       {/* Fusion de clients */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("mergeClients")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
@@ -3053,7 +3126,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Suppression de données (admin only) */}
-      {isAdmin && <div className="lg:col-span-2 rounded-xl border border-red-200 bg-white overflow-hidden">
+      {isAdmin && <div className="rounded-xl border border-red-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("delete")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-red-50 p-2">
@@ -3167,7 +3240,10 @@ export default function SettingsPage() {
         </div>
       </div>}
       </div>}
+      </>)}
 
+        </div>
+      </div>
     </div>
   );
 }
