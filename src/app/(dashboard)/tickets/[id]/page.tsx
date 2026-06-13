@@ -23,6 +23,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import MentionInput from "@/components/ui/MentionInput";
 
 interface Comment {
   id: string;
@@ -89,6 +90,13 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   const [isInternalComment, setIsInternalComment] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [mentionUsers, setMentionUsers] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/users/list").then((r) => r.json()).then((data) => {
+      if (Array.isArray(data)) setMentionUsers(data);
+    }).catch(() => {});
+  }, []);
 
   const fetchTicket = useCallback(async () => {
     const res = await fetch(`/api/tickets/${id}`);
@@ -252,7 +260,15 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                     <span className="text-xs text-slate-400">{timeAgo(comment.createdAt)}</span>
                   </div>
-                  <div className="text-sm text-slate-700 whitespace-pre-wrap pl-9">{comment.content}</div>
+                  <div className="text-sm text-slate-700 whitespace-pre-wrap pl-9">
+                    {comment.content.split(/(@[\w\s]+?(?:​|$))/).map((part: string, i: number) =>
+                      part.startsWith("@") ? (
+                        <span key={i} className="bg-primary-100 text-primary-700 rounded px-0.5 font-medium">{part.replace("​", "")}</span>
+                      ) : (
+                        <span key={i}>{part}</span>
+                      )
+                    )}
+                  </div>
                 </div>
               ))}
 
@@ -264,15 +280,14 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             {/* Reply */}
             <div className="p-4 border-t border-slate-200 bg-slate-50/50">
               <div className="flex gap-3">
-                <textarea
+                <MentionInput
                   value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
+                  onChange={setCommentText}
+                  onSubmit={addComment}
                   rows={3}
-                  className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none bg-white"
-                  placeholder="Répondre au client..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addComment();
-                  }}
+                  users={mentionUsers}
+                  className="flex-1 border-slate-300 px-4 py-2.5 focus:border-primary-500 focus:ring-primary-500 bg-white"
+                  placeholder="Répondre au client... (@mention)"
                 />
                 <div className="flex flex-col gap-2 self-end">
                   <button

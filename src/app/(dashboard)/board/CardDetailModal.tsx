@@ -24,6 +24,7 @@ import {
   History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import MentionInput from "@/components/ui/MentionInput";
 
 interface CardComment {
   id: string;
@@ -830,15 +831,14 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
 
             {/* Add comment */}
             <div className="flex gap-2 mb-3">
-              <textarea
+              <MentionInput
                 value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Écrire un commentaire..."
+                onChange={setCommentText}
+                onSubmit={addComment}
+                placeholder="Écrire un commentaire... (@mention)"
                 rows={2}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) addComment();
-                }}
-                className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                users={users}
+                className="flex-1 px-3 py-2 text-sm border-slate-200 focus:ring-primary-500"
               />
               <button
                 onClick={addComment}
@@ -866,7 +866,15 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
-                  <p className="text-sm text-slate-600 ml-8 whitespace-pre-wrap">{comment.content}</p>
+                  <p className="text-sm text-slate-600 ml-8 whitespace-pre-wrap">
+                    {comment.content.split(/(@[\w\s]+?(?:​|$))/).map((part, i) =>
+                      part.startsWith("@") ? (
+                        <span key={i} className="bg-primary-100 text-primary-700 rounded px-0.5 font-medium">{part.replace("​", "")}</span>
+                      ) : (
+                        <span key={i}>{part}</span>
+                      )
+                    )}
+                  </p>
                 </div>
               ))}
             </div>

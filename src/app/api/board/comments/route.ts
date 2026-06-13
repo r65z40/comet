@@ -59,6 +59,28 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Notify @mentioned users
+  const mentionRegex = /@([\w\s]+?)(?:​|$)/g;
+  const mentions = [...content.matchAll(mentionRegex)].map((m) => m[1].trim());
+  if (mentions.length > 0) {
+    const mentionedUsers = await prisma.user.findMany({
+      where: { name: { in: mentions } },
+      select: { id: true, name: true },
+    });
+    const alreadyNotified = new Set([session.user?.id, card.assigneeId, card.createdById].filter(Boolean));
+    for (const u of mentionedUsers) {
+      if (!alreadyNotified.has(u.id)) {
+        await createNotification({
+          userId: u.id,
+          type: "mention",
+          title: "Vous avez été mentionné",
+          message: `${session.user?.name || "Un collaborateur"} vous a mentionné dans "${card.title}"`,
+          link: `/board?card=${cardId}`,
+        });
+      }
+    }
+  }
+
   return NextResponse.json(comment, { status: 201 });
 }
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
 import { addAteraTicketComment } from "@/lib/atera";
+import { createNotification } from "@/lib/notifications";
 
 // POST: Add comment to ticket
 export async function POST(
@@ -70,6 +71,27 @@ export async function POST(
         `Réponse à votre ticket : ${ticket.title}`,
         html
       ).catch((err) => console.error("Email notification error:", err));
+    }
+  }
+
+  // Notify @mentioned users
+  const mentionRegex = /@([\w\s]+?)(?:​|$)/g;
+  const mentions = [...content.matchAll(mentionRegex)].map((m: RegExpMatchArray) => m[1].trim());
+  if (mentions.length > 0) {
+    const mentionedUsers = await prisma.user.findMany({
+      where: { name: { in: mentions } },
+      select: { id: true, name: true },
+    });
+    for (const u of mentionedUsers) {
+      if (u.id !== session.user?.id) {
+        await createNotification({
+          userId: u.id,
+          type: "mention",
+          title: "Vous avez été mentionné",
+          message: `${session.user?.name || "Un collaborateur"} vous a mentionné dans le ticket "${ticket.title}"`,
+          link: `/tickets/${id}`,
+        });
+      }
     }
   }
 

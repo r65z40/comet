@@ -92,6 +92,7 @@ const PANEL_REGISTRY: Record<string, { label: string; icon: typeof Monitor; defa
   financial_summary: { label: "Résumé financier", icon: DollarSign, defaultSize: "full", description: "Valeur totale, durée moyenne, taux de renouvellement" },
   recent_activity: { label: "Activité récente", icon: History, defaultSize: "medium", description: "Dernières synchronisations et modifications" },
   board_cards: { label: "Cartes du tableau", icon: ClipboardList, defaultSize: "full", description: "Dernières cartes du tableau de communication" },
+  activity_feed: { label: "Fil d'activité", icon: Activity, defaultSize: "medium", description: "Flux global d'activité en temps réel" },
 };
 
 const DEFAULT_PANELS: PanelConfig[] = [
@@ -104,6 +105,7 @@ const DEFAULT_PANELS: PanelConfig[] = [
   { id: "p7", type: "list_renewals", size: "medium" },
   { id: "p8", type: "list_expired", size: "full" },
   { id: "p9", type: "board_cards", size: "full" },
+  { id: "p10", type: "activity_feed", size: "medium" },
 ];
 
 // ─── Chart helpers ───────────────────────────────────────────────────────────
@@ -604,6 +606,125 @@ function BoardCardsPanel({ data }: { data: DashboardData }) {
   );
 }
 
+// ─── Activity Feed Panel ─────────────────────────────────────────────────────
+
+interface FeedItem {
+  id: string;
+  type: "activity" | "card" | "ticket_comment" | "card_comment";
+  action: string;
+  userName: string;
+  entity: string;
+  entityId: string;
+  title: string;
+  detail?: string;
+  date: string;
+}
+
+function feedTimeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "à l'instant";
+  if (mins < 60) return `il y a ${mins}min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `il y a ${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `il y a ${days}j`;
+}
+
+const FEED_TYPE_CONFIG: Record<string, { icon: typeof Activity; color: string; bg: string }> = {
+  activity: { icon: History, color: "text-blue-600", bg: "bg-blue-50" },
+  card: { icon: ClipboardList, color: "text-purple-600", bg: "bg-purple-50" },
+  ticket_comment: { icon: MessageSquare, color: "text-emerald-600", bg: "bg-emerald-50" },
+  card_comment: { icon: MessageSquare, color: "text-orange-600", bg: "bg-orange-50" },
+};
+
+const AVATAR_COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1"];
+
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function ActivityFeedPanel() {
+  const [items, setItems] = useState<FeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchFeed = useCallback(() => {
+    fetch("/api/activity/feed?limit=20")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setItems(data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchFeed();
+    const interval = setInterval(fetchFeed, 30000);
+    return () => clearInterval(interval);
+  }, [fetchFeed]);
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Activity className="h-4 w-4 text-blue-600" />
+          <h3 className="text-sm font-medium text-slate-500">Fil d&apos;activité</h3>
+        </div>
+        <span className="text-xs text-slate-400">Voir tout</span>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <RefreshCw className="h-5 w-5 text-slate-300 animate-spin" />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-8">Aucune activité récente</p>
+      ) : (
+        <div className="space-y-1 max-h-[400px] overflow-y-auto">
+          {items.map((item) => {
+            const cfg = FEED_TYPE_CONFIG[item.type] || FEED_TYPE_CONFIG.activity;
+            const IconComp = cfg.icon;
+            const initial = (item.userName || "?").charAt(0).toUpperCase();
+            const bgColor = avatarColor(item.userName);
+            return (
+              <div key={`${item.type}-${item.id}`} className="flex items-start gap-2.5 rounded-lg p-2 hover:bg-slate-50 transition-colors">
+                {/* Avatar */}
+                <div
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white flex-shrink-0 mt-0.5"
+                  style={{ backgroundColor: bgColor }}
+                >
+                  {initial}
+                </div>
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-700 leading-snug">
+                    <span className="font-semibold text-slate-900">{item.userName}</span>{" "}
+                    {item.title}
+                  </p>
+                  {item.detail && (
+                    <p className="text-xs text-slate-400 truncate mt-0.5">{item.detail}</p>
+                  )}
+                </div>
+                {/* Meta */}
+                <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+                  <div className={`rounded p-1 ${cfg.bg}`}>
+                    <IconComp className={`h-3 w-3 ${cfg.color}`} />
+                  </div>
+                  <span className="text-[10px] text-slate-400 whitespace-nowrap">{feedTimeAgo(item.date)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Panel renderer ──────────────────────────────────────────────────────────
 
 function renderPanel(panel: PanelConfig, data: DashboardData) {
@@ -622,6 +743,7 @@ function renderPanel(panel: PanelConfig, data: DashboardData) {
     case "financial_summary": return <FinancialSummaryPanel data={data} />;
     case "recent_activity": return <RecentActivityPanel data={data} />;
     case "board_cards": return <BoardCardsPanel data={data} />;
+    case "activity_feed": return <ActivityFeedPanel />;
     default: return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-400">Panneau inconnu</div>;
   }
 }
