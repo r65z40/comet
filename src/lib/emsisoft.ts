@@ -46,6 +46,15 @@ export interface EmsisoftWorkspace {
   id: string;
   name: string;
   deviceCount: number;
+  isExpired: boolean;
+  isExpiresSoon: boolean;
+  lastAlert: string | null;
+  findingType: string | null;
+  findingsLastMonth: number;
+  totalSeat: number;
+  usedSeat: number;
+  unusedSeat: number;
+  createdAt: string;
 }
 
 export interface EmsisoftDevice {
@@ -78,6 +87,15 @@ function mapWorkspace(raw: any): EmsisoftWorkspace {
     id: raw.guid || raw.id || "",
     name: raw.name || "",
     deviceCount: raw.devices ?? raw.deviceCount ?? 0,
+    isExpired: raw.isExpired ?? false,
+    isExpiresSoon: raw.isExpiresSoon ?? false,
+    lastAlert: raw.lastAlert || null,
+    findingType: raw.findingType || null,
+    findingsLastMonth: raw.findingsLastMonth ?? 0,
+    totalSeat: raw.totalSeat ?? 0,
+    usedSeat: raw.usedSeat ?? 0,
+    unusedSeat: raw.unusedSeat ?? 0,
+    createdAt: raw.createdAt || "",
   };
 }
 
@@ -185,47 +203,69 @@ export async function getProtectionSummary(config?: EmsisoftConfig) {
   const workspaces = await getWorkspaces(cfg);
 
   let totalDevices = 0;
-  let protectedDevices = 0;
-  let atRiskDevices = 0;
-  let offlineDevices = 0;
-  let openIncidents = 0;
-  const recentThreats: { deviceName: string; threat: string; detectedAt: string }[] = [];
+  let totalFindings = 0;
+  const workspaceSummaries: {
+    id: string;
+    name: string;
+    devices: number;
+    findingsLastMonth: number;
+    lastAlert: string | null;
+    findingType: string | null;
+    isExpired: boolean;
+    isExpiresSoon: boolean;
+    totalSeat: number;
+    usedSeat: number;
+  }[] = [];
 
   for (const ws of workspaces) {
-    try {
-      const [devices, incidents] = await Promise.all([
-        getDevices(ws.id, cfg),
-        getIncidents(ws.id, cfg),
-      ]);
-
-      totalDevices += devices.length;
-      for (const d of devices) {
-        if (d.protectionStatus === "protected") protectedDevices++;
-        else if (d.protectionStatus === "at_risk") atRiskDevices++;
-        else if (d.protectionStatus === "offline") offlineDevices++;
-      }
-
-      openIncidents += incidents.filter((i) => i.status === "open").length;
-
-      for (const i of incidents.filter((x) => x.status === "open").slice(0, 5)) {
-        recentThreats.push({
-          deviceName: i.deviceName,
-          threat: i.title,
-          detectedAt: i.detectedAt,
-        });
-      }
-    } catch {}
+    totalDevices += ws.deviceCount;
+    totalFindings += ws.findingsLastMonth;
+    workspaceSummaries.push({
+      id: ws.id,
+      name: ws.name,
+      devices: ws.deviceCount,
+      findingsLastMonth: ws.findingsLastMonth,
+      lastAlert: ws.lastAlert,
+      findingType: ws.findingType,
+      isExpired: ws.isExpired,
+      isExpiresSoon: ws.isExpiresSoon,
+      totalSeat: ws.totalSeat,
+      usedSeat: ws.usedSeat,
+    });
   }
+
+  const recentAlerts = workspaceSummaries
+    .filter((w) => w.lastAlert)
+    .sort((a, b) => new Date(b.lastAlert!).getTime() - new Date(a.lastAlert!).getTime())
+    .slice(0, 10)
+    .map((w) => ({
+      workspaceName: w.name,
+      findingType: w.findingType || "Unknown",
+      detectedAt: w.lastAlert!,
+    }));
 
   return {
     totalDevices,
-    protectedDevices,
-    atRiskDevices,
-    offlineDevices,
-    openIncidents,
-    recentThreats: recentThreats.slice(0, 10),
+    totalFindings,
+    recentAlerts,
     workspaceCount: workspaces.length,
+    workspaces: workspaceSummaries,
   };
+}
+
+export async function getWorkspaceDetails(workspaceId: string, config?: EmsisoftConfig) {
+  const cfg = config ?? (await getEmsisoftConfig());
+  let devices: EmsisoftDevice[] = [];
+  let incidents: EmsisoftIncident[] = [];
+
+  try {
+    devices = await getDevices(workspaceId, cfg);
+  } catch {}
+  try {
+    incidents = await getIncidents(workspaceId, cfg);
+  } catch {}
+
+  return { devices, incidents };
 }
 
 export async function getClientDevices(emsisoftId: string, config?: EmsisoftConfig) {

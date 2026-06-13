@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getProtectionSummary, testConnection, getEmsisoftConfig } from "@/lib/emsisoft";
+import { getProtectionSummary, testConnection, getEmsisoftConfig, getWorkspaces } from "@/lib/emsisoft";
 
 export async function GET() {
   const session = await auth();
@@ -33,6 +33,19 @@ export async function POST(req: NextRequest) {
   if (body.action === "test") {
     const result = await testConnection();
     return NextResponse.json(result);
+  }
+
+  if (body.action === "workspaces") {
+    try {
+      const config = await getEmsisoftConfig();
+      const workspaces = await getWorkspaces(config);
+      return NextResponse.json({ workspaces });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Erreur" },
+        { status: 500 },
+      );
+    }
   }
 
   return NextResponse.json({ error: "Action inconnue" }, { status: 400 });

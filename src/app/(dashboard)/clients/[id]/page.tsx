@@ -1284,7 +1284,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       {/* Sauvegardes Oxibox */}
       {client.oxiboxId && <OxiboxBackupSection oxiboxId={client.oxiboxId} />}
 
-      {/* Sécurité Emsisoft */}
+      {/* Sécurité Emsisoft — only show when linked */}
+      {client.emsisoftId && (
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <h3 className="text-sm font-medium text-slate-900 mb-3 flex items-center gap-2">
           <Shield className="h-4 w-4 text-slate-400" />
@@ -1299,10 +1300,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <div className="text-sm text-slate-500">
             <p className="flex items-center gap-2">
               <ShieldOff className="h-4 w-4 text-slate-300" />
-              Aucun workspace Emsisoft lié
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              Renseignez le champ <span className="font-mono text-slate-500">Emsisoft ID</span> dans les informations du client pour activer le suivi de sécurité.
+              Erreur lors du chargement des données Emsisoft
             </p>
           </div>
         ) : (
@@ -1402,6 +1400,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           </div>
         )}
       </div>
+      )}
 
       {/* Cartes du tableau de bord */}
       {client.boardCards && client.boardCards.length > 0 && (

@@ -730,9 +730,9 @@ function ActivityFeedPanel() {
 
 function EmisoftSecurityPanel() {
   const [data, setData] = useState<{
-    totalDevices: number; protectedDevices: number; atRiskDevices: number;
-    offlineDevices: number; openIncidents: number;
-    recentThreats: { deviceName: string; threat: string; detectedAt: string }[];
+    totalDevices: number; totalFindings: number; workspaceCount: number;
+    workspaces: { name: string; devices: number; findingsLastMonth: number; isExpired: boolean; isExpiresSoon: boolean; totalSeat: number; usedSeat: number }[];
+    recentAlerts: { workspaceName: string; findingType: string; detectedAt: string }[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(true);
@@ -757,20 +757,30 @@ function EmisoftSecurityPanel() {
         <ShieldCheck className="h-4 w-4 text-purple-600" />
         <h3 className="text-sm font-medium text-slate-500">Sécurité Emsisoft</h3>
       </div>
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        <div className="text-center"><p className="text-2xl font-bold text-emerald-600">{data.protectedDevices}</p><p className="text-xs text-slate-400">Protégés</p></div>
-        <div className="text-center"><p className={`text-2xl font-bold ${data.atRiskDevices > 0 ? "text-red-600" : "text-slate-400"}`}>{data.atRiskDevices}</p><p className="text-xs text-slate-400">À risque</p></div>
-        <div className="text-center"><p className="text-2xl font-bold text-slate-400">{data.offlineDevices}</p><p className="text-xs text-slate-400">Hors ligne</p></div>
-        <div className="text-center"><p className={`text-2xl font-bold ${data.openIncidents > 0 ? "text-amber-600" : "text-slate-400"}`}>{data.openIncidents}</p><p className="text-xs text-slate-400">Incidents</p></div>
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="text-center"><p className="text-2xl font-bold text-blue-600">{data.workspaceCount}</p><p className="text-xs text-slate-400">Workspaces</p></div>
+        <div className="text-center"><p className="text-2xl font-bold text-emerald-600">{data.totalDevices}</p><p className="text-xs text-slate-400">Appareils</p></div>
+        <div className="text-center"><p className={`text-2xl font-bold ${data.totalFindings > 0 ? "text-amber-600" : "text-slate-400"}`}>{data.totalFindings}</p><p className="text-xs text-slate-400">Détections/mois</p></div>
       </div>
-      {data.recentThreats.length > 0 && (
-        <div className="border-t border-slate-100 pt-3 space-y-2">
-          <p className="text-xs font-medium text-slate-500">Menaces récentes</p>
-          {data.recentThreats.slice(0, 5).map((t, i) => (
+      {data.workspaces.filter(w => w.isExpired || w.isExpiresSoon).length > 0 && (
+        <div className="border-t border-slate-100 pt-3 space-y-1 mb-3">
+          {data.workspaces.filter(w => w.isExpired || w.isExpiresSoon).map((w, i) => (
             <div key={i} className="flex items-center gap-2 text-xs">
               <ShieldX className="h-3 w-3 text-red-500 shrink-0" />
-              <span className="text-slate-700 truncate flex-1">{t.threat}</span>
-              <span className="text-slate-400 shrink-0">{t.deviceName}</span>
+              <span className="text-slate-700 truncate flex-1">{w.name}</span>
+              <span className={w.isExpired ? "text-red-500 font-medium" : "text-amber-500"}>{w.isExpired ? "Expiré" : "Expire bientôt"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {data.recentAlerts.length > 0 && (
+        <div className="border-t border-slate-100 pt-3 space-y-1">
+          <p className="text-xs font-medium text-slate-500 mb-1">Alertes récentes</p>
+          {data.recentAlerts.slice(0, 5).map((a, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs">
+              <ShieldX className="h-3 w-3 text-red-500 shrink-0" />
+              <span className="text-slate-700 truncate flex-1">{a.findingType}</span>
+              <span className="text-slate-400 shrink-0">{a.workspaceName}</span>
             </div>
           ))}
         </div>
