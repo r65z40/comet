@@ -31,7 +31,7 @@ async function emisoftFetch(path: string, config?: EmsisoftConfig) {
       "Api-Key": cfg.apiKey,
       Accept: "application/json",
     },
-    next: { revalidate: 0 },
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -72,51 +72,78 @@ export interface EmsisoftIncident {
   resolvedAt: string | null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapWorkspace(raw: any): EmsisoftWorkspace {
+  return {
+    id: raw.guid || raw.id || "",
+    name: raw.name || "",
+    deviceCount: raw.devices ?? raw.deviceCount ?? 0,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDevice(raw: any): EmsisoftDevice {
+  return {
+    id: raw.guid || raw.id || "",
+    name: raw.name || raw.computerName || "",
+    groupPath: raw.groupPath || raw.group || "",
+    lastSeen: raw.lastSeen || raw.changedAt || "",
+    protectionStatus: raw.protectionStatus || "unknown",
+    operatingSystem: raw.operatingSystem || raw.os || "",
+    lastThreatDetected: raw.lastThreatDetected || null,
+    policyName: raw.policyName || raw.policy || null,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapIncident(raw: any): EmsisoftIncident {
+  return {
+    id: raw.guid || raw.id || "",
+    deviceId: raw.deviceId || raw.deviceGuid || "",
+    deviceName: raw.deviceName || raw.computerName || "",
+    type: raw.type || raw.findingType || "",
+    severity: raw.severity || "medium",
+    title: raw.title || raw.name || raw.findingType || "",
+    description: raw.description || raw.message || "",
+    status: raw.status || (raw.resolvedAt ? "resolved" : "open"),
+    detectedAt: raw.detectedAt || raw.createdAt || "",
+    resolvedAt: raw.resolvedAt || null,
+  };
+}
+
 export async function getWorkspaces(config?: EmsisoftConfig): Promise<EmsisoftWorkspace[]> {
-  const data = await emisoftFetch("/workspaces", config);
-  return data.workspaces || data || [];
+  const json = await emisoftFetch("/workspaces", config);
+  const items = json.data || json.workspaces || (Array.isArray(json) ? json : []);
+  return items.map(mapWorkspace);
 }
 
 export async function getDevices(workspaceId: string, config?: EmsisoftConfig): Promise<EmsisoftDevice[]> {
-  const data = await emisoftFetch(`/workspaces/${workspaceId}/devices`, config);
-  return data.devices || data || [];
+  const json = await emisoftFetch(`/workspaces/${workspaceId}/devices`, config);
+  const items = json.data || json.devices || (Array.isArray(json) ? json : []);
+  return items.map(mapDevice);
 }
 
 export async function getIncidents(workspaceId: string, config?: EmsisoftConfig): Promise<EmsisoftIncident[]> {
-  const data = await emisoftFetch(`/workspaces/${workspaceId}/incidents`, config);
-  return data.incidents || data || [];
+  const json = await emisoftFetch(`/workspaces/${workspaceId}/incidents`, config);
+  const items = json.data || json.incidents || (Array.isArray(json) ? json : []);
+  return items.map(mapIncident);
 }
 
 export async function getThreats(workspaceId: string, config?: EmsisoftConfig) {
-  const data = await emisoftFetch(`/workspaces/${workspaceId}/threats?limit=50`, config);
-  return data.threats || data || [];
+  const json = await emisoftFetch(`/workspaces/${workspaceId}/threats?limit=50`, config);
+  return json.data || json.threats || (Array.isArray(json) ? json : []);
 }
 
 export async function testConnection(config?: EmsisoftConfig): Promise<{ success: boolean; error?: string; workspaces?: number }> {
   const cfg = config ?? (await getEmsisoftConfig());
   if (!cfg.apiKey) return { success: false, error: "Clé API manquante" };
 
-  // Try listing workspaces first
   try {
-    const workspaces = await getWorkspaces(cfg);
+    const workspaces = await getWorkspaces({ ...cfg, enabled: true });
     return { success: true, workspaces: workspaces.length };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erreur inconnue";
-    // If workspaces endpoint doesn't exist, try a basic API call
-    try {
-      const baseUrl = cfg.apiUrl.replace(/\/+$/, "");
-      const res = await fetch(baseUrl, {
-        headers: { "Api-Key": cfg.apiKey, Accept: "application/json" },
-      });
-      if (res.ok || res.status === 404) {
-        // 404 means the API is reachable but endpoint doesn't exist — auth works
-        return { success: true, workspaces: 0 };
-      }
-      const text = await res.text().catch(() => "");
-      return { success: false, error: `API ${res.status}: ${text}` };
-    } catch {
-      return { success: false, error: msg };
-    }
+    return { success: false, error: msg };
   }
 }
 
