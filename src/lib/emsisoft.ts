@@ -3,16 +3,18 @@ import { prisma } from "@/lib/db";
 export interface EmsisoftConfig {
   apiKey: string;
   enabled: boolean;
+  apiUrl: string;
 }
 
 export async function getEmsisoftConfig(): Promise<EmsisoftConfig> {
   const settings = await prisma.setting.findMany({
-    where: { key: { in: ["emsisoft_api_key", "emsisoft_enabled"] } },
+    where: { key: { in: ["emsisoft_api_key", "emsisoft_enabled", "emsisoft_api_url"] } },
   });
   const map = Object.fromEntries(settings.map((s) => [s.key, s.value]));
   return {
     apiKey: map.emsisoft_api_key || "",
     enabled: map.emsisoft_enabled === "true",
+    apiUrl: map.emsisoft_api_url || "https://manage.emsisoft.com/api/v2",
   };
 }
 
@@ -22,10 +24,11 @@ async function emisoftFetch(path: string, config?: EmsisoftConfig) {
     throw new Error("Emsisoft non configuré");
   }
 
-  const url = `https://api.emsisoft.com/v1${path}`;
+  const baseUrl = cfg.apiUrl.replace(/\/+$/, "");
+  const url = `${baseUrl}${path}`;
   const res = await fetch(url, {
     headers: {
-      Authorization: `Basic ${cfg.apiKey}`,
+      Authorization: `Basic ${Buffer.from(`${cfg.apiKey}:`).toString("base64")}`,
       Accept: "application/json",
     },
     next: { revalidate: 0 },

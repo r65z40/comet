@@ -206,6 +206,7 @@ export default function SettingsPage() {
 
   // Emsisoft settings
   const [emsisoftApiKey, setEmsisoftApiKey] = useState("");
+  const [emsisoftApiUrl, setEmsisoftApiUrl] = useState("https://manage.emsisoft.com/api/v2");
   const [emsisoftEnabled, setEmsisoftEnabled] = useState(false);
   const [savingEmsisoft, setSavingEmsisoft] = useState(false);
   const [savedEmsisoft, setSavedEmsisoft] = useState(false);
@@ -428,6 +429,7 @@ export default function SettingsPage() {
         setAteraEnabled(data.atera_enabled === "true");
         setOxiboxApiKey(data.oxibox_api_key || "");
         setEmsisoftApiKey(data.emsisoft_api_key || "");
+        setEmsisoftApiUrl(data.emsisoft_api_url || "https://manage.emsisoft.com/api/v2");
         setEmsisoftEnabled(data.emsisoft_enabled === "true");
       })
       .finally(() => setLoading(false));
@@ -1423,15 +1425,27 @@ export default function SettingsPage() {
         </button>
         {openSections.emsisoft && <div className="px-6 pb-6 space-y-4 border-t border-slate-100 pt-5">
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1.5">Clé API Emsisoft</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">URL de l&apos;API</label>
+            <input
+              type="text"
+              value={emsisoftApiUrl}
+              onChange={(e) => setEmsisoftApiUrl(e.target.value)}
+              placeholder="https://manage.emsisoft.com/api/v2"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">URL de base de l&apos;API Emsisoft Management Console</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Clé API</label>
             <input
               type="password"
               value={emsisoftApiKey}
               onChange={(e) => setEmsisoftApiKey(e.target.value)}
-              placeholder="Votre clé API Emsisoft Enterprise Console"
+              placeholder="Votre clé API Emsisoft"
               className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
-            <p className="text-[11px] text-slate-400 mt-1">Disponible dans Emsisoft Enterprise Console &gt; Settings &gt; API</p>
+            <p className="text-[11px] text-slate-400 mt-1">Disponible dans Emsisoft Management Console &gt; Settings &gt; API</p>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">
@@ -1456,6 +1470,7 @@ export default function SettingsPage() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     emsisoft_api_key: emsisoftApiKey,
+                    emsisoft_api_url: emsisoftApiUrl,
                     emsisoft_enabled: emsisoftEnabled ? "true" : "false",
                   }),
                 });
@@ -1478,6 +1493,7 @@ export default function SettingsPage() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     emsisoft_api_key: emsisoftApiKey,
+                    emsisoft_api_url: emsisoftApiUrl,
                     emsisoft_enabled: emsisoftEnabled ? "true" : "false",
                   }),
                 });
