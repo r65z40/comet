@@ -93,6 +93,7 @@ const PANEL_REGISTRY: Record<string, { label: string; icon: typeof Monitor; defa
   recent_activity: { label: "Activité récente", icon: History, defaultSize: "medium", description: "Dernières synchronisations et modifications" },
   board_cards: { label: "Cartes du tableau", icon: ClipboardList, defaultSize: "full", description: "Dernières cartes du tableau de communication" },
   activity_feed: { label: "Fil d'activité", icon: Activity, defaultSize: "medium", description: "Flux global d'activité en temps réel" },
+  emsisoft_security: { label: "Sécurité Emsisoft", icon: ShieldCheck, defaultSize: "medium", description: "Protection des appareils et menaces détectées" },
 };
 
 const DEFAULT_PANELS: PanelConfig[] = [
@@ -725,6 +726,59 @@ function ActivityFeedPanel() {
   );
 }
 
+// ─── Emsisoft Security Panel ────────────────────────────────────────────────
+
+function EmisoftSecurityPanel() {
+  const [data, setData] = useState<{
+    totalDevices: number; protectedDevices: number; atRiskDevices: number;
+    offlineDevices: number; openIncidents: number;
+    recentThreats: { deviceName: string; threat: string; detectedAt: string }[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [enabled, setEnabled] = useState(true);
+
+  const fetchData = useCallback(() => {
+    fetch("/api/emsisoft")
+      .then((r) => r.json())
+      .then((d) => { if (!d.enabled) { setEnabled(false); } else { setData(d); } })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { fetchData(); const i = setInterval(fetchData, 120_000); return () => clearInterval(i); }, [fetchData]);
+
+  if (!enabled) return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-400 text-center">Emsisoft non configuré</div>;
+  if (loading) return <div className="rounded-xl border border-slate-200 bg-white p-6 flex justify-center"><RefreshCw className="h-5 w-5 text-slate-300 animate-spin" /></div>;
+  if (!data) return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-red-400">Erreur de connexion</div>;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <ShieldCheck className="h-4 w-4 text-purple-600" />
+        <h3 className="text-sm font-medium text-slate-500">Sécurité Emsisoft</h3>
+      </div>
+      <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="text-center"><p className="text-2xl font-bold text-emerald-600">{data.protectedDevices}</p><p className="text-xs text-slate-400">Protégés</p></div>
+        <div className="text-center"><p className={`text-2xl font-bold ${data.atRiskDevices > 0 ? "text-red-600" : "text-slate-400"}`}>{data.atRiskDevices}</p><p className="text-xs text-slate-400">À risque</p></div>
+        <div className="text-center"><p className="text-2xl font-bold text-slate-400">{data.offlineDevices}</p><p className="text-xs text-slate-400">Hors ligne</p></div>
+        <div className="text-center"><p className={`text-2xl font-bold ${data.openIncidents > 0 ? "text-amber-600" : "text-slate-400"}`}>{data.openIncidents}</p><p className="text-xs text-slate-400">Incidents</p></div>
+      </div>
+      {data.recentThreats.length > 0 && (
+        <div className="border-t border-slate-100 pt-3 space-y-2">
+          <p className="text-xs font-medium text-slate-500">Menaces récentes</p>
+          {data.recentThreats.slice(0, 5).map((t, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs">
+              <ShieldX className="h-3 w-3 text-red-500 shrink-0" />
+              <span className="text-slate-700 truncate flex-1">{t.threat}</span>
+              <span className="text-slate-400 shrink-0">{t.deviceName}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Panel renderer ──────────────────────────────────────────────────────────
 
 function renderPanel(panel: PanelConfig, data: DashboardData) {
@@ -744,6 +798,7 @@ function renderPanel(panel: PanelConfig, data: DashboardData) {
     case "recent_activity": return <RecentActivityPanel data={data} />;
     case "board_cards": return <BoardCardsPanel data={data} />;
     case "activity_feed": return <ActivityFeedPanel />;
+    case "emsisoft_security": return <EmisoftSecurityPanel />;
     default: return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-400">Panneau inconnu</div>;
   }
 }

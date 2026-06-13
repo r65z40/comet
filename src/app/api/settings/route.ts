@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
-const MASKED_KEYS = new Set(["axonaut_api_key", "smtp_pass", "cloud_s3_secret_key", "cloud_ftp_password", "oxibox_api_key"]);
+const MASKED_KEYS = new Set(["axonaut_api_key", "smtp_pass", "cloud_s3_secret_key", "cloud_ftp_password", "oxibox_api_key", "emsisoft_api_key"]);
 
 export async function GET() {
   const session = await auth();

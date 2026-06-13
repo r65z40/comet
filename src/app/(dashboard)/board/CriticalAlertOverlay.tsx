@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 interface CriticalAlert {
   id: string;
-  source: "atera" | "oxibox";
+  source: "atera" | "oxibox" | "emsisoft";
   title: string;
   detail: string;
   severity: string;
@@ -86,6 +86,26 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
               detail: [a.deviceName, a.customerName].filter(Boolean).join(" — "),
               severity: "Critical",
               timestamp: a.created ? new Date(a.created).getTime() : Date.now(),
+            });
+          }
+        }
+      }
+    } catch {}
+
+    // Check Emsisoft
+    try {
+      const res = await fetch("/api/emsisoft/incidents?status=open");
+      if (res.ok) {
+        const data = await res.json();
+        for (const i of (data.incidents || [])) {
+          if (i.severity === "critical" || i.severity === "high") {
+            newAlerts.push({
+              id: `emsisoft-${i.id}`,
+              source: "emsisoft",
+              title: i.title,
+              detail: [i.deviceName, i.type].filter(Boolean).join(" — "),
+              severity: i.severity,
+              timestamp: i.detectedAt ? new Date(i.detectedAt).getTime() : Date.now(),
             });
           }
         }
@@ -208,7 +228,7 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
                 <div key={alert.id} className={cn("px-6 py-3 flex items-start gap-3", dark ? "hover:bg-slate-800" : "hover:bg-red-50/50")}>
                   <div className={cn(
                     "mt-0.5 w-2 h-2 rounded-full shrink-0 animate-pulse",
-                    alert.source === "atera" ? "bg-red-500" : "bg-orange-500",
+                    alert.source === "atera" ? "bg-red-500" : alert.source === "emsisoft" ? "bg-purple-500" : "bg-orange-500",
                   )} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -216,9 +236,11 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
                         "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
                         alert.source === "atera"
                           ? (dark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700")
-                          : (dark ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-700"),
+                          : alert.source === "emsisoft"
+                            ? (dark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700")
+                            : (dark ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-700"),
                       )}>
-                        {alert.source === "atera" ? "Atera" : "Oxibox"}
+                        {alert.source === "atera" ? "Atera" : alert.source === "emsisoft" ? "Emsisoft" : "Oxibox"}
                       </span>
                     </div>
                     <p className={cn("text-sm font-medium mt-1 truncate", dark ? "text-white" : "text-slate-900")}>{alert.title}</p>

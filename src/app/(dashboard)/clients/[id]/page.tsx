@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, ShieldCheck, ShieldX, ShieldAlert, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, FileText, ChevronDown, Calendar, ClipboardList, BookOpen, HardDrive, Server, CheckCircle, AlertTriangle, XCircle, FolderOpen, Clock } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Shield, ShieldCheck, ShieldX, ShieldAlert, ShieldOff, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, FileText, ChevronDown, Calendar, ClipboardList, BookOpen, HardDrive, Server, CheckCircle, AlertTriangle, XCircle, FolderOpen, Clock } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -54,6 +54,7 @@ interface ClientDetail {
   notes: string | null;
   logoUrl: string | null;
   oxiboxId: string | null;
+  emsisoftId: string | null;
   installations: Installation[];
   invoices: {
     id: string;
@@ -92,6 +93,22 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [installSearch, setInstallSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [kbArticles, setKbArticles] = useState<{ id: string; title: string; updatedAt: string; category: { name: string } | null }[]>([]);
+
+  // Emsisoft state
+  const [emsisoftData, setEmsisoftData] = useState<{
+    linked: boolean;
+    devices: { id: string; name: string; protectionStatus: string; lastSeen: string; operatingSystem: string }[];
+    incidents: { id: string; title: string; severity: string; deviceName: string; detectedAt: string }[];
+    summary: { total: number; protected: number; atRisk: number; offline: number; openIncidents: number } | null;
+  } | null>(null);
+  const [emsisoftLoading, setEmsisoftLoading] = useState(false);
+
+  // Editable integration IDs
+  const [editingOxiboxId, setEditingOxiboxId] = useState(false);
+  const [editingEmsisoftId, setEditingEmsisoftId] = useState(false);
+  const [oxiboxIdDraft, setOxiboxIdDraft] = useState("");
+  const [emsisoftIdDraft, setEmsisoftIdDraft] = useState("");
+  const [savingIntegrationId, setSavingIntegrationId] = useState<string | null>(null);
 
   // Portal state
   const [portalOpen, setPortalOpen] = useState(false);
@@ -248,6 +265,36 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       .then((data) => setKbArticles(data.articles || []))
       .catch(() => {});
   }, [id]);
+
+  // Fetch Emsisoft data when client is loaded
+  useEffect(() => {
+    if (!client) return;
+    setEmsisoftLoading(true);
+    fetch(`/api/emsisoft/client?clientId=${client.id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setEmsisoftData(data); })
+      .catch(() => {})
+      .finally(() => setEmsisoftLoading(false));
+  }, [client?.id, client?.emsisoftId]);
+
+  async function saveIntegrationId(field: "oxiboxId" | "emsisoftId", value: string) {
+    setSavingIntegrationId(field);
+    try {
+      const res = await fetch(`/api/clients/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (res.ok) {
+        setClient((prev) => prev ? { ...prev, [field]: value || null } : prev);
+        if (field === "oxiboxId") setEditingOxiboxId(false);
+        if (field === "emsisoftId") setEditingEmsisoftId(false);
+      }
+    } catch {
+      alert("Erreur lors de la sauvegarde");
+    }
+    setSavingIntegrationId(null);
+  }
 
   async function changeStatus(installId: string, newStatus: string) {
     setUpdatingStatus(installId);
@@ -1092,6 +1139,84 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <p className="text-slate-700">{client.siret}</p>
                 </div>
               )}
+              {/* Oxibox ID */}
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">Oxibox ID</p>
+                {editingOxiboxId ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={oxiboxIdDraft}
+                      onChange={(e) => setOxiboxIdDraft(e.target.value)}
+                      className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      placeholder="ID workspace Oxibox"
+                    />
+                    <button
+                      onClick={() => saveIntegrationId("oxiboxId", oxiboxIdDraft)}
+                      disabled={savingIntegrationId === "oxiboxId"}
+                      className="rounded bg-primary-600 px-2 py-1 text-xs text-white hover:bg-primary-700 disabled:opacity-50"
+                    >
+                      {savingIntegrationId === "oxiboxId" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    </button>
+                    <button
+                      onClick={() => { setEditingOxiboxId(false); setOxiboxIdDraft(client.oxiboxId || ""); }}
+                      className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-slate-700 flex items-center gap-1">
+                    <HardDrive className="h-3 w-3 text-slate-400" />
+                    <span className="font-mono text-xs">{client.oxiboxId || "—"}</span>
+                    <button
+                      onClick={() => { setOxiboxIdDraft(client.oxiboxId || ""); setEditingOxiboxId(true); }}
+                      className="ml-1 text-slate-400 hover:text-primary-600"
+                    >
+                      <FileText className="h-3 w-3" />
+                    </button>
+                  </p>
+                )}
+              </div>
+              {/* Emsisoft ID */}
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">Emsisoft ID</p>
+                {editingEmsisoftId ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={emsisoftIdDraft}
+                      onChange={(e) => setEmsisoftIdDraft(e.target.value)}
+                      className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      placeholder="ID workspace Emsisoft"
+                    />
+                    <button
+                      onClick={() => saveIntegrationId("emsisoftId", emsisoftIdDraft)}
+                      disabled={savingIntegrationId === "emsisoftId"}
+                      className="rounded bg-primary-600 px-2 py-1 text-xs text-white hover:bg-primary-700 disabled:opacity-50"
+                    >
+                      {savingIntegrationId === "emsisoftId" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    </button>
+                    <button
+                      onClick={() => { setEditingEmsisoftId(false); setEmsisoftIdDraft(client.emsisoftId || ""); }}
+                      className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-slate-700 flex items-center gap-1">
+                    <Shield className="h-3 w-3 text-slate-400" />
+                    <span className="font-mono text-xs">{client.emsisoftId || "—"}</span>
+                    <button
+                      onClick={() => { setEmsisoftIdDraft(client.emsisoftId || ""); setEditingEmsisoftId(true); }}
+                      className="ml-1 text-slate-400 hover:text-primary-600"
+                    >
+                      <FileText className="h-3 w-3" />
+                    </button>
+                  </p>
+                )}
+              </div>
               {client.notes && (
                 <div className="sm:col-span-2">
                   <p className="text-xs text-slate-400 mb-0.5">Notes</p>
@@ -1158,6 +1283,125 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Sauvegardes Oxibox */}
       {client.oxiboxId && <OxiboxBackupSection oxiboxId={client.oxiboxId} />}
+
+      {/* Sécurité Emsisoft */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <h3 className="text-sm font-medium text-slate-900 mb-3 flex items-center gap-2">
+          <Shield className="h-4 w-4 text-slate-400" />
+          Sécurité Emsisoft
+        </h3>
+        {emsisoftLoading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Chargement...
+          </div>
+        ) : !emsisoftData || !emsisoftData.linked ? (
+          <div className="text-sm text-slate-500">
+            <p className="flex items-center gap-2">
+              <ShieldOff className="h-4 w-4 text-slate-300" />
+              Aucun workspace Emsisoft lié
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Renseignez le champ <span className="font-mono text-slate-500">Emsisoft ID</span> dans les informations du client pour activer le suivi de sécurité.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Summary stats */}
+            {emsisoftData.summary && (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="rounded-lg border border-slate-200 p-3 text-center">
+                  <p className="text-lg font-bold text-slate-900">{emsisoftData.summary.total}</p>
+                  <p className="text-[10px] text-slate-500">Appareils</p>
+                </div>
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center">
+                  <p className="text-lg font-bold text-emerald-600">{emsisoftData.summary.protected}</p>
+                  <p className="text-[10px] text-slate-500">Protégés</p>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
+                  <p className="text-lg font-bold text-amber-600">{emsisoftData.summary.atRisk}</p>
+                  <p className="text-[10px] text-slate-500">À risque</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+                  <p className="text-lg font-bold text-slate-500">{emsisoftData.summary.offline}</p>
+                  <p className="text-[10px] text-slate-500">Hors ligne</p>
+                </div>
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+                  <p className="text-lg font-bold text-red-600">{emsisoftData.summary.openIncidents}</p>
+                  <p className="text-[10px] text-slate-500">Incidents</p>
+                </div>
+              </div>
+            )}
+
+            {/* Devices list */}
+            {emsisoftData.devices.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-2">Appareils ({emsisoftData.devices.length})</p>
+                <div className="space-y-1.5">
+                  {emsisoftData.devices.map((device) => {
+                    const statusConfig: Record<string, { color: string; icon: typeof ShieldCheck }> = {
+                      protected: { color: "bg-emerald-100 text-emerald-700", icon: ShieldCheck },
+                      "at-risk": { color: "bg-amber-100 text-amber-700", icon: ShieldAlert },
+                      offline: { color: "bg-slate-100 text-slate-500", icon: ShieldOff },
+                      compromised: { color: "bg-red-100 text-red-700", icon: ShieldX },
+                    };
+                    const cfg = statusConfig[device.protectionStatus] || statusConfig.offline;
+                    const DeviceStatusIcon = cfg.icon;
+                    return (
+                      <div key={device.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Server className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span className="text-sm text-slate-700 truncate">{device.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] text-slate-400">{device.operatingSystem}</span>
+                          <span className="text-[10px] text-slate-400">{formatDate(device.lastSeen)}</span>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${cfg.color}`}>
+                            <DeviceStatusIcon className="h-3 w-3" />
+                            {device.protectionStatus}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Open incidents */}
+            {emsisoftData.incidents.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-2">Incidents ouverts ({emsisoftData.incidents.length})</p>
+                <div className="space-y-1.5">
+                  {emsisoftData.incidents.map((incident) => {
+                    const severityColor: Record<string, string> = {
+                      critical: "bg-red-100 text-red-700",
+                      high: "bg-orange-100 text-orange-700",
+                      medium: "bg-amber-100 text-amber-700",
+                      low: "bg-slate-100 text-slate-600",
+                    };
+                    return (
+                      <div key={incident.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <ShieldAlert className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                          <span className="text-sm text-slate-700 truncate">{incident.title}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] text-slate-400">{incident.deviceName}</span>
+                          <span className="text-[10px] text-slate-400">{formatDate(incident.detectedAt)}</span>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${severityColor[incident.severity] || severityColor.low}`}>
+                            {incident.severity}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Cartes du tableau de bord */}
       {client.boardCards && client.boardCards.length > 0 && (

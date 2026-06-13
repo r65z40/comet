@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough, ChevronDown, HardDrive, Settings2 } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough, ChevronDown, HardDrive, Settings2, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface User {
@@ -203,6 +203,14 @@ export default function SettingsPage() {
   const [savedOxibox, setSavedOxibox] = useState(false);
   const [testingOxibox, setTestingOxibox] = useState(false);
   const [oxiboxTestResult, setOxiboxTestResult] = useState<{ success: boolean; error?: string; total?: number } | null>(null);
+
+  // Emsisoft settings
+  const [emsisoftApiKey, setEmsisoftApiKey] = useState("");
+  const [emsisoftEnabled, setEmsisoftEnabled] = useState(false);
+  const [savingEmsisoft, setSavingEmsisoft] = useState(false);
+  const [savedEmsisoft, setSavedEmsisoft] = useState(false);
+  const [testingEmsisoft, setTestingEmsisoft] = useState(false);
+  const [emsisoftTestResult, setEmsisoftTestResult] = useState<{ success: boolean; error?: string; workspaces?: number } | null>(null);
 
   // Collapsible sections
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -419,6 +427,8 @@ export default function SettingsPage() {
         setAteraApiKey(data.atera_api_key || "");
         setAteraEnabled(data.atera_enabled === "true");
         setOxiboxApiKey(data.oxibox_api_key || "");
+        setEmsisoftApiKey(data.emsisoft_api_key || "");
+        setEmsisoftEnabled(data.emsisoft_enabled === "true");
       })
       .finally(() => setLoading(false));
 
@@ -1392,6 +1402,106 @@ export default function SettingsPage() {
           {oxiboxTestResult && (
             <div className={`p-3 rounded-lg text-sm ${oxiboxTestResult.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
               {oxiboxTestResult.success ? `Connexion Oxibox réussie ! ${oxiboxTestResult.total} compte(s) trouvé(s).` : `Erreur : ${oxiboxTestResult.error}`}
+            </div>
+          )}
+        </div>}
+      </div>}
+
+      {/* Emsisoft Integration */}
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("emsisoft")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-purple-50 p-2">
+              <Shield className="h-4 w-4 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Emsisoft</h3>
+              <p className="text-xs text-slate-400">Protection antivirus et gestion des menaces</p>
+            </div>
+          </div>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.emsisoft ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.emsisoft && <div className="px-6 pb-6 space-y-4 border-t border-slate-100 pt-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Clé API Emsisoft</label>
+            <input
+              type="password"
+              value={emsisoftApiKey}
+              onChange={(e) => setEmsisoftApiKey(e.target.value)}
+              placeholder="Votre clé API Emsisoft Enterprise Console"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">Disponible dans Emsisoft Enterprise Console &gt; Settings &gt; API</p>
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={emsisoftEnabled} onChange={(e) => setEmsisoftEnabled(e.target.checked)} className="rounded border-slate-300 text-purple-600 focus:ring-purple-500" />
+            <span className="text-sm text-slate-700">Activer l&apos;intégration Emsisoft</span>
+          </label>
+
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <p className="text-xs font-medium text-purple-800 mb-1">URL Webhook</p>
+            <code className="text-[11px] text-purple-600 break-all">{typeof window !== "undefined" ? `${window.location.origin}/api/webhooks/emsisoft` : "/api/webhooks/emsisoft"}</code>
+            <p className="text-[10px] text-purple-500 mt-1">Configurez cette URL dans Emsisoft pour recevoir les alertes automatiquement.</p>
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={async () => {
+                setSavingEmsisoft(true);
+                setSavedEmsisoft(false);
+                setEmsisoftTestResult(null);
+                await fetch("/api/settings", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    emsisoft_api_key: emsisoftApiKey,
+                    emsisoft_enabled: emsisoftEnabled ? "true" : "false",
+                  }),
+                });
+                setSavingEmsisoft(false);
+                setSavedEmsisoft(true);
+                setTimeout(() => setSavedEmsisoft(false), 3000);
+              }}
+              disabled={savingEmsisoft}
+              className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+            >
+              {savingEmsisoft ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Enregistrer
+            </button>
+            <button
+              onClick={async () => {
+                setTestingEmsisoft(true);
+                setEmsisoftTestResult(null);
+                await fetch("/api/settings", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    emsisoft_api_key: emsisoftApiKey,
+                    emsisoft_enabled: emsisoftEnabled ? "true" : "false",
+                  }),
+                });
+                const res = await fetch("/api/emsisoft", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "test" }),
+                });
+                const data = await res.json();
+                setEmsisoftTestResult(data);
+                setTestingEmsisoft(false);
+              }}
+              disabled={testingEmsisoft || !emsisoftApiKey}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              {testingEmsisoft ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+              Tester la connexion
+            </button>
+            {savedEmsisoft && <span className="text-xs text-emerald-600">Paramètres enregistrés</span>}
+          </div>
+
+          {emsisoftTestResult && (
+            <div className={`p-3 rounded-lg text-sm ${emsisoftTestResult.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              {emsisoftTestResult.success ? `Connexion Emsisoft réussie ! ${emsisoftTestResult.workspaces} workspace(s) trouvé(s).` : `Erreur : ${emsisoftTestResult.error}`}
             </div>
           )}
         </div>}

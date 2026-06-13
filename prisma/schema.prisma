@@ -44,6 +44,7 @@ model Client {
   id                String         @id @default(cuid())
   axonautId         Int?           @unique
   oxiboxId          String?
+  emsisoftId        String?
   name              String
   email             String?
   phone             String?

@@ -58,6 +58,7 @@ import {
   Activity,
   LayoutGrid,
   Eye,
+  Shield,
   EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,7 @@ import BackupsWidget from "./BackupsWidget";
 import AteraAlertsWidget from "./AteraAlertsWidget";
 import CriticalAlertOverlay from "./CriticalAlertOverlay";
 import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
+import EmisoftWidget from "./EmisoftWidget";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 
 interface CardTag {
@@ -145,6 +147,7 @@ const BOARD_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "backups", x: 8, y: 7, w: 2, h: 5, minW: 2, minH: 2 },
   { i: "atera", x: 10, y: 7, w: 2, h: 5, minW: 2, minH: 2 },
   { i: "activity_feed", x: 0, y: 12, w: 4, h: 5, minW: 2, minH: 2 },
+  { i: "emsisoft", x: 4, y: 12, w: 4, h: 5, minW: 2, minH: 2 },
 ];
 
 const BOARD_WIDGET_REGISTRY: Record<string, { label: string; icon: typeof ClipboardList; description: string }> = {
@@ -154,6 +157,7 @@ const BOARD_WIDGET_REGISTRY: Record<string, { label: string; icon: typeof Clipbo
   backups: { label: "Sauvegardes", icon: HardDrive, description: "État des sauvegardes" },
   atera: { label: "Alertes Atera", icon: Bell, description: "Alertes de supervision Atera" },
   activity_feed: { label: "Fil d'activité", icon: Activity, description: "Flux global d'activité en temps réel" },
+  emsisoft: { label: "Sécurité Emsisoft", icon: Shield, description: "Protection des appareils et menaces" },
 };
 
 export default function BoardPage() {
@@ -793,6 +797,12 @@ export default function BoardPage() {
       title: "Fil d'activité",
       icon: <Activity className="h-3 w-3 text-blue-500" />,
       content: <ActivityFeedWidget />,
+    },
+    {
+      id: "emsisoft",
+      title: "Sécurité Emsisoft",
+      icon: <Shield className="h-3 w-3 text-purple-500" />,
+      content: <EmisoftWidget />,
     },
   ];
 

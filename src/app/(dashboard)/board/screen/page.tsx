@@ -47,6 +47,7 @@ import AteraAlertsWidget from "../AteraAlertsWidget";
 import CriticalAlertOverlay from "../CriticalAlertOverlay";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
+import EmisoftWidget from "../EmisoftWidget";
 
 interface CardTag {
   id: string;
@@ -134,6 +135,7 @@ interface ScreenVisibility {
   showBackups: boolean;
   showAtera: boolean;
   showActivityFeed: boolean;
+  showEmsisoft: boolean;
 }
 
 const DEFAULT_VISIBILITY: ScreenVisibility = {
@@ -143,6 +145,7 @@ const DEFAULT_VISIBILITY: ScreenVisibility = {
   showBackups: true,
   showAtera: true,
   showActivityFeed: true,
+  showEmsisoft: true,
 };
 
 const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
@@ -152,7 +155,8 @@ const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "backups", x: 8, y: 5, w: 2, h: 4, minW: 2, minH: 2 },
   { i: "atera", x: 10, y: 5, w: 2, h: 4, minW: 2, minH: 2 },
   { i: "activity_feed", x: 0, y: 12, w: 4, h: 4, minW: 2, minH: 2 },
-  { i: "calendar", x: 0, y: 9, w: 12, h: 3, minW: 3, minH: 2 },
+  { i: "emsisoft", x: 4, y: 12, w: 4, h: 4, minW: 2, minH: 2 },
+  { i: "calendar", x: 0, y: 16, w: 12, h: 3, minW: 3, minH: 2 },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -457,6 +461,14 @@ export default function BoardScreenPage() {
           content: <ActivityFeedWidget dark />,
         }]
       : []),
+    ...(visibility.showEmsisoft
+      ? [{
+          id: "emsisoft",
+          title: "Sécurité Emsisoft",
+          icon: <Shield className="h-3 w-3 text-purple-400" />,
+          content: <EmisoftWidget dark />,
+        }]
+      : []),
     ...(visibility.showCalendar
       ? [{
           id: "calendar",
@@ -523,6 +535,7 @@ export default function BoardScreenPage() {
                   { key: "showBackups" as const, label: "Sauvegardes" },
                   { key: "showAtera" as const, label: "Alertes Atera" },
                   { key: "showActivityFeed" as const, label: "Fil d'activité" },
+                  { key: "showEmsisoft" as const, label: "Sécurité Emsisoft" },
                   { key: "showCalendar" as const, label: "Calendrier" },
                 ].map(({ key, label }) => (
                   <div key={key} className="flex items-center justify-between py-2">
