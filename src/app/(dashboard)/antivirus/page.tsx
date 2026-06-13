@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   ShieldX,
+  ShieldOff,
   RefreshCw,
   Search,
   Monitor,
@@ -19,6 +20,7 @@ import {
   CheckCircle,
   Loader2,
   X,
+  Server,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,11 +39,36 @@ interface Workspace {
   createdAt: string;
 }
 
+interface Device {
+  id: string;
+  name: string;
+  groupPath: string;
+  lastSeen: string;
+  protectionStatus: string;
+  operatingSystem: string;
+  policyName: string | null;
+}
+
+interface Incident {
+  id: string;
+  deviceName: string;
+  type: string;
+  severity: string;
+  title: string;
+  status: string;
+  detectedAt: string;
+}
+
 interface CometClient {
   id: string;
   name: string;
   emsisoftId: string | null;
   logoUrl: string | null;
+}
+
+interface WorkspaceDetails {
+  devices: Device[];
+  incidents: Incident[];
 }
 
 function timeAgo(iso: string): string {
@@ -70,6 +97,8 @@ export default function AntivirusPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [expandedWs, setExpandedWs] = useState<Set<string>>(new Set());
+  const [wsDetails, setWsDetails] = useState<Record<string, WorkspaceDetails>>({});
+  const [wsDetailsLoading, setWsDetailsLoading] = useState<Set<string>>(new Set());
   const [linkingWs, setLinkingWs] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState("");
   const [savingLink, setSavingLink] = useState<string | null>(null);
@@ -104,10 +133,29 @@ export default function AntivirusPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  async function fetchWorkspaceDetails(wsId: string) {
+    if (wsDetails[wsId] || wsDetailsLoading.has(wsId)) return;
+    setWsDetailsLoading((prev) => new Set(prev).add(wsId));
+    try {
+      const res = await fetch(`/api/emsisoft/status?workspaceId=${wsId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setWsDetails((prev) => ({ ...prev, [wsId]: { devices: data.devices || [], incidents: data.incidents || [] } }));
+      }
+    } catch {} finally {
+      setWsDetailsLoading((prev) => { const next = new Set(prev); next.delete(wsId); return next; });
+    }
+  }
+
   const toggleExpand = (wsId: string) => {
     setExpandedWs((prev) => {
       const next = new Set(prev);
-      if (next.has(wsId)) next.delete(wsId); else next.add(wsId);
+      if (next.has(wsId)) {
+        next.delete(wsId);
+      } else {
+        next.add(wsId);
+        fetchWorkspaceDetails(wsId);
+      }
       return next;
     });
   };
@@ -158,7 +206,9 @@ export default function AntivirusPage() {
   const unlinkedClients = allClients.filter((c) => !c.emsisoftId);
 
   const filteredWorkspaces = workspaces.filter((ws) =>
-    !search || ws.name.toLowerCase().includes(search.toLowerCase()),
+    !search ||
+    ws.name.toLowerCase().includes(search.toLowerCase()) ||
+    clientByEmsisoftId.get(ws.id)?.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   const totalDevices = workspaces.reduce((sum, ws) => sum + ws.deviceCount, 0);
@@ -255,7 +305,7 @@ export default function AntivirusPage() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher un workspace..."
+          placeholder="Rechercher un workspace ou client..."
           className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
         />
       </div>
@@ -272,6 +322,8 @@ export default function AntivirusPage() {
             const linkedClient = clientByEmsisoftId.get(ws.id);
             const isExpanded = expandedWs.has(ws.id);
             const isLinking = linkingWs === ws.id;
+            const details = wsDetails[ws.id];
+            const detailsLoading = wsDetailsLoading.has(ws.id);
 
             return (
               <div key={ws.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
@@ -286,7 +338,6 @@ export default function AntivirusPage() {
                     <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
                   )}
 
-                  {/* Client logo or workspace icon */}
                   {linkedClient?.logoUrl ? (
                     <img src={linkedClient.logoUrl} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0 border border-slate-200" />
                   ) : linkedClient ? (
@@ -352,40 +403,133 @@ export default function AntivirusPage() {
 
                 {/* Expanded details */}
                 {isExpanded && (
-                  <div className="border-t border-slate-100 p-4 bg-slate-50/50 space-y-4">
-                    {/* Detail grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="rounded-lg bg-white border border-slate-200 p-3">
-                        <p className="text-[10px] text-slate-400 mb-0.5">Appareils</p>
-                        <p className="text-lg font-bold text-slate-900">{ws.deviceCount}</p>
+                  <div className="border-t border-slate-100 bg-slate-50/50">
+                    {/* Workspace stats */}
+                    <div className="p-4 space-y-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="rounded-lg bg-white border border-slate-200 p-3">
+                          <p className="text-[10px] text-slate-400 mb-0.5">Appareils</p>
+                          <p className="text-lg font-bold text-slate-900">{ws.deviceCount}</p>
+                        </div>
+                        <div className="rounded-lg bg-white border border-slate-200 p-3">
+                          <p className="text-[10px] text-slate-400 mb-0.5">Sièges</p>
+                          <p className="text-lg font-bold text-slate-900">{ws.usedSeat}<span className="text-sm text-slate-400">/{ws.totalSeat}</span></p>
+                          <p className="text-[10px] text-slate-400">{ws.unusedSeat} disponible{ws.unusedSeat > 1 ? "s" : ""}</p>
+                        </div>
+                        <div className="rounded-lg bg-white border border-slate-200 p-3">
+                          <p className="text-[10px] text-slate-400 mb-0.5">Détections/mois</p>
+                          <p className={cn("text-lg font-bold", ws.findingsLastMonth > 0 ? "text-amber-600" : "text-slate-400")}>{ws.findingsLastMonth}</p>
+                          {ws.findingType && <p className="text-[10px] text-slate-400">{ws.findingType}</p>}
+                        </div>
+                        <div className="rounded-lg bg-white border border-slate-200 p-3">
+                          <p className="text-[10px] text-slate-400 mb-0.5">Dernière alerte</p>
+                          <p className="text-sm font-medium text-slate-700">
+                            {ws.lastAlert ? timeAgo(ws.lastAlert) : "Aucune"}
+                          </p>
+                          {ws.lastAlert && <p className="text-[10px] text-slate-400">{formatDate(ws.lastAlert)}</p>}
+                        </div>
                       </div>
-                      <div className="rounded-lg bg-white border border-slate-200 p-3">
-                        <p className="text-[10px] text-slate-400 mb-0.5">Sièges</p>
-                        <p className="text-lg font-bold text-slate-900">{ws.usedSeat}<span className="text-sm text-slate-400">/{ws.totalSeat}</span></p>
-                        <p className="text-[10px] text-slate-400">{ws.unusedSeat} disponible{ws.unusedSeat > 1 ? "s" : ""}</p>
-                      </div>
-                      <div className="rounded-lg bg-white border border-slate-200 p-3">
-                        <p className="text-[10px] text-slate-400 mb-0.5">Détections/mois</p>
-                        <p className={cn("text-lg font-bold", ws.findingsLastMonth > 0 ? "text-amber-600" : "text-slate-400")}>{ws.findingsLastMonth}</p>
-                        {ws.findingType && <p className="text-[10px] text-slate-400">{ws.findingType}</p>}
-                      </div>
-                      <div className="rounded-lg bg-white border border-slate-200 p-3">
-                        <p className="text-[10px] text-slate-400 mb-0.5">Dernière alerte</p>
-                        <p className="text-sm font-medium text-slate-700">
-                          {ws.lastAlert ? timeAgo(ws.lastAlert) : "Aucune"}
-                        </p>
-                        {ws.lastAlert && <p className="text-[10px] text-slate-400">{formatDate(ws.lastAlert)}</p>}
+
+                      <div className="flex items-center gap-4 text-[11px] text-slate-400">
+                        <span>GUID: <span className="font-mono text-slate-500">{ws.id}</span></span>
+                        <span>Créé le {formatDate(ws.createdAt)}</span>
                       </div>
                     </div>
 
-                    {/* Info row */}
-                    <div className="flex items-center gap-4 text-[11px] text-slate-400">
-                      <span>GUID: <span className="font-mono text-slate-500">{ws.id}</span></span>
-                      <span>Créé le {formatDate(ws.createdAt)}</span>
+                    {/* Devices & Incidents from sub-endpoints */}
+                    <div className="border-t border-slate-200 p-4 space-y-4">
+                      {detailsLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Chargement des détails...
+                        </div>
+                      ) : details ? (
+                        <>
+                          {/* Devices */}
+                          {details.devices.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5">
+                                <Server className="h-3.5 w-3.5" />
+                                Appareils ({details.devices.length})
+                              </p>
+                              <div className="space-y-1">
+                                {details.devices.map((device) => {
+                                  const statusMap: Record<string, { bg: string; icon: typeof ShieldCheck; label: string }> = {
+                                    protected: { bg: "bg-emerald-100 text-emerald-700", icon: ShieldCheck, label: "Protégé" },
+                                    at_risk: { bg: "bg-red-100 text-red-700", icon: ShieldAlert, label: "À risque" },
+                                    offline: { bg: "bg-slate-100 text-slate-500", icon: ShieldOff, label: "Hors ligne" },
+                                  };
+                                  const st = statusMap[device.protectionStatus] || { bg: "bg-slate-100 text-slate-500", icon: Monitor, label: device.protectionStatus || "Inconnu" };
+                                  const StatusIcon = st.icon;
+                                  return (
+                                    <div key={device.id} className="flex items-center justify-between rounded-lg bg-white border border-slate-200 px-3 py-2">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <Monitor className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                        <span className="text-sm text-slate-700 truncate">{device.name}</span>
+                                        {device.groupPath && <span className="text-[10px] text-slate-400 truncate hidden sm:inline">{device.groupPath}</span>}
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        {device.operatingSystem && <span className="text-[10px] text-slate-400 hidden md:inline">{device.operatingSystem}</span>}
+                                        {device.lastSeen && <span className="text-[10px] text-slate-400">{timeAgo(device.lastSeen)}</span>}
+                                        <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium", st.bg)}>
+                                          <StatusIcon className="h-3 w-3" />
+                                          {st.label}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Incidents */}
+                          {details.incidents.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5">
+                                <ShieldAlert className="h-3.5 w-3.5" />
+                                Alertes récentes ({details.incidents.length > 50 ? "50+" : details.incidents.length})
+                              </p>
+                              <div className="space-y-1">
+                                {details.incidents.slice(0, 50).map((incident, idx) => {
+                                  const sevMap: Record<string, string> = {
+                                    critical: "bg-red-100 text-red-700",
+                                    high: "bg-orange-100 text-orange-700",
+                                    medium: "bg-amber-100 text-amber-700",
+                                    low: "bg-slate-100 text-slate-600",
+                                    info: "bg-blue-100 text-blue-600",
+                                  };
+                                  return (
+                                    <div key={incident.id || idx} className="flex items-center justify-between rounded-lg bg-white border border-slate-200 px-3 py-2">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <Bug className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                        <span className="text-sm text-slate-700 truncate">{incident.title || incident.type || "Alerte"}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        {incident.deviceName && <span className="text-[10px] text-slate-400">{incident.deviceName}</span>}
+                                        {incident.detectedAt && formatDate(incident.detectedAt) && (
+                                          <span className="text-[10px] text-slate-400">{formatDate(incident.detectedAt)}</span>
+                                        )}
+                                        <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium", sevMap[incident.severity] || sevMap.low)}>
+                                          {incident.severity || "info"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {details.devices.length === 0 && details.incidents.length === 0 && (
+                            <p className="text-xs text-slate-400 py-1">Aucun détail supplémentaire disponible pour ce workspace.</p>
+                          )}
+                        </>
+                      ) : null}
                     </div>
 
                     {/* Client linking */}
-                    <div className="border-t border-slate-200 pt-3">
+                    <div className="border-t border-slate-200 p-4">
                       <p className="text-xs font-medium text-slate-500 mb-2">Client Comet associé</p>
                       {linkedClient ? (
                         <div className="flex items-center justify-between bg-white rounded-lg border border-purple-200 p-3">

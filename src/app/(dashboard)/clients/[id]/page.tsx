@@ -2,7 +2,8 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Phone, MapPin, Shield, ShieldCheck, ShieldX, ShieldAlert, ShieldOff, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, FileText, ChevronDown, Calendar, ClipboardList, BookOpen, HardDrive, Server, CheckCircle, AlertTriangle, XCircle, FolderOpen, Clock } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Shield, ShieldCheck, ShieldX, ShieldAlert, ShieldOff, RefreshCw, Upload, Printer, X, ImageIcon, Trash2, ArrowUpDown, Search, Download, Globe, UserPlus, Eye, EyeOff, Palette, Save, Loader2, Link as LinkIcon, Check, Copy, Building2, Users, Briefcase, Smartphone, FileText, ChevronDown, Calendar, ClipboardList, BookOpen, HardDrive, Server, CheckCircle, AlertTriangle, XCircle, FolderOpen, Clock, Monitor, Bug } from "lucide-react";
+import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
@@ -97,9 +98,19 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   // Emsisoft state
   const [emsisoftData, setEmsisoftData] = useState<{
     linked: boolean;
-    devices: { id: string; name: string; protectionStatus: string; lastSeen: string; operatingSystem: string }[];
-    incidents: { id: string; title: string; severity: string; deviceName: string; detectedAt: string }[];
-    summary: { total: number; protected: number; atRisk: number; offline: number; openIncidents: number } | null;
+    found?: boolean;
+    workspace?: {
+      name: string;
+      deviceCount: number;
+      findingsLastMonth: number;
+      findingType: string | null;
+      lastAlert: string | null;
+      isExpired: boolean;
+      isExpiresSoon: boolean;
+      totalSeat: number;
+      usedSeat: number;
+      unusedSeat: number;
+    };
   } | null>(null);
   const [emsisoftLoading, setEmsisoftLoading] = useState(false);
 
@@ -1284,121 +1295,62 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       {/* Sauvegardes Oxibox */}
       {client.oxiboxId && <OxiboxBackupSection oxiboxId={client.oxiboxId} />}
 
-      {/* Sécurité Emsisoft — only show when linked */}
+      {/* Sécurité Emsisoft — compact summary, only when linked */}
       {client.emsisoftId && (
       <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <h3 className="text-sm font-medium text-slate-900 mb-3 flex items-center gap-2">
-          <Shield className="h-4 w-4 text-slate-400" />
-          Sécurité Emsisoft
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-purple-500" />
+            Sécurité Emsisoft
+          </h3>
+          <Link href="/antivirus" className="text-[11px] text-purple-600 hover:text-purple-800 font-medium">
+            Voir détails →
+          </Link>
+        </div>
         {emsisoftLoading ? (
           <div className="flex items-center gap-2 text-sm text-slate-400">
             <Loader2 className="h-4 w-4 animate-spin" />
             Chargement...
           </div>
-        ) : !emsisoftData || !emsisoftData.linked ? (
-          <div className="text-sm text-slate-500">
-            <p className="flex items-center gap-2">
-              <ShieldOff className="h-4 w-4 text-slate-300" />
-              Erreur lors du chargement des données Emsisoft
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Summary stats */}
-            {emsisoftData.summary && (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="rounded-lg border border-slate-200 p-3 text-center">
-                  <p className="text-lg font-bold text-slate-900">{emsisoftData.summary.total}</p>
-                  <p className="text-[10px] text-slate-500">Appareils</p>
-                </div>
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center">
-                  <p className="text-lg font-bold text-emerald-600">{emsisoftData.summary.protected}</p>
-                  <p className="text-[10px] text-slate-500">Protégés</p>
-                </div>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
-                  <p className="text-lg font-bold text-amber-600">{emsisoftData.summary.atRisk}</p>
-                  <p className="text-[10px] text-slate-500">À risque</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
-                  <p className="text-lg font-bold text-slate-500">{emsisoftData.summary.offline}</p>
-                  <p className="text-[10px] text-slate-500">Hors ligne</p>
-                </div>
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
-                  <p className="text-lg font-bold text-red-600">{emsisoftData.summary.openIncidents}</p>
-                  <p className="text-[10px] text-slate-500">Incidents</p>
-                </div>
+        ) : !emsisoftData?.linked || !emsisoftData?.found || !emsisoftData?.workspace ? (
+          <p className="text-xs text-slate-400">Workspace introuvable ou Emsisoft non configuré</p>
+        ) : (() => {
+          const ws = emsisoftData.workspace;
+          return (
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Monitor className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-sm font-semibold text-slate-900">{ws.deviceCount}</span>
+                <span className="text-xs text-slate-400">appareil{ws.deviceCount > 1 ? "s" : ""}</span>
               </div>
-            )}
-
-            {/* Devices list */}
-            {emsisoftData.devices.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-slate-500 mb-2">Appareils ({emsisoftData.devices.length})</p>
-                <div className="space-y-1.5">
-                  {emsisoftData.devices.map((device) => {
-                    const statusConfig: Record<string, { color: string; icon: typeof ShieldCheck }> = {
-                      protected: { color: "bg-emerald-100 text-emerald-700", icon: ShieldCheck },
-                      "at-risk": { color: "bg-amber-100 text-amber-700", icon: ShieldAlert },
-                      offline: { color: "bg-slate-100 text-slate-500", icon: ShieldOff },
-                      compromised: { color: "bg-red-100 text-red-700", icon: ShieldX },
-                    };
-                    const cfg = statusConfig[device.protectionStatus] || statusConfig.offline;
-                    const DeviceStatusIcon = cfg.icon;
-                    return (
-                      <div key={device.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Server className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                          <span className="text-sm text-slate-700 truncate">{device.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[10px] text-slate-400">{device.operatingSystem}</span>
-                          <span className="text-[10px] text-slate-400">{formatDate(device.lastSeen)}</span>
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${cfg.color}`}>
-                            <DeviceStatusIcon className="h-3 w-3" />
-                            {device.protectionStatus}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="h-4 w-px bg-slate-200" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">Sièges</span>
+                <span className="text-sm font-semibold text-slate-700">{ws.usedSeat}/{ws.totalSeat}</span>
               </div>
-            )}
-
-            {/* Open incidents */}
-            {emsisoftData.incidents.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-slate-500 mb-2">Incidents ouverts ({emsisoftData.incidents.length})</p>
-                <div className="space-y-1.5">
-                  {emsisoftData.incidents.map((incident) => {
-                    const severityColor: Record<string, string> = {
-                      critical: "bg-red-100 text-red-700",
-                      high: "bg-orange-100 text-orange-700",
-                      medium: "bg-amber-100 text-amber-700",
-                      low: "bg-slate-100 text-slate-600",
-                    };
-                    return (
-                      <div key={incident.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <ShieldAlert className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                          <span className="text-sm text-slate-700 truncate">{incident.title}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[10px] text-slate-400">{incident.deviceName}</span>
-                          <span className="text-[10px] text-slate-400">{formatDate(incident.detectedAt)}</span>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${severityColor[incident.severity] || severityColor.low}`}>
-                            {incident.severity}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="h-4 w-px bg-slate-200" />
+              <div className="flex items-center gap-2">
+                <Bug className="h-3.5 w-3.5 text-amber-500" />
+                <span className={cn("text-sm font-semibold", ws.findingsLastMonth > 0 ? "text-amber-600" : "text-slate-400")}>{ws.findingsLastMonth}</span>
+                <span className="text-xs text-slate-400">détection{ws.findingsLastMonth > 1 ? "s" : ""}/mois</span>
               </div>
-            )}
-          </div>
-        )}
+              <div className="h-4 w-px bg-slate-200" />
+              {ws.isExpired ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
+                  <ShieldX className="h-3 w-3" /> Licence expirée
+                </span>
+              ) : ws.isExpiresSoon ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                  <ShieldAlert className="h-3 w-3" /> Expire bientôt
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                  <ShieldCheck className="h-3 w-3" /> Actif
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
       )}
 

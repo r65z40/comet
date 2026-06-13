@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getClientDevices } from "@/lib/emsisoft";
+import { getEmsisoftConfig, getWorkspaces } from "@/lib/emsisoft";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -24,9 +24,35 @@ export async function GET(req: NextRequest) {
   }
 
   if (!client.emsisoftId) {
-    return NextResponse.json({ linked: false, devices: [], incidents: [], summary: null });
+    return NextResponse.json({ linked: false });
   }
 
-  const data = await getClientDevices(client.emsisoftId);
-  return NextResponse.json({ linked: true, ...data });
+  try {
+    const config = await getEmsisoftConfig();
+    const workspaces = await getWorkspaces(config);
+    const ws = workspaces.find((w) => w.id === client.emsisoftId);
+
+    if (!ws) {
+      return NextResponse.json({ linked: true, found: false });
+    }
+
+    return NextResponse.json({
+      linked: true,
+      found: true,
+      workspace: {
+        name: ws.name,
+        deviceCount: ws.deviceCount,
+        findingsLastMonth: ws.findingsLastMonth,
+        findingType: ws.findingType,
+        lastAlert: ws.lastAlert,
+        isExpired: ws.isExpired,
+        isExpiresSoon: ws.isExpiresSoon,
+        totalSeat: ws.totalSeat,
+        usedSeat: ws.usedSeat,
+        unusedSeat: ws.unusedSeat,
+      },
+    });
+  } catch {
+    return NextResponse.json({ linked: true, found: false });
+  }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getEmsisoftConfig, getWorkspaces, getDevices } from "@/lib/emsisoft";
+import { getEmsisoftConfig, getWorkspaceDetails } from "@/lib/emsisoft";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -8,27 +8,19 @@ export async function GET(req: NextRequest) {
 
   const config = await getEmsisoftConfig();
   if (!config.enabled || !config.apiKey) {
-    return NextResponse.json({ enabled: false, devices: [] });
+    return NextResponse.json({ enabled: false });
   }
 
   const { searchParams } = new URL(req.url);
   const workspaceId = searchParams.get("workspaceId");
 
-  try {
-    if (workspaceId) {
-      const devices = await getDevices(workspaceId, config);
-      return NextResponse.json({ devices });
-    }
+  if (!workspaceId) {
+    return NextResponse.json({ error: "workspaceId requis" }, { status: 400 });
+  }
 
-    const workspaces = await getWorkspaces(config);
-    const allDevices = [];
-    for (const ws of workspaces) {
-      try {
-        const devices = await getDevices(ws.id, config);
-        allDevices.push(...devices.map((d) => ({ ...d, workspaceId: ws.id, workspaceName: ws.name })));
-      } catch {}
-    }
-    return NextResponse.json({ enabled: true, devices: allDevices });
+  try {
+    const details = await getWorkspaceDetails(workspaceId, config);
+    return NextResponse.json({ enabled: true, ...details });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Erreur" },
