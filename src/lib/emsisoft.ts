@@ -138,12 +138,45 @@ export async function testConnection(config?: EmsisoftConfig): Promise<{ success
   const cfg = config ?? (await getEmsisoftConfig());
   if (!cfg.apiKey) return { success: false, error: "Clé API manquante" };
 
+  const baseUrl = cfg.apiUrl.replace(/\/+$/, "");
+  const url = `${baseUrl}/workspaces`;
+
   try {
-    const workspaces = await getWorkspaces({ ...cfg, enabled: true });
-    return { success: true, workspaces: workspaces.length };
+    const res = await fetch(url, {
+      headers: {
+        "Api-Key": cfg.apiKey,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { success: false, error: `API ${res.status}: ${text || res.statusText}` };
+    }
+
+    const json = await res.json();
+    const items = json.data || json.workspaces || (Array.isArray(json) ? json : []);
+    return { success: true, workspaces: items.length };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erreur inconnue";
-    return { success: false, error: msg };
+    if (err instanceof Error) {
+      if (err.name === "AbortError" || err.name === "TimeoutError") {
+        return { success: false, error: `Timeout: le serveur n'a pas répondu en 15s. Vérifiez l'URL API: ${url}` };
+      }
+      const cause = (err as { cause?: { code?: string } }).cause;
+      if (cause?.code === "ENOTFOUND") {
+        return { success: false, error: `DNS introuvable pour ${new URL(url).hostname}. Vérifiez l'URL API.` };
+      }
+      if (cause?.code === "ECONNREFUSED") {
+        return { success: false, error: `Connexion refusée par ${new URL(url).hostname}. Vérifiez l'URL API.` };
+      }
+      if (cause?.code) {
+        return { success: false, error: `Erreur réseau (${cause.code}): ${err.message}` };
+      }
+      return { success: false, error: `${err.name}: ${err.message}` };
+    }
+    return { success: false, error: "Erreur inconnue" };
   }
 }
 
