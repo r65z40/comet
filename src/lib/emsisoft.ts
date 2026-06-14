@@ -1,5 +1,45 @@
 import { prisma } from "@/lib/db";
 
+// --- In-memory cache ---
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const CACHE_TTL = {
+  workspaces: 5 * 60 * 1000,       // 5 min
+  protectionSummary: 5 * 60 * 1000, // 5 min
+  workspaceDetails: 2 * 60 * 1000,  // 2 min
+  clientDevices: 2 * 60 * 1000,     // 2 min
+} as const;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const cache = new Map<string, CacheEntry<any>>();
+
+function cacheGet<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.data as T;
+}
+
+function cacheSet<T>(key: string, data: T, ttl: number): void {
+  cache.set(key, { data, expiresAt: Date.now() + ttl });
+}
+
+export function invalidateEmsisoftCache(prefix?: string): void {
+  if (!prefix) {
+    cache.clear();
+    return;
+  }
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) cache.delete(key);
+  }
+}
+
 export interface EmsisoftConfig {
   apiKey: string;
   enabled: boolean;
@@ -130,9 +170,15 @@ function mapIncident(raw: any): EmsisoftIncident {
 }
 
 export async function getWorkspaces(config?: EmsisoftConfig): Promise<EmsisoftWorkspace[]> {
+  const cacheKey = "emsisoft:workspaces";
+  const cached = cacheGet<EmsisoftWorkspace[]>(cacheKey);
+  if (cached) return cached;
+
   const json = await emisoftFetch("/workspaces", config);
   const items = json.data || json.workspaces || (Array.isArray(json) ? json : []);
-  return items.map(mapWorkspace);
+  const result = items.map(mapWorkspace);
+  cacheSet(cacheKey, result, CACHE_TTL.workspaces);
+  return result;
 }
 
 export async function getDevices(workspaceId: string, config?: EmsisoftConfig): Promise<EmsisoftDevice[]> {
@@ -153,6 +199,7 @@ export async function getThreats(workspaceId: string, config?: EmsisoftConfig) {
 }
 
 export async function testConnection(config?: EmsisoftConfig): Promise<{ success: boolean; error?: string; workspaces?: number }> {
+  invalidateEmsisoftCache();
   const cfg = config ?? (await getEmsisoftConfig());
   if (!cfg.apiKey) return { success: false, error: "Clé API manquante" };
 
@@ -199,6 +246,11 @@ export async function testConnection(config?: EmsisoftConfig): Promise<{ success
 }
 
 export async function getProtectionSummary(config?: EmsisoftConfig) {
+  const cacheKey = "emsisoft:summary";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cached = cacheGet<any>(cacheKey);
+  if (cached) return cached;
+
   const cfg = config ?? (await getEmsisoftConfig());
   const workspaces = await getWorkspaces(cfg);
 
@@ -244,16 +296,23 @@ export async function getProtectionSummary(config?: EmsisoftConfig) {
       detectedAt: w.lastAlert!,
     }));
 
-  return {
+  const result = {
     totalDevices,
     totalFindings,
     recentAlerts,
     workspaceCount: workspaces.length,
     workspaces: workspaceSummaries,
   };
+  cacheSet(cacheKey, result, CACHE_TTL.protectionSummary);
+  return result;
 }
 
 export async function getWorkspaceDetails(workspaceId: string, config?: EmsisoftConfig) {
+  const cacheKey = `emsisoft:details:${workspaceId}`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cached = cacheGet<{ devices: any[]; findings: any[] }>(cacheKey);
+  if (cached) return cached;
+
   const cfg = config ?? (await getEmsisoftConfig());
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let rawDevices: any[] = [];
@@ -276,15 +335,22 @@ export async function getWorkspaceDetails(workspaceId: string, config?: Emsisoft
     } catch {}
   }
 
-  return { devices: rawDevices, findings };
+  const result = { devices: rawDevices, findings };
+  cacheSet(cacheKey, result, CACHE_TTL.workspaceDetails);
+  return result;
 }
 
 export async function getClientDevices(emsisoftId: string, config?: EmsisoftConfig) {
+  const cacheKey = `emsisoft:client:${emsisoftId}`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cached = cacheGet<any>(cacheKey);
+  if (cached) return cached;
+
   const cfg = config ?? (await getEmsisoftConfig());
   try {
     const devices = await getDevices(emsisoftId, cfg);
     const incidents = await getIncidents(emsisoftId, cfg);
-    return {
+    const result = {
       devices,
       incidents: incidents.filter((i) => i.status === "open"),
       summary: {
@@ -295,6 +361,8 @@ export async function getClientDevices(emsisoftId: string, config?: EmsisoftConf
         openIncidents: incidents.filter((i) => i.status === "open").length,
       },
     };
+    cacheSet(cacheKey, result, CACHE_TTL.clientDevices);
+    return result;
   } catch {
     return { devices: [], incidents: [], summary: { total: 0, protected: 0, atRisk: 0, offline: 0, openIncidents: 0 } };
   }
