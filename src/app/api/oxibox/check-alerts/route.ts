@@ -3,15 +3,8 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendEmail, getNotificationConfig } from "@/lib/email";
 import { notifyAdmins } from "@/lib/notifications";
+import { getOxiboxToken, getAllOxiboxAccounts } from "@/lib/oxibox";
 
-const OXIBOX_API = "https://api.oxibox.com";
-
-async function getOxiboxToken(): Promise<string | null> {
-  const row = await prisma.setting.findUnique({ where: { key: "oxibox_api_key" } });
-  return row?.value || null;
-}
-
-// POST — Check all Oxibox accounts for ERROR status and send alerts
 export async function POST() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -19,67 +12,26 @@ export async function POST() {
   const token = await getOxiboxToken();
   if (!token) return NextResponse.json({ error: "Clé API Oxibox non configurée" }, { status: 400 });
 
-  // Check if alerts are enabled
   const alertEnabledSetting = await prisma.setting.findUnique({ where: { key: "alert_enabled" } });
   if (alertEnabledSetting?.value !== "true") {
     return NextResponse.json({ skipped: true, reason: "Alertes désactivées" });
   }
 
   try {
-    // Fetch all accounts with pagination
-    const allAccounts: Array<{
-      organizationId: string;
-      status: string;
-      machineCount: number;
-    }> = [];
+    const allItems = await getAllOxiboxAccounts(token);
 
-    let skip = 0;
-    const limit = 200;
+    const allAccounts = allItems.map((item) => ({
+      organizationId: item.organizationId || item.id,
+      status: item.status || "UNKNOWN",
+      machineCount: item.machineCount ?? item.machines?.length ?? 0,
+    }));
 
-    while (true) {
-      const res = await fetch(
-        `${OXIBOX_API}/status?skip=${skip}&limit=${limit}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        },
-      );
-
-      if (!res.ok) {
-        const text = await res.text();
-        return NextResponse.json(
-          { error: `Oxibox API error ${res.status}`, details: text },
-          { status: res.status },
-        );
-      }
-
-      const data = await res.json();
-      const items = data.items || data.data || data;
-
-      if (!Array.isArray(items) || items.length === 0) break;
-
-      for (const item of items) {
-        allAccounts.push({
-          organizationId: item.organizationId || item.id,
-          status: item.status || "UNKNOWN",
-          machineCount: item.machineCount ?? item.machines?.length ?? 0,
-        });
-      }
-
-      if (items.length < limit) break;
-      skip += limit;
-    }
-
-    // Filter accounts with ERROR status
     const errorAccounts = allAccounts.filter((a) => a.status === "ERROR");
 
     if (errorAccounts.length === 0) {
       return NextResponse.json({ sent: false, reason: "Aucun compte en erreur" });
     }
 
-    // Check SyncLog for a recent OXIBOX_ALERT today (de-duplicate)
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -95,7 +47,6 @@ export async function POST() {
       return NextResponse.json({ skipped: true, reason: "Alerte déjà envoyée aujourd'hui" });
     }
 
-    // Build and send email alert
     const { emails } = await getNotificationConfig();
 
     if (emails.length > 0) {
@@ -141,7 +92,6 @@ export async function POST() {
       }
     }
 
-    // Create in-app notifications for all admins
     const errorList = errorAccounts
       .map((a) => `${a.organizationId} (${a.machineCount} machines)`)
       .join(", ");
@@ -153,7 +103,6 @@ export async function POST() {
       link: "/backups",
     });
 
-    // Log to SyncLog
     await prisma.syncLog.create({
       data: {
         type: "OXIBOX_ALERT",
@@ -167,7 +116,6 @@ export async function POST() {
 
     return NextResponse.json({ sent: true, errorCount: errorAccounts.length });
   } catch (err) {
-    // Log failure
     await prisma.syncLog.create({
       data: {
         type: "OXIBOX_ALERT",

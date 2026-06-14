@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { getOxiboxToken, getAllOxiboxAccounts, getOxiboxUsage } from "@/lib/oxibox";
 
-const OXIBOX_API = "https://api.oxibox.com";
-
-async function getOxiboxToken(): Promise<string | null> {
-  const row = await prisma.setting.findUnique({ where: { key: "oxibox_api_key" } });
-  return row?.value || null;
-}
-
-// GET — Return snapshots for an organization over the last N days
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -31,7 +24,6 @@ export async function GET(req: NextRequest) {
       orderBy: { date: "asc" },
     });
 
-    // Convert BigInt fields to Number for JSON serialization
     const serialized = snapshots.map((s) => ({
       ...s,
       allocatedQuota: s.allocatedQuota != null ? Number(s.allocatedQuota) : null,
@@ -47,7 +39,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST — Take a daily snapshot of ALL Oxibox accounts (called by cron)
 export async function POST() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -56,88 +47,33 @@ export async function POST() {
   if (!token) return NextResponse.json({ error: "Clé API Oxibox non configurée" }, { status: 400 });
 
   try {
-    // Fetch all accounts with pagination
-    const allAccounts: Array<{
-      organizationId: string;
-      status: string;
-      machineCount: number;
-      ongoingBackup: boolean;
-    }> = [];
+    const allItems = await getAllOxiboxAccounts(token);
 
-    let skip = 0;
-    const limit = 200;
+    const allAccounts = allItems.map((item) => ({
+      organizationId: item.organizationId || item.id,
+      status: item.status || "UNKNOWN",
+      machineCount: item.machineCount ?? item.machines?.length ?? 0,
+      ongoingBackup: item.ongoingBackup ?? false,
+    }));
 
-    while (true) {
-      const res = await fetch(
-        `${OXIBOX_API}/status?skip=${skip}&limit=${limit}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        },
-      );
-
-      if (!res.ok) {
-        const text = await res.text();
-        return NextResponse.json(
-          { error: `Oxibox API error ${res.status}`, details: text },
-          { status: res.status },
-        );
-      }
-
-      const data = await res.json();
-      const items = data.items || data.data || data;
-
-      if (!Array.isArray(items) || items.length === 0) break;
-
-      for (const item of items) {
-        allAccounts.push({
-          organizationId: item.organizationId || item.id,
-          status: item.status || "UNKNOWN",
-          machineCount: item.machineCount ?? item.machines?.length ?? 0,
-          ongoingBackup: item.ongoingBackup ?? false,
-        });
-      }
-
-      if (items.length < limit) break;
-      skip += limit;
-    }
-
-    // Today at midnight
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     let snapshotCount = 0;
 
     for (const account of allAccounts) {
-      // Try to fetch usage data for each account
       let allocatedQuota: bigint | null = null;
       let currentUsage: bigint | null = null;
 
       try {
-        const usageRes = await fetch(
-          `${OXIBOX_API}/usage/cloud/${encodeURIComponent(account.organizationId)}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          },
-        );
-
-        if (usageRes.ok) {
-          const usageData = await usageRes.json();
-          if (usageData.allocatedQuota != null) {
-            allocatedQuota = BigInt(usageData.allocatedQuota);
-          }
-          if (usageData.currentUsage != null) {
-            currentUsage = BigInt(usageData.currentUsage);
-          }
+        const usageData = await getOxiboxUsage(token, account.organizationId);
+        if (usageData.allocatedQuota != null) {
+          allocatedQuota = BigInt(usageData.allocatedQuota);
         }
-      } catch {
-        // Usage fetch failed for this org — continue without quota data
-      }
+        if (usageData.currentUsage != null) {
+          currentUsage = BigInt(usageData.currentUsage);
+        }
+      } catch {}
 
       try {
         await prisma.oxiboxSnapshot.upsert({
