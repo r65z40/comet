@@ -39,19 +39,9 @@ interface Workspace {
   createdAt: string;
 }
 
-interface Device {
-  id: string;
-  name: string;
-  groupPath: string;
-  lastSeen: string;
-  protectionStatus: string;
-  operatingSystem: string;
-  policyName: string | null;
-}
-
-// Raw finding from Emsisoft API — keep all fields
+// Raw data from Emsisoft API — keep all fields
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Finding = Record<string, any>;
+type RawRecord = Record<string, any>;
 
 interface CometClient {
   id: string;
@@ -61,8 +51,8 @@ interface CometClient {
 }
 
 interface WorkspaceDetails {
-  devices: Device[];
-  findings: Finding[];
+  devices: RawRecord[];
+  findings: RawRecord[];
 }
 
 function timeAgo(iso: string): string {
@@ -82,6 +72,13 @@ function formatDate(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
+    + " à " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
 const FINDING_LABELS: Record<string, string> = {
@@ -133,7 +130,7 @@ const FINDING_LABELS: Record<string, string> = {
 
 const HIDDEN_FIELDS = new Set(["id", "workspaceGuid", "workspaceId", "totalCount"]);
 
-function FindingCard({ finding }: { finding: Finding }) {
+function FindingCard({ finding }: { finding: RawRecord }) {
   const [expanded, setExpanded] = useState(false);
 
   const title = finding.threatName || finding.malwareName || finding.detectionName || finding.name || finding.title || finding.findingType || finding.type || "Alerte";
@@ -144,7 +141,7 @@ function FindingCard({ finding }: { finding: Finding }) {
   const user = finding.userName || finding.user || "";
 
   const dateStr = finding.timestamp || finding.detectedAt || finding.createdAt || finding.changedAt || "";
-  const dateFormatted = dateStr ? formatDate(dateStr) : "";
+  const dateFormatted = dateStr ? formatDateTime(dateStr) : "";
   const dateRelative = dateStr ? timeAgo(dateStr) : "";
 
   const isMalware = /malware|trojan|virus|worm|ransom|exploit|pup|adware/i.test(title);
@@ -217,12 +214,130 @@ function FindingCard({ finding }: { finding: Finding }) {
               const label = FINDING_LABELS[key] || key;
               const strValue = typeof value === "object" ? JSON.stringify(value) : String(value);
               const isDate = /^\d{4}-\d{2}-\d{2}T/.test(strValue);
-              const displayValue = isDate ? `${formatDate(strValue)} (${timeAgo(strValue)})` : strValue;
+              const displayValue = isDate ? `${formatDateTime(strValue)} (${timeAgo(strValue)})` : strValue;
               const isBool = value === true || value === false;
 
               return (
                 <div key={key} className="flex items-start gap-2 py-0.5">
                   <span className="text-[10px] text-slate-400 w-24 shrink-0 font-medium">{label}</span>
+                  {isBool ? (
+                    <span className={cn("text-[11px] font-medium", value ? "text-emerald-600" : "text-slate-400")}>
+                      {value ? "Oui" : "Non"}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-slate-700 break-all min-w-0">{displayValue}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DEVICE_LABELS: Record<string, string> = {
+  guid: "ID",
+  name: "Nom",
+  computerName: "Nom",
+  groupPath: "Groupe",
+  group: "Groupe",
+  lastSeen: "Dernière connexion",
+  changedAt: "Dernière activité",
+  createdAt: "Ajouté le",
+  protectionStatus: "Protection",
+  operatingSystem: "Système",
+  os: "Système",
+  osVersion: "Version OS",
+  policyName: "Politique",
+  policy: "Politique",
+  version: "Version agent",
+  agentVersion: "Version agent",
+  ipAddress: "IP",
+  ip: "IP",
+  lastIpAddress: "Dernière IP",
+  macAddress: "MAC",
+  userName: "Utilisateur",
+  user: "Utilisateur",
+  lastUser: "Dernier utilisateur",
+  domain: "Domaine",
+  serialNumber: "N° série",
+  manufacturer: "Fabricant",
+  model: "Modèle",
+  cpu: "Processeur",
+  ram: "RAM",
+  totalDiskSpace: "Espace disque",
+  freeDiskSpace: "Espace libre",
+  lastScanTime: "Dernier scan",
+  lastUpdateTime: "Dernière MAJ",
+  signatureVersion: "Signatures",
+  engineVersion: "Moteur",
+  isOnline: "En ligne",
+  isManaged: "Géré",
+  licenseExpiry: "Expiration licence",
+};
+
+function DeviceCard({ device }: { device: RawRecord }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const name = device.name || device.computerName || "Appareil";
+  const os = device.operatingSystem || device.os || device.osVersion || "";
+  const ip = device.ipAddress || device.ip || device.lastIpAddress || "";
+  const lastSeen = device.lastSeen || device.changedAt || "";
+  const user = device.userName || device.user || device.lastUser || "";
+  const group = device.groupPath || device.group || "";
+  const policy = device.policyName || device.policy || "";
+  const isOnline = device.isOnline;
+  const version = device.version || device.agentVersion || "";
+
+  const allFields = Object.entries(device).filter(
+    ([k, v]) => v !== null && v !== undefined && v !== "" && !HIDDEN_FIELDS.has(k),
+  );
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border bg-white overflow-hidden cursor-pointer transition-all hover:shadow-sm",
+        isOnline === true ? "border-emerald-200" : isOnline === false ? "border-slate-200" : "border-slate-200",
+      )}
+      onClick={() => setExpanded(!expanded)}
+    >
+      <div className="p-3">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Monitor className={cn("h-4 w-4 shrink-0", isOnline === true ? "text-emerald-500" : "text-slate-400")} />
+          <span className="text-sm font-semibold text-slate-800 truncate">{name}</span>
+          {isOnline === true && <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />}
+          {isOnline === false && <span className="h-2 w-2 rounded-full bg-slate-300 shrink-0" />}
+        </div>
+        <div className="space-y-0.5 ml-6">
+          {os && <p className="text-[11px] text-slate-500 truncate">{os}</p>}
+          {ip && <p className="text-[11px] text-slate-400 font-mono">{ip}</p>}
+          {user && <p className="text-[11px] text-slate-400">👤 {user}</p>}
+          {group && <p className="text-[10px] text-slate-400 truncate">📁 {group}</p>}
+          {policy && <p className="text-[10px] text-purple-500">{policy}</p>}
+          {version && <p className="text-[10px] text-slate-400">v{version}</p>}
+        </div>
+        <div className="flex items-center justify-between mt-2 ml-6">
+          {lastSeen && (
+            <span className="text-[10px] text-slate-400">{timeAgo(lastSeen)}</span>
+          )}
+          <ChevronDown className={cn("h-3 w-3 text-slate-300 transition-transform", expanded && "rotate-180")} />
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-slate-100 bg-slate-50/50 px-3 py-2">
+          <div className="space-y-0.5">
+            {allFields.map(([key, value]) => {
+              const label = DEVICE_LABELS[key] || key;
+              const strValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+              const isDate = /^\d{4}-\d{2}-\d{2}T/.test(strValue);
+              const displayValue = isDate ? `${formatDateTime(strValue)} (${timeAgo(strValue)})` : strValue;
+              const isBool = value === true || value === false;
+              return (
+                <div key={key} className="flex items-start gap-2 py-0.5">
+                  <span className="text-[10px] text-slate-400 w-28 shrink-0 font-medium">{label}</span>
                   {isBool ? (
                     <span className={cn("text-[11px] font-medium", value ? "text-emerald-600" : "text-slate-400")}>
                       {value ? "Oui" : "Non"}
@@ -707,7 +822,7 @@ export default function AntivirusPage() {
                       </div>
                     </div>
 
-                    {/* Devices & Incidents */}
+                    {/* Findings first, then Devices */}
                     <div className="border-t border-slate-200 p-4 space-y-4">
                       {detailsLoading ? (
                         <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
@@ -716,52 +831,31 @@ export default function AntivirusPage() {
                         </div>
                       ) : details ? (
                         <>
+                          {/* Findings / Alerts — 10 max */}
+                          {details.findings.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5">
+                                <ShieldAlert className="h-3.5 w-3.5" />
+                                Dernières alertes ({Math.min(details.findings.length, 10)}/{details.findings.length})
+                              </p>
+                              <div className="space-y-2">
+                                {details.findings.slice(0, 10).map((f, idx) => (
+                                  <FindingCard key={f.guid || f.id || idx} finding={f} />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Devices — card grid */}
                           {details.devices.length > 0 && (
                             <div>
                               <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5">
                                 <Server className="h-3.5 w-3.5" />
                                 Appareils ({details.devices.length})
                               </p>
-                              <div className="space-y-1">
-                                {details.devices.map((device) => {
-                                  const statusMap: Record<string, { bg: string; icon: typeof ShieldCheck; label: string }> = {
-                                    protected: { bg: "bg-emerald-100 text-emerald-700", icon: ShieldCheck, label: "Protégé" },
-                                    at_risk: { bg: "bg-red-100 text-red-700", icon: ShieldAlert, label: "À risque" },
-                                    offline: { bg: "bg-slate-100 text-slate-500", icon: ShieldOff, label: "Hors ligne" },
-                                  };
-                                  const st = statusMap[device.protectionStatus] || { bg: "bg-slate-100 text-slate-500", icon: Monitor, label: device.protectionStatus || "Inconnu" };
-                                  const StatusIcon = st.icon;
-                                  return (
-                                    <div key={device.id} className="flex items-center justify-between rounded-lg bg-white border border-slate-200 px-3 py-2">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <Monitor className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                        <span className="text-sm text-slate-700 truncate">{device.name}</span>
-                                        {device.groupPath && <span className="text-[10px] text-slate-400 truncate hidden sm:inline">{device.groupPath}</span>}
-                                      </div>
-                                      <div className="flex items-center gap-2 shrink-0">
-                                        {device.operatingSystem && <span className="text-[10px] text-slate-400 hidden md:inline">{device.operatingSystem}</span>}
-                                        {device.lastSeen && <span className="text-[10px] text-slate-400">{timeAgo(device.lastSeen)}</span>}
-                                        <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium", st.bg)}>
-                                          <StatusIcon className="h-3 w-3" />
-                                          {st.label}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {details.findings.length > 0 && (
-                            <div>
-                              <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5">
-                                <ShieldAlert className="h-3.5 w-3.5" />
-                                Alertes / Findings ({details.findings.length > 50 ? "50+" : details.findings.length})
-                              </p>
-                              <div className="space-y-2">
-                                {details.findings.slice(0, 50).map((f, idx) => (
-                                  <FindingCard key={f.guid || f.id || idx} finding={f} />
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                {details.devices.map((device, idx) => (
+                                  <DeviceCard key={device.guid || device.id || idx} device={device} />
                                 ))}
                               </div>
                             </div>
