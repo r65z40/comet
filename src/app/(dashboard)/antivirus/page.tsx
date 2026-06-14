@@ -298,6 +298,79 @@ export default function AntivirusPage() {
         </div>
       </div>
 
+      {/* Recent alerts */}
+      {(() => {
+        const recentAlerts = workspaces
+          .filter((ws) => ws.lastAlert)
+          .sort((a, b) => new Date(b.lastAlert!).getTime() - new Date(a.lastAlert!).getTime())
+          .slice(0, 10);
+
+        if (recentAlerts.length === 0) return null;
+
+        return (
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100">
+              <ShieldAlert className="h-4 w-4 text-red-500" />
+              <h2 className="text-sm font-semibold text-slate-900">Dernières alertes</h2>
+              <span className="text-[10px] text-slate-400 ml-auto">10 plus récentes</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {recentAlerts.map((ws) => {
+                const linked = clientByEmsisoftId.get(ws.id);
+                return (
+                  <div key={`alert-${ws.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
+                    <div className={cn(
+                      "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+                      ws.findingsLastMonth > 10 ? "bg-red-100" : ws.findingsLastMonth > 0 ? "bg-amber-100" : "bg-slate-100"
+                    )}>
+                      <Bug className={cn(
+                        "h-4 w-4",
+                        ws.findingsLastMonth > 10 ? "text-red-500" : ws.findingsLastMonth > 0 ? "text-amber-500" : "text-slate-400"
+                      )} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-800 truncate">
+                          {linked ? linked.name : ws.name}
+                        </span>
+                        {linked && (
+                          <span className="text-[10px] text-slate-400 truncate hidden sm:inline">{ws.name}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {ws.findingType && (
+                          <span className="text-[11px] font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">{ws.findingType}</span>
+                        )}
+                        <span className="text-[11px] text-slate-400">
+                          {ws.findingsLastMonth} détection{ws.findingsLastMonth > 1 ? "s" : ""} ce mois
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-slate-600 font-medium">{timeAgo(ws.lastAlert!)}</p>
+                      <p className="text-[10px] text-slate-400">{formatDate(ws.lastAlert!)}</p>
+                    </div>
+                    {ws.findingsLastMonth > 10 ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700 shrink-0">
+                        <AlertTriangle className="h-3 w-3" /> Élevé
+                      </span>
+                    ) : ws.findingsLastMonth > 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 shrink-0">
+                        <Bug className="h-3 w-3" /> Modéré
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 shrink-0">
+                        <CheckCircle className="h-3 w-3" /> OK
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
