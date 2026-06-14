@@ -140,7 +140,19 @@ function FindingCard({ finding }: { finding: RawRecord }) {
   const findingType = finding.findingType || finding.type || finding.scanType || "";
   const user = finding.userName || finding.user || "";
 
-  const dateStr = finding.timestamp || finding.detectedAt || finding.createdAt || finding.changedAt || "";
+  // Find date — try known fields, then scan all values for ISO date strings
+  let dateStr = finding.timestamp || finding.detectedAt || finding.createdAt || finding.changedAt
+    || finding.Timestamp || finding.DetectedAt || finding.CreatedAt || finding.ChangedAt
+    || finding.date || finding.Date || finding.time || finding.Time
+    || finding.lastSeen || finding.LastSeen || "";
+  if (!dateStr) {
+    for (const v of Object.values(finding)) {
+      if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) {
+        dateStr = v;
+        break;
+      }
+    }
+  }
   const dateFormatted = dateStr ? formatDateTime(dateStr) : "";
   const dateRelative = dateStr ? timeAgo(dateStr) : "";
 
