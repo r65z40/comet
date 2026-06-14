@@ -256,16 +256,25 @@ export async function getProtectionSummary(config?: EmsisoftConfig) {
 export async function getWorkspaceDetails(workspaceId: string, config?: EmsisoftConfig) {
   const cfg = config ?? (await getEmsisoftConfig());
   let devices: EmsisoftDevice[] = [];
-  let incidents: EmsisoftIncident[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let findings: any[] = [];
 
   try {
     devices = await getDevices(workspaceId, cfg);
   } catch {}
-  try {
-    incidents = await getIncidents(workspaceId, cfg);
-  } catch {}
 
-  return { devices, incidents };
+  // Try /findings first (more common in Emsisoft API), fallback to /incidents
+  try {
+    const json = await emisoftFetch(`/workspaces/${workspaceId}/findings?Take=50&OrderBy=Timestamp desc`, cfg);
+    findings = json.data || json.findings || (Array.isArray(json) ? json : []);
+  } catch {
+    try {
+      const json = await emisoftFetch(`/workspaces/${workspaceId}/incidents?Take=50`, cfg);
+      findings = json.data || json.incidents || (Array.isArray(json) ? json : []);
+    } catch {}
+  }
+
+  return { devices, findings };
 }
 
 export async function getClientDevices(emsisoftId: string, config?: EmsisoftConfig) {

@@ -49,15 +49,9 @@ interface Device {
   policyName: string | null;
 }
 
-interface Incident {
-  id: string;
-  deviceName: string;
-  type: string;
-  severity: string;
-  title: string;
-  status: string;
-  detectedAt: string;
-}
+// Raw finding from Emsisoft API — keep all fields
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Finding = Record<string, any>;
 
 interface CometClient {
   id: string;
@@ -68,7 +62,7 @@ interface CometClient {
 
 interface WorkspaceDetails {
   devices: Device[];
-  incidents: Incident[];
+  findings: Finding[];
 }
 
 function timeAgo(iso: string): string {
@@ -88,6 +82,162 @@ function formatDate(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+const FINDING_LABELS: Record<string, string> = {
+  guid: "ID",
+  computerName: "Ordinateur",
+  computerGuid: "ID Ordinateur",
+  name: "Nom",
+  findingType: "Type",
+  type: "Type",
+  severity: "Sévérité",
+  status: "Statut",
+  title: "Titre",
+  description: "Description",
+  message: "Message",
+  path: "Chemin",
+  filePath: "Chemin fichier",
+  fileName: "Fichier",
+  hash: "Hash",
+  sha256: "SHA256",
+  md5: "MD5",
+  threatName: "Menace",
+  malwareName: "Malware",
+  detectionName: "Détection",
+  action: "Action",
+  actionTaken: "Action prise",
+  timestamp: "Date",
+  detectedAt: "Détecté le",
+  createdAt: "Créé le",
+  resolvedAt: "Résolu le",
+  changedAt: "Modifié le",
+  scanType: "Type de scan",
+  source: "Source",
+  category: "Catégorie",
+  quarantined: "En quarantaine",
+  cleaned: "Nettoyé",
+  deleted: "Supprimé",
+  blocked: "Bloqué",
+  deviceName: "Appareil",
+  userName: "Utilisateur",
+  user: "Utilisateur",
+  ipAddress: "Adresse IP",
+  ip: "IP",
+  operatingSystem: "OS",
+  os: "OS",
+  policyName: "Politique",
+  groupPath: "Groupe",
+  group: "Groupe",
+};
+
+const HIDDEN_FIELDS = new Set(["id", "workspaceGuid", "workspaceId", "totalCount"]);
+
+function FindingCard({ finding }: { finding: Finding }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const title = finding.threatName || finding.malwareName || finding.detectionName || finding.name || finding.title || finding.findingType || finding.type || "Alerte";
+  const computer = finding.computerName || finding.deviceName || finding.device || "";
+  const filePath = finding.path || finding.filePath || finding.fileName || "";
+  const action = finding.actionTaken || finding.action || "";
+  const findingType = finding.findingType || finding.type || finding.scanType || "";
+  const user = finding.userName || finding.user || "";
+
+  const dateStr = finding.timestamp || finding.detectedAt || finding.createdAt || finding.changedAt || "";
+  const dateFormatted = dateStr ? formatDate(dateStr) : "";
+  const dateRelative = dateStr ? timeAgo(dateStr) : "";
+
+  const isMalware = /malware|trojan|virus|worm|ransom|exploit|pup|adware/i.test(title);
+  const isBlock = /block|guard|firewall/i.test(findingType);
+
+  const allFields = Object.entries(finding).filter(
+    ([k, v]) => v !== null && v !== undefined && v !== "" && !HIDDEN_FIELDS.has(k),
+  );
+
+  return (
+    <div className="rounded-lg bg-white border border-slate-200 overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors"
+      >
+        <div className="flex items-start gap-2">
+          <div className={cn(
+            "h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
+            isMalware ? "bg-red-100" : isBlock ? "bg-amber-100" : "bg-blue-100",
+          )}>
+            {isMalware ? (
+              <Bug className="h-3.5 w-3.5 text-red-500" />
+            ) : isBlock ? (
+              <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
+            ) : (
+              <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={cn("text-sm font-medium truncate", isMalware ? "text-red-800" : "text-slate-800")}>{title}</p>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              {computer && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                  <Monitor className="h-3 w-3" /> {computer}
+                </span>
+              )}
+              {user && (
+                <span className="text-[11px] text-slate-400">👤 {user}</span>
+              )}
+              {findingType && (
+                <span className={cn(
+                  "text-[10px] font-medium rounded px-1.5 py-0.5",
+                  isMalware ? "bg-red-50 text-red-600" : isBlock ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600",
+                )}>{findingType}</span>
+              )}
+              {action && (
+                <span className="text-[10px] font-medium rounded px-1.5 py-0.5 bg-emerald-50 text-emerald-600">{action}</span>
+              )}
+            </div>
+            {filePath && (
+              <p className="text-[11px] text-slate-400 mt-0.5 font-mono truncate">{filePath}</p>
+            )}
+          </div>
+          <div className="text-right shrink-0">
+            {dateRelative && <p className="text-[11px] text-slate-500 font-medium">{dateRelative}</p>}
+            {dateFormatted && <p className="text-[10px] text-slate-400">{dateFormatted}</p>}
+          </div>
+          {expanded ? (
+            <ChevronDown className="h-4 w-4 text-slate-300 shrink-0 mt-1" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-slate-300 shrink-0 mt-1" />
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-slate-100 bg-slate-50/50 px-3 py-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+            {allFields.map(([key, value]) => {
+              const label = FINDING_LABELS[key] || key;
+              const strValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+              const isDate = /^\d{4}-\d{2}-\d{2}T/.test(strValue);
+              const displayValue = isDate ? `${formatDate(strValue)} (${timeAgo(strValue)})` : strValue;
+              const isBool = value === true || value === false;
+
+              return (
+                <div key={key} className="flex items-start gap-2 py-0.5">
+                  <span className="text-[10px] text-slate-400 w-24 shrink-0 font-medium">{label}</span>
+                  {isBool ? (
+                    <span className={cn("text-[11px] font-medium", value ? "text-emerald-600" : "text-slate-400")}>
+                      {value ? "Oui" : "Non"}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-slate-700 break-all min-w-0">{displayValue}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AntivirusPage() {
@@ -154,7 +304,7 @@ export default function AntivirusPage() {
       const res = await fetch(`/api/emsisoft/status?workspaceId=${wsId}`);
       if (res.ok) {
         const data = await res.json();
-        setWsDetails((prev) => ({ ...prev, [wsId]: { devices: data.devices || [], incidents: data.incidents || [] } }));
+        setWsDetails((prev) => ({ ...prev, [wsId]: { devices: data.devices || [], findings: data.findings || [] } }));
       }
     } catch {} finally {
       setWsDetailsLoading((prev) => { const next = new Set(prev); next.delete(wsId); return next; });
@@ -603,44 +753,21 @@ export default function AntivirusPage() {
                             </div>
                           )}
 
-                          {details.incidents.length > 0 && (
+                          {details.findings.length > 0 && (
                             <div>
                               <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5">
                                 <ShieldAlert className="h-3.5 w-3.5" />
-                                Alertes récentes ({details.incidents.length > 50 ? "50+" : details.incidents.length})
+                                Alertes / Findings ({details.findings.length > 50 ? "50+" : details.findings.length})
                               </p>
-                              <div className="space-y-1">
-                                {details.incidents.slice(0, 50).map((incident, idx) => {
-                                  const sevMap: Record<string, string> = {
-                                    critical: "bg-red-100 text-red-700",
-                                    high: "bg-orange-100 text-orange-700",
-                                    medium: "bg-amber-100 text-amber-700",
-                                    low: "bg-slate-100 text-slate-600",
-                                    info: "bg-blue-100 text-blue-600",
-                                  };
-                                  return (
-                                    <div key={incident.id || idx} className="flex items-center justify-between rounded-lg bg-white border border-slate-200 px-3 py-2">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <Bug className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                                        <span className="text-sm text-slate-700 truncate">{incident.title || incident.type || "Alerte"}</span>
-                                      </div>
-                                      <div className="flex items-center gap-2 shrink-0">
-                                        {incident.deviceName && <span className="text-[10px] text-slate-400">{incident.deviceName}</span>}
-                                        {incident.detectedAt && formatDate(incident.detectedAt) && (
-                                          <span className="text-[10px] text-slate-400">{formatDate(incident.detectedAt)}</span>
-                                        )}
-                                        <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium", sevMap[incident.severity] || sevMap.low)}>
-                                          {incident.severity || "info"}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
+                              <div className="space-y-2">
+                                {details.findings.slice(0, 50).map((f, idx) => (
+                                  <FindingCard key={f.guid || f.id || idx} finding={f} />
+                                ))}
                               </div>
                             </div>
                           )}
 
-                          {details.devices.length === 0 && details.incidents.length === 0 && (
+                          {details.devices.length === 0 && details.findings.length === 0 && (
                             <p className="text-xs text-slate-400 py-1">Aucun détail supplémentaire disponible pour ce workspace.</p>
                           )}
                         </>

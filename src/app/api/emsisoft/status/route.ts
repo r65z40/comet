@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const details = await getWorkspaceDetails(workspaceId, config);
-    return NextResponse.json({ enabled: true, ...details });
+    return NextResponse.json({ enabled: true, devices: details.devices, findings: details.findings });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Erreur" },
