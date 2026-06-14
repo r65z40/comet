@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -93,7 +93,8 @@ function formatDate(iso: string): string {
 export default function AntivirusPage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [allClients, setAllClients] = useState<CometClient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [wsLoading, setWsLoading] = useState(true);
+  const [clientsLoading, setClientsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [expandedWs, setExpandedWs] = useState<Set<string>>(new Set());
@@ -102,36 +103,49 @@ export default function AntivirusPage() {
   const [linkingWs, setLinkingWs] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState("");
   const [savingLink, setSavingLink] = useState<string | null>(null);
+  const wsRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchWorkspaces = useCallback(async () => {
+    setWsLoading(true);
     setError(null);
     try {
-      const [emsRes, clientsRes] = await Promise.all([
-        fetch("/api/emsisoft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "workspaces" }) }),
-        fetch("/api/clients?limit=200&showAll=true"),
-      ]);
-      if (!emsRes.ok) throw new Error("Erreur API Emsisoft");
-      const emsData = await emsRes.json();
-      if (emsData.error) throw new Error(emsData.error);
-      setWorkspaces(emsData.workspaces || []);
+      const res = await fetch("/api/emsisoft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "workspaces" }),
+      });
+      if (!res.ok) throw new Error("Erreur API Emsisoft");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setWorkspaces(data.workspaces || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setWsLoading(false);
+    }
+  }, []);
 
-      if (clientsRes.ok) {
-        const cData = await clientsRes.json();
+  const fetchClients = useCallback(async () => {
+    setClientsLoading(true);
+    try {
+      const res = await fetch("/api/clients?limit=200&showAll=true");
+      if (res.ok) {
+        const data = await res.json();
         setAllClients(
-          (cData.clients || []).map((c: CometClient) => ({
+          (data.clients || []).map((c: CometClient) => ({
             id: c.id, name: c.name, emsisoftId: c.emsisoftId, logoUrl: c.logoUrl,
           })),
         );
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur inconnue");
-    } finally {
-      setLoading(false);
+    } catch {} finally {
+      setClientsLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchWorkspaces();
+    fetchClients();
+  }, [fetchWorkspaces, fetchClients]);
 
   async function fetchWorkspaceDetails(wsId: string) {
     if (wsDetails[wsId] || wsDetailsLoading.has(wsId)) return;
@@ -145,6 +159,18 @@ export default function AntivirusPage() {
     } catch {} finally {
       setWsDetailsLoading((prev) => { const next = new Set(prev); next.delete(wsId); return next; });
     }
+  }
+
+  function expandAndScroll(wsId: string) {
+    setExpandedWs((prev) => {
+      const next = new Set(prev);
+      next.add(wsId);
+      fetchWorkspaceDetails(wsId);
+      return next;
+    });
+    setTimeout(() => {
+      wsRefs.current[wsId]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   }
 
   const toggleExpand = (wsId: string) => {
@@ -216,15 +242,7 @@ export default function AntivirusPage() {
   const linkedCount = workspaces.filter((ws) => clientByEmsisoftId.has(ws.id)).length;
   const expiredCount = workspaces.filter((ws) => ws.isExpired).length;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <RefreshCw className="h-6 w-6 text-slate-300 animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
+  if (error && workspaces.length === 0) {
     return (
       <div className="max-w-4xl mx-auto py-12 px-4">
         <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
@@ -236,6 +254,11 @@ export default function AntivirusPage() {
       </div>
     );
   }
+
+  const recentAlerts = workspaces
+    .filter((ws) => ws.lastAlert)
+    .sort((a, b) => new Date(b.lastAlert!).getTime() - new Date(a.lastAlert!).getTime())
+    .slice(0, 10);
 
   return (
     <div className="space-y-6">
@@ -251,125 +274,133 @@ export default function AntivirusPage() {
           </div>
         </div>
         <button
-          onClick={fetchData}
-          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          onClick={() => { fetchWorkspaces(); fetchClients(); }}
+          disabled={wsLoading}
+          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className={cn("h-4 w-4", wsLoading && "animate-spin")} />
           Actualiser
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Building2 className="h-4 w-4 text-blue-500" />
-            <span className="text-xs text-slate-500">Workspaces</span>
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{workspaces.length}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Monitor className="h-4 w-4 text-emerald-500" />
-            <span className="text-xs text-slate-500">Appareils</span>
-          </div>
-          <p className="text-2xl font-bold text-emerald-600">{totalDevices}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Bug className="h-4 w-4 text-amber-500" />
-            <span className="text-xs text-slate-500">Détections/mois</span>
-          </div>
-          <p className={cn("text-2xl font-bold", totalFindings > 0 ? "text-amber-600" : "text-slate-400")}>{totalFindings}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Link2 className="h-4 w-4 text-purple-500" />
-            <span className="text-xs text-slate-500">Liés</span>
-          </div>
-          <p className="text-2xl font-bold text-purple-600">{linkedCount}<span className="text-sm font-normal text-slate-400">/{workspaces.length}</span></p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-            <span className="text-xs text-slate-500">Expirés</span>
-          </div>
-          <p className={cn("text-2xl font-bold", expiredCount > 0 ? "text-red-600" : "text-slate-400")}>{expiredCount}</p>
-        </div>
-      </div>
-
-      {/* Recent alerts */}
-      {(() => {
-        const recentAlerts = workspaces
-          .filter((ws) => ws.lastAlert)
-          .sort((a, b) => new Date(b.lastAlert!).getTime() - new Date(a.lastAlert!).getTime())
-          .slice(0, 10);
-
-        if (recentAlerts.length === 0) return null;
-
-        return (
-          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100">
-              <ShieldAlert className="h-4 w-4 text-red-500" />
-              <h2 className="text-sm font-semibold text-slate-900">Dernières alertes</h2>
-              <span className="text-[10px] text-slate-400 ml-auto">10 plus récentes</span>
+      {wsLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 animate-pulse">
+              <div className="h-3 w-16 bg-slate-200 rounded mb-3" />
+              <div className="h-7 w-12 bg-slate-200 rounded" />
             </div>
-            <div className="divide-y divide-slate-100">
-              {recentAlerts.map((ws) => {
-                const linked = clientByEmsisoftId.get(ws.id);
-                return (
-                  <div key={`alert-${ws.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
-                    <div className={cn(
-                      "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
-                      ws.findingsLastMonth > 10 ? "bg-red-100" : ws.findingsLastMonth > 0 ? "bg-amber-100" : "bg-slate-100"
-                    )}>
-                      <Bug className={cn(
-                        "h-4 w-4",
-                        ws.findingsLastMonth > 10 ? "text-red-500" : ws.findingsLastMonth > 0 ? "text-amber-500" : "text-slate-400"
-                      )} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-slate-800 truncate">
-                          {linked ? linked.name : ws.name}
-                        </span>
-                        {linked && (
-                          <span className="text-[10px] text-slate-400 truncate hidden sm:inline">{ws.name}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {ws.findingType && (
-                          <span className="text-[11px] font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">{ws.findingType}</span>
-                        )}
-                        <span className="text-[11px] text-slate-400">
-                          {ws.findingsLastMonth} détection{ws.findingsLastMonth > 1 ? "s" : ""} ce mois
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-slate-600 font-medium">{timeAgo(ws.lastAlert!)}</p>
-                      <p className="text-[10px] text-slate-400">{formatDate(ws.lastAlert!)}</p>
-                    </div>
-                    {ws.findingsLastMonth > 10 ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700 shrink-0">
-                        <AlertTriangle className="h-3 w-3" /> Élevé
-                      </span>
-                    ) : ws.findingsLastMonth > 0 ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 shrink-0">
-                        <Bug className="h-3 w-3" /> Modéré
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 shrink-0">
-                        <CheckCircle className="h-3 w-3" /> OK
-                      </span>
-                    )}
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Building2 className="h-4 w-4 text-blue-500" />
+              <span className="text-xs text-slate-500">Workspaces</span>
+            </div>
+            <p className="text-2xl font-bold text-slate-900">{workspaces.length}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Monitor className="h-4 w-4 text-emerald-500" />
+              <span className="text-xs text-slate-500">Appareils</span>
+            </div>
+            <p className="text-2xl font-bold text-emerald-600">{totalDevices}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Bug className="h-4 w-4 text-amber-500" />
+              <span className="text-xs text-slate-500">Détections/mois</span>
+            </div>
+            <p className={cn("text-2xl font-bold", totalFindings > 0 ? "text-amber-600" : "text-slate-400")}>{totalFindings}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Link2 className="h-4 w-4 text-purple-500" />
+              <span className="text-xs text-slate-500">Liés</span>
+            </div>
+            <p className="text-2xl font-bold text-purple-600">{linkedCount}<span className="text-sm font-normal text-slate-400">/{workspaces.length}</span></p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-4 w-4 text-red-500" />
+              <span className="text-xs text-slate-500">Expirés</span>
+            </div>
+            <p className={cn("text-2xl font-bold", expiredCount > 0 ? "text-red-600" : "text-slate-400")}>{expiredCount}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Recent alerts — clickable */}
+      {recentAlerts.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100">
+            <ShieldAlert className="h-4 w-4 text-red-500" />
+            <h2 className="text-sm font-semibold text-slate-900">Dernières alertes</h2>
+            <span className="text-[10px] text-slate-400 ml-auto">Cliquez pour voir les détails</span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {recentAlerts.map((ws) => {
+              const linked = clientByEmsisoftId.get(ws.id);
+              return (
+                <button
+                  key={`alert-${ws.id}`}
+                  onClick={() => expandAndScroll(ws.id)}
+                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-purple-50/50 transition-colors text-left"
+                >
+                  <div className={cn(
+                    "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+                    ws.findingsLastMonth > 10 ? "bg-red-100" : ws.findingsLastMonth > 0 ? "bg-amber-100" : "bg-slate-100",
+                  )}>
+                    <Bug className={cn(
+                      "h-4 w-4",
+                      ws.findingsLastMonth > 10 ? "text-red-500" : ws.findingsLastMonth > 0 ? "text-amber-500" : "text-slate-400",
+                    )} />
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-800 truncate">
+                        {linked ? linked.name : ws.name}
+                      </span>
+                      {linked && (
+                        <span className="text-[10px] text-slate-400 truncate hidden sm:inline">{ws.name}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {ws.findingType && (
+                        <span className="text-[11px] font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">{ws.findingType}</span>
+                      )}
+                      <span className="text-[11px] text-slate-400">
+                        {ws.findingsLastMonth} détection{ws.findingsLastMonth > 1 ? "s" : ""} ce mois
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-slate-600 font-medium">{timeAgo(ws.lastAlert!)}</p>
+                    <p className="text-[10px] text-slate-400">{formatDate(ws.lastAlert!)}</p>
+                  </div>
+                  {ws.findingsLastMonth > 10 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700 shrink-0">
+                      <AlertTriangle className="h-3 w-3" /> Élevé
+                    </span>
+                  ) : ws.findingsLastMonth > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 shrink-0">
+                      <Bug className="h-3 w-3" /> Modéré
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 shrink-0">
+                      <CheckCircle className="h-3 w-3" /> OK
+                    </span>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
+                </button>
+              );
+            })}
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">
@@ -385,7 +416,20 @@ export default function AntivirusPage() {
 
       {/* Workspace list */}
       <div className="space-y-3">
-        {filteredWorkspaces.length === 0 ? (
+        {wsLoading ? (
+          [...Array(3)].map((_, i) => (
+            <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-slate-200" />
+                <div className="flex-1">
+                  <div className="h-4 w-40 bg-slate-200 rounded mb-2" />
+                  <div className="h-3 w-56 bg-slate-100 rounded" />
+                </div>
+                <div className="h-6 w-16 bg-slate-200 rounded-full" />
+              </div>
+            </div>
+          ))
+        ) : filteredWorkspaces.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-slate-400">
             <ShieldCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">Aucun workspace trouvé</p>
@@ -399,14 +443,21 @@ export default function AntivirusPage() {
             const detailsLoading = wsDetailsLoading.has(ws.id);
 
             return (
-              <div key={ws.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+              <div
+                key={ws.id}
+                ref={(el) => { wsRefs.current[ws.id] = el; }}
+                className={cn(
+                  "rounded-xl border bg-white overflow-hidden scroll-mt-4 transition-colors",
+                  isExpanded ? "border-purple-300 ring-1 ring-purple-100" : "border-slate-200",
+                )}
+              >
                 {/* Workspace header */}
                 <div
                   className="flex items-center gap-3 p-4 cursor-pointer hover:bg-slate-50 transition-colors"
                   onClick={() => toggleExpand(ws.id)}
                 >
                   {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                    <ChevronDown className="h-4 w-4 text-purple-500 shrink-0" />
                   ) : (
                     <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
                   )}
@@ -461,7 +512,6 @@ export default function AntivirusPage() {
                         <CheckCircle className="h-3 w-3" /> Actif
                       </span>
                     )}
-
                     {linkedClient ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-1 text-[11px] font-medium text-purple-700">
                         <Link2 className="h-3 w-3" /> Lié
@@ -477,7 +527,6 @@ export default function AntivirusPage() {
                 {/* Expanded details */}
                 {isExpanded && (
                   <div className="border-t border-slate-100 bg-slate-50/50">
-                    {/* Workspace stats */}
                     <div className="p-4 space-y-4">
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div className="rounded-lg bg-white border border-slate-200 p-3">
@@ -502,14 +551,13 @@ export default function AntivirusPage() {
                           {ws.lastAlert && <p className="text-[10px] text-slate-400">{formatDate(ws.lastAlert)}</p>}
                         </div>
                       </div>
-
                       <div className="flex items-center gap-4 text-[11px] text-slate-400">
                         <span>GUID: <span className="font-mono text-slate-500">{ws.id}</span></span>
                         <span>Créé le {formatDate(ws.createdAt)}</span>
                       </div>
                     </div>
 
-                    {/* Devices & Incidents from sub-endpoints */}
+                    {/* Devices & Incidents */}
                     <div className="border-t border-slate-200 p-4 space-y-4">
                       {detailsLoading ? (
                         <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
@@ -518,7 +566,6 @@ export default function AntivirusPage() {
                         </div>
                       ) : details ? (
                         <>
-                          {/* Devices */}
                           {details.devices.length > 0 && (
                             <div>
                               <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5">
@@ -556,7 +603,6 @@ export default function AntivirusPage() {
                             </div>
                           )}
 
-                          {/* Incidents */}
                           {details.incidents.length > 0 && (
                             <div>
                               <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5">
@@ -668,6 +714,10 @@ export default function AntivirusPage() {
                               <p className="text-xs text-slate-400 py-2 text-center">Aucun client trouvé</p>
                             )}
                           </div>
+                        </div>
+                      ) : clientsLoading ? (
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Chargement des clients...
                         </div>
                       ) : (
                         <button
