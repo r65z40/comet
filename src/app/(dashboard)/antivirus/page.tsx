@@ -128,7 +128,7 @@ const FINDING_LABELS: Record<string, string> = {
   group: "Groupe",
 };
 
-const HIDDEN_FIELDS = new Set(["id", "workspaceGuid", "workspaceId", "totalCount"]);
+const HIDDEN_FIELDS = new Set(["id", "workspaceGuid", "workspaceId", "totalCount", "involvedDevices"]);
 
 function FindingCard({ finding }: { finding: RawRecord }) {
   const [expanded, setExpanded] = useState(false);
@@ -146,6 +146,15 @@ function FindingCard({ finding }: { finding: RawRecord }) {
 
   const isMalware = /malware|trojan|virus|worm|ransom|exploit|pup|adware/i.test(title);
   const isBlock = /block|guard|firewall/i.test(findingType);
+
+  // Parse involvedDevices — can be array of objects or strings
+  const involvedDevices: { name: string; guid?: string }[] = [];
+  if (Array.isArray(finding.involvedDevices)) {
+    for (const d of finding.involvedDevices) {
+      if (typeof d === "string") involvedDevices.push({ name: d });
+      else if (d && typeof d === "object") involvedDevices.push({ name: d.name || d.computerName || d.guid || "?", guid: d.guid });
+    }
+  }
 
   const allFields = Object.entries(finding).filter(
     ([k, v]) => v !== null && v !== undefined && v !== "" && !HIDDEN_FIELDS.has(k),
@@ -171,8 +180,16 @@ function FindingCard({ finding }: { finding: RawRecord }) {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className={cn("text-sm font-medium truncate", isMalware ? "text-red-800" : "text-slate-800")}>{title}</p>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <div className="flex items-center gap-2">
+              <p className={cn("text-sm font-medium truncate", isMalware ? "text-red-800" : "text-slate-800")}>{title}</p>
+              {dateRelative && (
+                <span className="text-[10px] text-slate-400 shrink-0 border border-slate-200 rounded px-1.5 py-0.5">{dateRelative}</span>
+              )}
+            </div>
+            {dateFormatted && (
+              <p className="text-[10px] text-slate-400 mt-0.5">{dateFormatted}</p>
+            )}
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               {computer && (
                 <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
                   <Monitor className="h-3 w-3" /> {computer}
@@ -194,10 +211,17 @@ function FindingCard({ finding }: { finding: RawRecord }) {
             {filePath && (
               <p className="text-[11px] text-slate-400 mt-0.5 font-mono truncate">{filePath}</p>
             )}
-          </div>
-          <div className="text-right shrink-0">
-            {dateRelative && <p className="text-[11px] text-slate-500 font-medium">{dateRelative}</p>}
-            {dateFormatted && <p className="text-[10px] text-slate-400">{dateFormatted}</p>}
+            {/* Involved devices — shown directly */}
+            {involvedDevices.length > 0 && (
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <Server className="h-3 w-3 text-slate-400 shrink-0" />
+                {involvedDevices.map((d, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 text-[10px] font-medium bg-slate-100 text-slate-600 rounded px-1.5 py-0.5">
+                    <Monitor className="h-2.5 w-2.5" /> {d.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           {expanded ? (
             <ChevronDown className="h-4 w-4 text-slate-300 shrink-0 mt-1" />
@@ -836,7 +860,7 @@ export default function AntivirusPage() {
                             <div>
                               <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5">
                                 <ShieldAlert className="h-3.5 w-3.5" />
-                                Dernières alertes ({Math.min(details.findings.length, 10)}/{details.findings.length})
+                                Dernières alertes
                               </p>
                               <div className="space-y-2">
                                 {details.findings.slice(0, 10).map((f, idx) => (
