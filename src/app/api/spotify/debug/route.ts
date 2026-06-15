@@ -48,14 +48,14 @@ export async function GET() {
       debug.playlistError = `${playlistRes.status}: ${await playlistRes.text()}`;
     }
 
-    // Test: get first playlist tracks
+    // Test: get first playlist tracks (via /playlists/{id} to avoid 403)
     if (debug.firstPlaylists && (debug.firstPlaylists as { id: string }[]).length > 0) {
       const firstId = (debug.firstPlaylists as { id: string }[])[0].id;
-      const tracksRes = await spotifyFetch(`/playlists/${firstId}/tracks?limit=3`);
+      const tracksRes = await spotifyFetch(`/playlists/${firstId}?fields=tracks.items(track(id,name)),tracks.total`);
       if (tracksRes.ok) {
         const data = await tracksRes.json();
-        debug.firstPlaylistTrackCount = data.total;
-        debug.firstPlaylistTracks = (data.items || []).slice(0, 3).map((item: Record<string, unknown>) => {
+        debug.firstPlaylistTrackCount = data.tracks?.total;
+        debug.firstPlaylistTracks = (data.tracks?.items || []).slice(0, 3).map((item: Record<string, unknown>) => {
           const track = item.track as Record<string, unknown> | null;
           return track ? { name: track.name, id: track.id } : "null track";
         });

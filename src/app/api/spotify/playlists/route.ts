@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
   try {
     if (playlistId) {
       const data = await getPlaylistTracks(playlistId);
-      const tracks = (data.items || [])
+      const items = data.tracks?.items || data.items || [];
+      const tracks = items
         .filter((item: Record<string, unknown>) => item.track)
         .map((item: Record<string, unknown>) => {
           const t = item.track as Record<string, unknown>;
