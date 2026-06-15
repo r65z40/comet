@@ -2,18 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { exchangeCode, getRedirectUri, getSpotifyConfig } from "@/lib/spotify";
 
+function getSettingsUrl(req: NextRequest, config: { redirectUri: string }): URL {
+  if (config.redirectUri) {
+    const origin = new URL(config.redirectUri).origin;
+    return new URL("/settings", origin);
+  }
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  if (forwardedHost) {
+    return new URL("/settings", `${forwardedProto || "https"}://${forwardedHost}`);
+  }
+  return new URL("/settings", req.url);
+}
+
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
 
+  const config = await getSpotifyConfig();
+
   if (error || !code) {
-    const base = new URL("/settings", req.url);
+    const base = getSettingsUrl(req, config);
     base.searchParams.set("spotify_error", error || "no_code");
     return NextResponse.redirect(base);
   }
 
   try {
-    const config = await getSpotifyConfig();
     const redirectUri = getRedirectUri(req.url, req.headers, config);
     const tokens = await exchangeCode(code, redirectUri);
     const expires = Date.now() + tokens.expiresIn * 1000;
@@ -36,11 +50,11 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const base = new URL("/settings", req.url);
+    const base = getSettingsUrl(req, config);
     base.searchParams.set("spotify_connected", "true");
     return NextResponse.redirect(base);
   } catch (err) {
-    const base = new URL("/settings", req.url);
+    const base = getSettingsUrl(req, config);
     base.searchParams.set("spotify_error", err instanceof Error ? err.message : "unknown");
     return NextResponse.redirect(base);
   }

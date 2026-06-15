@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough, ChevronDown, HardDrive, Settings2, Shield, Music, LogIn, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -221,6 +222,29 @@ export default function SettingsPage() {
   const [savingSpotify, setSavingSpotify] = useState(false);
   const [savedSpotify, setSavedSpotify] = useState(false);
   const [disconnectingSpotify, setDisconnectingSpotify] = useState(false);
+  const [spotifyMessage, setSpotifyMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const searchParams = useSearchParams();
+  const spotifyParamsHandled = useRef(false);
+  useEffect(() => {
+    if (spotifyParamsHandled.current) return;
+    const connected = searchParams.get("spotify_connected");
+    const error = searchParams.get("spotify_error");
+    if (connected === "true") {
+      spotifyParamsHandled.current = true;
+      setSpotifyConnected(true);
+      setSpotifyMessage({ type: "success", text: "Spotify connecté avec succès !" });
+      setActiveTab("integrations");
+      setOpenSections(prev => ({ ...prev, spotify: true }));
+      window.history.replaceState({}, "", "/settings");
+    } else if (error) {
+      spotifyParamsHandled.current = true;
+      setSpotifyMessage({ type: "error", text: `Erreur Spotify : ${error}` });
+      setActiveTab("integrations");
+      setOpenSections(prev => ({ ...prev, spotify: true }));
+      window.history.replaceState({}, "", "/settings");
+    }
+  }, [searchParams]);
 
   // Collapsible sections
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -1692,6 +1716,12 @@ export default function SettingsPage() {
             )}
             <p className="text-xs text-slate-400 mt-2">Un compte Spotify Premium est requis pour la lecture de musique.</p>
           </div>
+
+          {spotifyMessage && (
+            <div className={cn("p-3 rounded-lg text-sm", spotifyMessage.type === "success" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>
+              {spotifyMessage.text}
+            </div>
+          )}
         </div>}
       </div>}
       </>)}
