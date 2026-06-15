@@ -1,16 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { spotifyFetch } from "@/lib/spotify";
+import { spotifyFetch, getDevices } from "@/lib/spotify";
+
+async function findDeviceId(preferredId?: string): Promise<string | null> {
+  if (preferredId) return preferredId;
+
+  try {
+    const data = await getDevices();
+    const devices = data.devices || [];
+    const active = devices.find((d: Record<string, unknown>) => d.is_active);
+    if (active) return active.id as string;
+    if (devices.length > 0) return devices[0].id as string;
+  } catch {}
+
+  return null;
+}
 
 export async function PUT(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const { uri, contextUri, deviceId } = body;
+  const { uri, contextUri, deviceId: preferredDeviceId } = body;
 
   try {
-    const params = deviceId ? `?device_id=${deviceId}` : "";
+    const deviceId = await findDeviceId(preferredDeviceId);
+    if (!deviceId) {
+      return NextResponse.json({ error: "NO_DEVICE: Ouvrez Spotify sur un appareil (téléphone, PC, etc.)" }, { status: 404 });
+    }
+
+    const params = `?device_id=${deviceId}`;
     const playBody: Record<string, unknown> = {};
 
     if (contextUri) {

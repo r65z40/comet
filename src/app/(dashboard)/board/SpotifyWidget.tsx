@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   Clock,
   Shuffle,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,37 +43,14 @@ interface Playlist {
 }
 
 interface PlayerState {
+  playing: boolean;
   paused: boolean;
   trackName: string;
   artistName: string;
   albumImage: string;
   positionMs: number;
   durationMs: number;
-}
-
-declare global {
-  interface Window {
-    Spotify: {
-      Player: new (opts: {
-        name: string;
-        getOAuthToken: (cb: (t: string) => void) => void;
-        volume: number;
-      }) => SpotifyPlayer;
-    };
-    onSpotifyWebPlaybackSDKReady: () => void;
-  }
-}
-
-interface SpotifyPlayer {
-  connect: () => Promise<boolean>;
-  disconnect: () => void;
-  togglePlay: () => Promise<void>;
-  previousTrack: () => Promise<void>;
-  nextTrack: () => Promise<void>;
-  setVolume: (v: number) => Promise<void>;
-  addListener: (event: string, cb: (data: Record<string, unknown>) => void) => void;
-  removeListener: (event: string) => void;
-  _options: { id: string };
+  deviceName: string;
 }
 
 function formatMs(ms: number): string {
@@ -85,14 +63,9 @@ function formatMs(ms: number): string {
 type Tab = "playing" | "search" | "playlists" | "browse";
 
 export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
-  const [token, setToken] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [player, setPlayer] = useState<SpotifyPlayer | null>(null);
-  const [deviceId, setDeviceId] = useState<string | null>(null);
   const [state, setState] = useState<PlayerState | null>(null);
-  const [volume, setVolume] = useState(0.5);
-  const [muted, setMuted] = useState(false);
 
   const [activeTab, setActiveTab] = useState<Tab>("browse");
 
@@ -111,102 +84,42 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
   const [recentTracks, setRecentTracks] = useState<Track[]>([]);
   const [loadingBrowse, setLoadingBrowse] = useState(false);
 
-  const progressInterval = useRef<ReturnType<typeof setInterval>>(null);
-  const sdkLoaded = useRef(false);
+  const pollRef = useRef<ReturnType<typeof setInterval>>(null);
   const [playError, setPlayError] = useState<string | null>(null);
 
-  const fetchToken = useCallback(async () => {
-    try {
-      const res = await fetch("/api/spotify/token");
-      if (res.ok) {
-        const data = await res.json();
-        setToken(data.token);
-        setConnected(true);
-      } else {
-        setConnected(false);
-      }
-    } catch {
-      setConnected(false);
-    } finally {
-      setLoading(false);
-    }
+  // Check connection
+  useEffect(() => {
+    fetch("/api/spotify/token")
+      .then((r) => { setConnected(r.ok); })
+      .catch(() => setConnected(false))
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { fetchToken(); }, [fetchToken]);
+  // Poll playback state
+  const fetchState = useCallback(async () => {
+    try {
+      const res = await fetch("/api/spotify/state");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.trackName) {
+          setState(data);
+        } else {
+          setState(null);
+        }
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
-    if (!token || sdkLoaded.current) return;
-    sdkLoaded.current = true;
+    if (!connected) return;
+    fetchState();
+    pollRef.current = setInterval(fetchState, 3000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [connected, fetchState]);
 
-    const script = document.createElement("script");
-    script.src = "https://sdk.scdn.co/spotify-player.js";
-    script.async = true;
-    document.body.appendChild(script);
-
-    window.onSpotifyWebPlaybackSDKReady = () => {
-      const p = new window.Spotify.Player({
-        name: "Comet Board",
-        getOAuthToken: (cb) => {
-          fetch("/api/spotify/token")
-            .then((r) => r.json())
-            .then((d) => cb(d.token))
-            .catch(() => {});
-        },
-        volume: 0.5,
-      });
-
-      p.addListener("ready", (data) => {
-        setDeviceId((data as { device_id: string }).device_id);
-      });
-
-      p.addListener("player_state_changed", (s) => {
-        if (!s) { setState(null); return; }
-        const st = s as {
-          paused: boolean;
-          position: number;
-          duration: number;
-          track_window: {
-            current_track: {
-              name: string;
-              artists: { name: string }[];
-              album: { images: { url: string }[] };
-            };
-          };
-        };
-        setState({
-          paused: st.paused,
-          trackName: st.track_window.current_track.name,
-          artistName: st.track_window.current_track.artists.map((a) => a.name).join(", "),
-          albumImage: st.track_window.current_track.album.images[0]?.url || "",
-          positionMs: st.position,
-          durationMs: st.duration,
-        });
-        if (!st.paused) setActiveTab("playing");
-      });
-
-      p.connect();
-      setPlayer(p);
-    };
-
-    return () => { script.remove(); };
-  }, [token]);
-
+  // Load playlists
   useEffect(() => {
-    if (progressInterval.current) clearInterval(progressInterval.current);
-    if (state && !state.paused) {
-      progressInterval.current = setInterval(() => {
-        setState((prev) =>
-          prev && !prev.paused
-            ? { ...prev, positionMs: Math.min(prev.positionMs + 500, prev.durationMs) }
-            : prev,
-        );
-      }, 500);
-    }
-    return () => { if (progressInterval.current) clearInterval(progressInterval.current); };
-  }, [state?.paused]);
-
-  useEffect(() => {
-    if (activeTab === "playlists" && playlists.length === 0 && !loadingPlaylists) {
+    if (activeTab === "playlists" && playlists.length === 0 && !loadingPlaylists && connected) {
       setLoadingPlaylists(true);
       fetch("/api/spotify/playlists")
         .then((r) => r.json())
@@ -214,10 +127,11 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
         .catch(() => {})
         .finally(() => setLoadingPlaylists(false));
     }
-  }, [activeTab, playlists.length, loadingPlaylists]);
+  }, [activeTab, playlists.length, loadingPlaylists, connected]);
 
+  // Load browse
   useEffect(() => {
-    if (activeTab === "browse" && featuredPlaylists.length === 0 && recentTracks.length === 0 && !loadingBrowse) {
+    if (activeTab === "browse" && featuredPlaylists.length === 0 && recentTracks.length === 0 && !loadingBrowse && connected) {
       setLoadingBrowse(true);
       fetch("/api/spotify/browse")
         .then((r) => r.json())
@@ -228,41 +142,66 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
         .catch(() => {})
         .finally(() => setLoadingBrowse(false));
     }
-  }, [activeTab, featuredPlaylists.length, recentTracks.length, loadingBrowse]);
+  }, [activeTab, featuredPlaylists.length, recentTracks.length, loadingBrowse, connected]);
+
+  async function control(action: string) {
+    try {
+      await fetch("/api/spotify/controls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      setTimeout(fetchState, 300);
+    } catch {}
+  }
 
   async function playTrack(uri: string, contextUri?: string) {
-    if (!deviceId) { setPlayError("Lecteur non prêt"); return; }
     setPlayError(null);
     try {
       const res = await fetch("/api/spotify/play", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uri, contextUri, deviceId }),
+        body: JSON.stringify({ uri, contextUri }),
       });
       if (!res.ok) {
         const data = await res.json();
         const err = typeof data.error === "string" ? data.error : "";
-        setPlayError(err.includes("PREMIUM_REQUIRED") ? "Spotify Premium requis" : "Erreur de lecture");
+        if (err.includes("NO_DEVICE")) {
+          setPlayError("Ouvrez Spotify sur un appareil d'abord");
+        } else if (err.includes("PREMIUM_REQUIRED")) {
+          setPlayError("Spotify Premium requis");
+        } else {
+          setPlayError("Erreur de lecture");
+        }
+        return;
       }
+      setTimeout(fetchState, 500);
+      setActiveTab("playing");
     } catch {
       setPlayError("Erreur de connexion");
     }
   }
 
   async function playPlaylist(playlist: Playlist) {
-    if (!deviceId) return;
     setPlayError(null);
     try {
       const res = await fetch("/api/spotify/play", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contextUri: playlist.uri, deviceId }),
+        body: JSON.stringify({ contextUri: playlist.uri }),
       });
       if (!res.ok) {
         const data = await res.json();
         const err = typeof data.error === "string" ? data.error : "";
-        setPlayError(err.includes("PREMIUM_REQUIRED") ? "Spotify Premium requis" : "Erreur de lecture");
+        if (err.includes("NO_DEVICE")) {
+          setPlayError("Ouvrez Spotify sur un appareil d'abord");
+        } else {
+          setPlayError("Erreur de lecture");
+        }
+        return;
       }
+      setTimeout(fetchState, 500);
+      setActiveTab("playing");
     } catch {
       setPlayError("Erreur de connexion");
     }
@@ -298,15 +237,6 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
     }, 400);
   }
 
-  function toggleMute() {
-    if (muted) { player?.setVolume(volume); setMuted(false); }
-    else { player?.setVolume(0); setMuted(true); }
-  }
-
-  function handleVolume(v: number) {
-    setVolume(v); setMuted(false); player?.setVolume(v);
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -320,13 +250,7 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
       <div className={cn("flex flex-col items-center justify-center h-full gap-3 p-4", dark ? "text-slate-400" : "text-slate-500")}>
         <Music className="h-8 w-8 opacity-30" />
         <p className="text-xs text-center">Connectez Spotify dans les paramètres</p>
-        <a
-          href="/api/spotify/auth"
-          className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-colors",
-            dark ? "bg-green-600 hover:bg-green-500 text-white" : "bg-green-500 hover:bg-green-600 text-white",
-          )}
-        >
+        <a href="/api/spotify/auth" className={cn("flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-colors", dark ? "bg-green-600 hover:bg-green-500 text-white" : "bg-green-500 hover:bg-green-600 text-white")}>
           <LogIn className="h-3.5 w-3.5" />
           Connecter Spotify
         </a>
@@ -345,12 +269,9 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Mini player (always visible when playing) */}
+      {/* Mini player */}
       {state && activeTab !== "playing" && (
-        <div
-          className={cn("relative flex items-center gap-2.5 p-2 cursor-pointer shrink-0", dark ? "bg-slate-800/60" : "bg-slate-50")}
-          onClick={() => setActiveTab("playing")}
-        >
+        <div className={cn("relative flex items-center gap-2.5 p-2 cursor-pointer shrink-0", dark ? "bg-slate-800/60" : "bg-slate-50")} onClick={() => setActiveTab("playing")}>
           {state.albumImage ? (
             <img src={state.albumImage} alt="" className="h-9 w-9 rounded-md object-cover shrink-0 shadow" />
           ) : (
@@ -363,13 +284,13 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
             <p className={cn("text-[9px] truncate", dark ? "text-slate-400" : "text-slate-500")}>{state.artistName}</p>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
-            <button onClick={(e) => { e.stopPropagation(); player?.previousTrack(); }} className={cn("p-1 rounded-full", dark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-200 text-slate-500")}>
+            <button onClick={(e) => { e.stopPropagation(); control("previous"); }} className={cn("p-1 rounded-full", dark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-200 text-slate-500")}>
               <SkipBack className="h-3 w-3" />
             </button>
-            <button onClick={(e) => { e.stopPropagation(); player?.togglePlay(); }} className={cn("p-1.5 rounded-full", dark ? "bg-green-600 text-white" : "bg-green-500 text-white")}>
+            <button onClick={(e) => { e.stopPropagation(); control(state.paused ? "resume" : "pause"); }} className={cn("p-1.5 rounded-full", dark ? "bg-green-600 text-white" : "bg-green-500 text-white")}>
               {state.paused ? <Play className="h-3 w-3 ml-0.5" /> : <Pause className="h-3 w-3" />}
             </button>
-            <button onClick={(e) => { e.stopPropagation(); player?.nextTrack(); }} className={cn("p-1 rounded-full", dark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-200 text-slate-500")}>
+            <button onClick={(e) => { e.stopPropagation(); control("next"); }} className={cn("p-1 rounded-full", dark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-200 text-slate-500")}>
               <SkipForward className="h-3 w-3" />
             </button>
           </div>
@@ -399,8 +320,9 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
       </div>
 
       {playError && (
-        <div className="px-3 py-1.5 bg-red-500/10 border-b border-red-500/20 shrink-0">
-          <p className="text-[10px] text-red-500 text-center">{playError}</p>
+        <div className="px-3 py-1.5 bg-red-500/10 border-b border-red-500/20 shrink-0 flex items-center justify-between">
+          <p className="text-[10px] text-red-500">{playError}</p>
+          <button onClick={() => setPlayError(null)}><X className="h-3 w-3 text-red-400" /></button>
         </div>
       )}
 
@@ -430,28 +352,28 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <button onClick={() => player?.previousTrack()} className={cn("p-2 rounded-full", dark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600")}>
+                <button onClick={() => control("previous")} className={cn("p-2 rounded-full", dark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600")}>
                   <SkipBack className="h-5 w-5" />
                 </button>
-                <button onClick={() => player?.togglePlay()} className={cn("p-3.5 rounded-full", dark ? "bg-green-600 hover:bg-green-500 text-white" : "bg-green-500 hover:bg-green-600 text-white")}>
+                <button onClick={() => control(state.paused ? "resume" : "pause")} className={cn("p-3.5 rounded-full", dark ? "bg-green-600 hover:bg-green-500 text-white" : "bg-green-500 hover:bg-green-600 text-white")}>
                   {state.paused ? <Play className="h-6 w-6 ml-0.5" /> : <Pause className="h-6 w-6" />}
                 </button>
-                <button onClick={() => player?.nextTrack()} className={cn("p-2 rounded-full", dark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600")}>
+                <button onClick={() => control("next")} className={cn("p-2 rounded-full", dark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600")}>
                   <SkipForward className="h-5 w-5" />
                 </button>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={toggleMute} className={cn("p-1", dark ? "text-slate-500" : "text-slate-400")}>
-                  {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-                </button>
-                <input type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume} onChange={(e) => handleVolume(parseFloat(e.target.value))} className="w-24 h-1 accent-green-500" />
-              </div>
+              {state.deviceName && (
+                <div className={cn("flex items-center gap-1.5 text-[10px]", dark ? "text-slate-500" : "text-slate-400")}>
+                  <Smartphone className="h-3 w-3" />
+                  {state.deviceName}
+                </div>
+              )}
             </div>
           ) : (
             <div className={cn("flex flex-col items-center justify-center h-full gap-2 p-4", dark ? "text-slate-500" : "text-slate-400")}>
               <Music className="h-8 w-8 opacity-30" />
               <p className="text-xs">Aucune lecture en cours</p>
-              <p className="text-[10px] opacity-60">Cherchez ou lancez une playlist</p>
+              <p className="text-[10px] opacity-60">Ouvrez Spotify sur un appareil puis lancez une musique ici</p>
             </div>
           )
         )}
@@ -460,7 +382,7 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
           <div className="flex flex-col h-full">
             <div className="p-2 shrink-0">
               <div className={cn("flex items-center gap-2 rounded-lg px-3 py-2", dark ? "bg-slate-700" : "bg-slate-100")}>
-                <Search className={cn("h-3.5 w-3.5 shrink-0", dark ? "text-slate-400" : "text-slate-400")} />
+                <Search className={cn("h-3.5 w-3.5 shrink-0 text-slate-400")} />
                 <input
                   type="text" value={query} onChange={(e) => handleSearch(e.target.value)}
                   placeholder="Titre, artiste, playlist..."
@@ -468,11 +390,7 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
                   className={cn("flex-1 bg-transparent text-sm outline-none", dark ? "text-white placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400")}
                 />
                 {searching && <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" />}
-                {query && (
-                  <button onClick={() => { setQuery(""); setSearchResults([]); }}>
-                    <X className={cn("h-3.5 w-3.5", dark ? "text-slate-500" : "text-slate-400")} />
-                  </button>
-                )}
+                {query && <button onClick={() => { setQuery(""); setSearchResults([]); }}><X className={cn("h-3.5 w-3.5", dark ? "text-slate-500" : "text-slate-400")} /></button>}
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -506,10 +424,10 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className={cn("text-sm font-medium truncate", dark ? "text-white" : "text-slate-800")}>{selectedPlaylist.name}</p>
-                  <p className={cn("text-[10px]", dark ? "text-slate-400" : "text-slate-500")}>{selectedPlaylist.trackCount} titres</p>
+                  <p className={cn("text-[10px]", dark ? "text-slate-400" : "text-slate-500")}>{selectedPlaylist.trackCount || playlistTracks.length} titres</p>
                 </div>
                 <button onClick={() => playPlaylist(selectedPlaylist)} className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 shrink-0">
-                  <Shuffle className="h-4 w-4" />
+                  <Play className="h-4 w-4 ml-0.5" />
                 </button>
               </div>
               {loadingPlaylistTracks ? (
@@ -594,7 +512,7 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
               {recentTracks.length === 0 && featuredPlaylists.length === 0 && (
                 <div className={cn("flex flex-col items-center justify-center py-8 gap-2", dark ? "text-slate-500" : "text-slate-400")}>
                   <Compass className="h-6 w-6 opacity-30" />
-                  <p className="text-xs">Commencez à écouter pour voir vos suggestions</p>
+                  <p className="text-xs">Aucune donnée pour le moment</p>
                 </div>
               )}
             </>

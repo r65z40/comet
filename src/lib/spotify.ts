@@ -66,6 +66,9 @@ export function getAuthUrl(clientId: string, redirectUri: string, returnOrigin?:
     "user-read-playback-state",
     "user-modify-playback-state",
     "user-read-currently-playing",
+    "user-read-recently-played",
+    "playlist-read-private",
+    "playlist-read-collaborative",
   ].join(" ");
 
   const state = Buffer.from(JSON.stringify({ origin: returnOrigin || "" })).toString("base64url");
@@ -219,5 +222,18 @@ export async function getFeaturedPlaylists(limit = 20) {
 export async function getRecentlyPlayed(limit = 20) {
   const res = await spotifyFetch(`/me/player/recently-played?limit=${limit}`);
   if (!res.ok) throw new Error("Failed to fetch recently played");
+  return res.json();
+}
+
+export async function getDevices() {
+  const res = await spotifyFetch("/me/player/devices");
+  if (!res.ok) throw new Error("Failed to fetch devices");
+  return res.json();
+}
+
+export async function getCurrentPlayback() {
+  const res = await spotifyFetch("/me/player");
+  if (res.status === 204) return null;
+  if (!res.ok) throw new Error("Failed to fetch playback");
   return res.json();
 }
