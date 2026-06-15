@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Mail, VolumeX, Save, Check } from "lucide-react";
+import { Bell, Mail, VolumeX, Save, Check, ShieldAlert, HardDrive } from "lucide-react";
 
 interface Preferences {
   cardAssigned: boolean;
@@ -11,10 +11,14 @@ interface Preferences {
   cardDueDate: boolean;
   ticketNew: boolean;
   ticketReply: boolean;
+  backupError: boolean;
+  securityAlert: boolean;
   emailCardAssigned: boolean;
   emailCardComment: boolean;
   emailTicketNew: boolean;
   emailTicketReply: boolean;
+  emailBackupError: boolean;
+  emailSecurityAlert: boolean;
   muteAll: boolean;
   emailEnabled: boolean;
 }
@@ -27,10 +31,14 @@ const defaultPrefs: Preferences = {
   cardDueDate: true,
   ticketNew: true,
   ticketReply: true,
+  backupError: true,
+  securityAlert: true,
   emailCardAssigned: false,
   emailCardComment: false,
   emailTicketNew: true,
   emailTicketReply: true,
+  emailBackupError: true,
+  emailSecurityAlert: true,
   muteAll: false,
   emailEnabled: true,
 };
@@ -189,6 +197,24 @@ export default function NotificationsPage() {
               </div>
             ))}
           </div>
+
+          <div className="space-y-1 pt-2 border-t border-slate-100">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+              <HardDrive className="h-3.5 w-3.5" /> Sauvegardes & Sécurité
+            </p>
+            {[
+              { key: "backupError" as const, label: "Erreur de sauvegarde", desc: "Quand une sauvegarde échoue ou un compte Oxibox est en erreur" },
+              { key: "securityAlert" as const, label: "Alerte de sécurité", desc: "Quand Emsisoft détecte une menace" },
+            ].map((item) => (
+              <div key={item.key} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-50">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">{item.label}</p>
+                  <p className="text-xs text-slate-400">{item.desc}</p>
+                </div>
+                <Toggle checked={prefs[item.key]} onChange={(v) => update(item.key, v)} disabled={inAppDisabled} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -221,6 +247,24 @@ export default function NotificationsPage() {
             {[
               { key: "emailTicketNew" as const, label: "Nouveau ticket", desc: "Recevoir un email quand un client ouvre un ticket" },
               { key: "emailTicketReply" as const, label: "Réponse ticket", desc: "Recevoir un email quand un client répond à un ticket" },
+            ].map((item) => (
+              <div key={item.key} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-50">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">{item.label}</p>
+                  <p className="text-xs text-slate-400">{item.desc}</p>
+                </div>
+                <Toggle checked={prefs[item.key]} onChange={(v) => update(item.key, v)} disabled={emailDisabled} />
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-1 pt-2 border-t border-slate-100">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+              <ShieldAlert className="h-3.5 w-3.5" /> Sauvegardes & Sécurité
+            </p>
+            {[
+              { key: "emailBackupError" as const, label: "Erreur de sauvegarde", desc: "Recevoir un email en cas d'erreur de sauvegarde" },
+              { key: "emailSecurityAlert" as const, label: "Alerte de sécurité", desc: "Recevoir un email en cas de menace détectée" },
             ].map((item) => (
               <div key={item.key} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-50">
                 <div>

@@ -10,6 +10,7 @@ export type NotificationType =
   | "ticket_new"
   | "ticket_reply"
   | "backup_error"
+  | "security_alert"
   | "mention";
 
 // Maps notification type to the preference field name
@@ -22,6 +23,7 @@ const TYPE_TO_PREF: Record<NotificationType, string> = {
   ticket_new: "ticketNew",
   ticket_reply: "ticketReply",
   backup_error: "backupError",
+  security_alert: "securityAlert",
   mention: "cardComment",
 };
 
@@ -30,6 +32,8 @@ const TYPE_TO_EMAIL_PREF: Partial<Record<NotificationType, string>> = {
   card_comment: "emailCardComment",
   ticket_new: "emailTicketNew",
   ticket_reply: "emailTicketReply",
+  backup_error: "emailBackupError",
+  security_alert: "emailSecurityAlert",
 };
 
 export async function getUserPreferences(userId: string) {
@@ -120,6 +124,23 @@ export async function notifyUsers(params: {
 }
 
 /**
+ * Purge read notifications older than the given number of days.
+ */
+export async function purgeOldNotifications(days = 90): Promise<number> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+
+  const result = await prisma.notification.deleteMany({
+    where: {
+      read: true,
+      createdAt: { lt: cutoff },
+    },
+  });
+
+  return result.count;
+}
+
+/**
  * Notify all admin users (for ticket events from portal).
  */
 export async function notifyAdmins(params: {
@@ -129,6 +150,7 @@ export async function notifyAdmins(params: {
   link?: string;
 }) {
   const admins = await prisma.user.findMany({
+    where: { role: "ADMIN" },
     select: { id: true },
   });
 

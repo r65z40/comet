@@ -37,21 +37,25 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Notify card assignee if they didn't write the comment
-  if (card.assigneeId && card.assigneeId !== session.user?.id) {
-    await createNotification({
-      userId: card.assigneeId,
-      type: "card_comment",
-      title: "Nouveau commentaire",
-      message: `${session.user?.name || "Un collaborateur"} a commenté sur "${card.title}"`,
-      link: `/board?card=${cardId}`,
-    });
+  // Notify all assignees (primary + multi-assignees) and creator
+  const notifiedIds = new Set<string>();
+  const allAssigneeIds: string[] = [];
+  if (card.assigneeId) allAssigneeIds.push(card.assigneeId);
+  if (card.assigneeIds) {
+    try {
+      const parsed = JSON.parse(card.assigneeIds) as string[];
+      for (const id of parsed) {
+        if (!allAssigneeIds.includes(id)) allAssigneeIds.push(id);
+      }
+    } catch {}
   }
+  if (card.createdById) allAssigneeIds.push(card.createdById);
 
-  // Also notify card creator if different from commenter and assignee
-  if (card.createdById && card.createdById !== session.user?.id && card.createdById !== card.assigneeId) {
+  for (const uid of allAssigneeIds) {
+    if (uid === session.user?.id || notifiedIds.has(uid)) continue;
+    notifiedIds.add(uid);
     await createNotification({
-      userId: card.createdById,
+      userId: uid,
       type: "card_comment",
       title: "Nouveau commentaire",
       message: `${session.user?.name || "Un collaborateur"} a commenté sur "${card.title}"`,
@@ -67,7 +71,7 @@ export async function POST(req: NextRequest) {
       where: { name: { in: mentions } },
       select: { id: true, name: true },
     });
-    const alreadyNotified = new Set([session.user?.id, card.assigneeId, card.createdById].filter(Boolean));
+    const alreadyNotified = new Set([...notifiedIds, session.user?.id].filter(Boolean));
     for (const u of mentionedUsers) {
       if (!alreadyNotified.has(u.id)) {
         await createNotification({

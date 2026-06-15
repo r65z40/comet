@@ -196,6 +196,9 @@ model Invoice {
   lines           InvoiceLine[]
   installations   Installation[]
 
+  @@index([clientId])
+  @@index([invoiceDate])
+  @@index([invoiceNumber, clientId])
   @@map("invoices")
 }
 
@@ -278,6 +281,8 @@ model SyncLog {
   startedAt   DateTime @default(now())
   completedAt DateTime?
 
+  @@index([type, status])
+  @@index([startedAt])
   @@map("sync_logs")
 }
 
@@ -471,24 +476,28 @@ model Notification {
 }
 
 model NotificationPreference {
-  id                String  @id @default(cuid())
-  userId            String  @unique
+  id                 String  @id @default(cuid())
+  userId             String  @unique
   // In-app notification toggles
-  cardAssigned      Boolean @default(true)
-  cardComment       Boolean @default(true)
-  cardMoved         Boolean @default(true)
-  cardArchived      Boolean @default(true)
-  cardDueDate       Boolean @default(true)
-  ticketNew         Boolean @default(true)
-  ticketReply       Boolean @default(true)
+  cardAssigned       Boolean @default(true)
+  cardComment        Boolean @default(true)
+  cardMoved          Boolean @default(true)
+  cardArchived       Boolean @default(true)
+  cardDueDate        Boolean @default(true)
+  ticketNew          Boolean @default(true)
+  ticketReply        Boolean @default(true)
+  backupError        Boolean @default(true)
+  securityAlert      Boolean @default(true)
   // Email notification toggles
-  emailCardAssigned Boolean @default(false)
-  emailCardComment  Boolean @default(false)
-  emailTicketNew    Boolean @default(true)
-  emailTicketReply  Boolean @default(true)
+  emailCardAssigned  Boolean @default(false)
+  emailCardComment   Boolean @default(false)
+  emailTicketNew     Boolean @default(true)
+  emailTicketReply   Boolean @default(true)
+  emailBackupError   Boolean @default(true)
+  emailSecurityAlert Boolean @default(true)
   // Global toggles
-  muteAll           Boolean @default(false)
-  emailEnabled      Boolean @default(true)
+  muteAll            Boolean @default(false)
+  emailEnabled       Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

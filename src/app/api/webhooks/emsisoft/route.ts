@@ -36,10 +36,10 @@ export async function POST(req: NextRequest) {
   if (isCritical) {
     const detail = [deviceName, workspaceName].filter(Boolean).join(" — ");
     await notifyAdmins({
-      type: "backup_error",
-      title: `⚠ Alerte Emsisoft : ${title}`,
+      type: "security_alert",
+      title: `Alerte Emsisoft : ${title}`,
       message: `${description}${detail ? ` (${detail})` : ""}`,
-      link: "/board",
+      link: "/antivirus",
     });
   }
 

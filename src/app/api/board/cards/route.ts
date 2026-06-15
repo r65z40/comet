@@ -142,14 +142,11 @@ export async function PUT(req: NextRequest) {
 
     const oldIds: string[] = existingCard.assigneeIds ? JSON.parse(existingCard.assigneeIds) : (existingCard.assigneeId ? [existingCard.assigneeId] : []);
     if (JSON.stringify(oldIds.sort()) !== JSON.stringify([...newAssigneeIds].sort())) {
-      const oldNames = await Promise.all(oldIds.map(async (uid) => {
-        const u = await prisma.user.findUnique({ where: { id: uid }, select: { name: true } });
-        return u?.name || uid;
-      }));
-      const newNames = await Promise.all(newAssigneeIds.map(async (uid) => {
-        const u = await prisma.user.findUnique({ where: { id: uid }, select: { name: true } });
-        return u?.name || uid;
-      }));
+      const allIds = [...new Set([...oldIds, ...newAssigneeIds])];
+      const users = await prisma.user.findMany({ where: { id: { in: allIds } }, select: { id: true, name: true } });
+      const nameMap = new Map(users.map((u) => [u.id, u.name]));
+      const oldNames = oldIds.map((uid) => nameMap.get(uid) || uid);
+      const newNames = newAssigneeIds.map((uid) => nameMap.get(uid) || uid);
       changes.push({ field: "assignee", oldValue: oldNames.join(", ") || null, newValue: newNames.join(", ") || null });
     }
   } else if (assigneeId !== undefined && assigneeId !== existingCard.assigneeId) {

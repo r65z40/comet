@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { sendExpiryNotifications } from "@/lib/email";
 import { createBackup, getBackupSettings, rotateBackups, sendBackupFailureNotification } from "@/lib/backup";
+import { purgeOldNotifications } from "@/lib/notifications";
 
 // Paris timezone helpers
 function getParisComponents() {
@@ -146,6 +147,18 @@ export async function executeCronJob(): Promise<{
     backupResult = { done: false, reason: backupMsg };
   }
 
+  // === Purge old read notifications (once per day at 3am) ===
+  if (parisHour === 3 && parisMinute < 15) {
+    try {
+      const purged = await purgeOldNotifications(90);
+      if (purged > 0) {
+        console.log(`[cron-scheduler] Purged ${purged} old notifications`);
+      }
+    } catch (err) {
+      console.error("[cron-scheduler] Notification purge error:", err);
+    }
+  }
+
   return { alerts: alertResult, backup: backupResult };
 }
 
@@ -211,9 +224,8 @@ async function runAutoBackup(
 }
 
 async function runOxiboxJobs(todayStr: string) {
-  const OXIBOX_API = "https://api.oxibox.com";
-  const row = await prisma.setting.findUnique({ where: { key: "oxibox_api_key" } });
-  const token = row?.value;
+  const { getOxiboxToken, getAllOxiboxAccounts, getOxiboxUsage } = await import("@/lib/oxibox");
+  const token = await getOxiboxToken();
   if (!token) return;
 
   // De-duplicate: only run once per day
@@ -222,55 +234,36 @@ async function runOxiboxJobs(todayStr: string) {
   });
   if (recentSnap) return;
 
-  // Fetch all accounts
-  let allAccounts: { organizationId: string; status: string; ongoingBackup: boolean; machines: { id: string }[] }[] = [];
-  let skip = 0;
+  let allAccounts;
   try {
-    while (true) {
-      const res = await fetch(`${OXIBOX_API}/status?limit=200&skip=${skip}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      });
-      if (!res.ok) break;
-      const data = await res.json();
-      if (data.data) {
-        allAccounts = [...allAccounts, ...data.data];
-        if (allAccounts.length >= (data.total || 0)) break;
-        skip += 200;
-      } else if (data.organizationId) {
-        allAccounts = [data];
-        break;
-      } else break;
-    }
+    allAccounts = await getAllOxiboxAccounts(token);
   } catch { return; }
 
   if (allAccounts.length === 0) return;
 
   const today = new Date(todayStr + "T00:00:00.000Z");
 
-  // Save snapshots
   for (const account of allAccounts) {
+    const orgId = account.organizationId || account.id;
     let quota: { allocatedQuota?: number; currentUsage?: number } = {};
     try {
-      const uRes = await fetch(`${OXIBOX_API}/usage/cloud/${encodeURIComponent(account.organizationId)}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      });
-      if (uRes.ok) quota = await uRes.json();
+      quota = await getOxiboxUsage(token, orgId);
     } catch {}
 
     await prisma.oxiboxSnapshot.upsert({
-      where: { organizationId_date: { organizationId: account.organizationId, date: today } },
+      where: { organizationId_date: { organizationId: orgId, date: today } },
       update: {
-        status: account.status,
-        machineCount: account.machines?.length || 0,
+        status: account.status || "UNKNOWN",
+        machineCount: account.machineCount ?? account.machines?.length ?? 0,
         ongoingBackup: account.ongoingBackup || false,
         allocatedQuota: quota.allocatedQuota ? BigInt(quota.allocatedQuota) : null,
         currentUsage: quota.currentUsage ? BigInt(quota.currentUsage) : null,
       },
       create: {
-        organizationId: account.organizationId,
+        organizationId: orgId,
         date: today,
-        status: account.status,
-        machineCount: account.machines?.length || 0,
+        status: account.status || "UNKNOWN",
+        machineCount: account.machineCount ?? account.machines?.length ?? 0,
         ongoingBackup: account.ongoingBackup || false,
         allocatedQuota: quota.allocatedQuota ? BigInt(quota.allocatedQuota) : null,
         currentUsage: quota.currentUsage ? BigInt(quota.currentUsage) : null,
@@ -300,7 +293,7 @@ async function runOxiboxJobs(todayStr: string) {
       const html = `
         <h2 style="color:#dc2626">⚠️ Alerte Sauvegardes Oxibox</h2>
         <p>${errorAccounts.length} compte(s) en erreur :</p>
-        <ul>${errorAccounts.map((a) => `<li><strong>${a.organizationId}</strong> — ${a.machines?.length || 0} machine(s)</li>`).join("")}</ul>
+        <ul>${errorAccounts.map((a) => `<li><strong>${a.organizationId || a.id}</strong> — ${a.machineCount ?? a.machines?.length ?? 0} machine(s)</li>`).join("")}</ul>
         <p style="margin-top:16px;font-size:12px;color:#6b7280">Vérifiez les détails sur la page Sauvegardes de Comet.</p>
       `;
       await sendEmail(emails, "🔴 Alerte Sauvegarde Oxibox — Comptes en erreur", html);
@@ -309,7 +302,7 @@ async function runOxiboxJobs(todayStr: string) {
     await notifyAdmins({
       type: "backup_error",
       title: "Alerte Sauvegarde Oxibox",
-      message: `${errorAccounts.length} compte(s) en erreur : ${errorAccounts.map((a) => a.organizationId).join(", ")}`,
+      message: `${errorAccounts.length} compte(s) en erreur : ${errorAccounts.map((a) => a.organizationId || a.id).join(", ")}`,
       link: "/backups",
     });
   } catch {}

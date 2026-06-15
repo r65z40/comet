@@ -19,8 +19,9 @@ export async function PUT(req: NextRequest) {
 
   const allowedFields = [
     "cardAssigned", "cardComment", "cardMoved", "cardArchived", "cardDueDate",
-    "ticketNew", "ticketReply",
+    "ticketNew", "ticketReply", "backupError", "securityAlert",
     "emailCardAssigned", "emailCardComment", "emailTicketNew", "emailTicketReply",
+    "emailBackupError", "emailSecurityAlert",
     "muteAll", "emailEnabled",
   ];
 

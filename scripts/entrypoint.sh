@@ -3,6 +3,25 @@ set -e
 
 echo "=== Comet startup ==="
 
+# Warn if default secrets are still in use
+if [ "$AUTH_SECRET" = "defaultsecret_changeme_in_production" ]; then
+  echo ""
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "  WARNING: AUTH_SECRET is set to the default value!"
+  echo "  Generate a secure secret: openssl rand -base64 32"
+  echo "  Set it in your .env or docker-compose.yml"
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo ""
+fi
+if [ "$CRON_SECRET" = "comet_cron_secret_2024" ]; then
+  echo ""
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "  WARNING: CRON_SECRET is set to the default value!"
+  echo "  Generate a secure secret: openssl rand -base64 16"
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo ""
+fi
+
 # Strip Prisma-specific query params (?schema=public) that psql doesn't understand
 DB_URL=$(echo "$DATABASE_URL" | cut -d'?' -f1)
 

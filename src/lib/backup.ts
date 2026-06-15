@@ -277,6 +277,13 @@ export async function restoreBackup(filename: string): Promise<void> {
   const dbUrl = getDbUrlForPgDump();
   if (!dbUrl) throw new Error("DATABASE_URL non configurée");
 
+  // Safety: create a backup of current state before restoring
+  try {
+    await createBackup("auto");
+  } catch (err) {
+    console.error("Pre-restore safety backup failed:", err);
+  }
+
   if (filepath.endsWith(".tar.gz")) {
     // New format: tar.gz with database.sql.gz + uploads/
     const tmpDir = path.join(BACKUP_DIR, `_restore_${Date.now()}`);
