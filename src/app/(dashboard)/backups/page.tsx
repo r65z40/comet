@@ -535,7 +535,7 @@ export default function BackupsPage() {
                         </div>
                         <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
-                            className={cn("h-full rounded-full transition-all", usagePercent! > 90 ? "bg-red-500" : usagePercent! > 70 ? "bg-amber-500" : "bg-emerald-500")}
+                            className={cn("h-full rounded-full transition-all", usagePercent! >= 100 ? "bg-red-500" : usagePercent! > 80 ? "bg-orange-500" : usagePercent! > 60 ? "bg-amber-400" : "bg-emerald-500")}
                             style={{ width: `${Math.min(100, usagePercent!)}%` }}
                           />
                         </div>

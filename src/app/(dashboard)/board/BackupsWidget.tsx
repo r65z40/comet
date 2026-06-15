@@ -171,7 +171,7 @@ export default function BackupsWidget({ dark }: { dark?: boolean }) {
                 <div className="flex items-center gap-1.5 shrink-0">
                   <div className={cn("w-12 h-1.5 rounded-full overflow-hidden", dark ? "bg-slate-700" : "bg-slate-100")}>
                     <div
-                      className={cn("h-full rounded-full", pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500")}
+                      className={cn("h-full rounded-full", pct >= 100 ? "bg-red-500" : pct > 80 ? "bg-orange-500" : pct > 60 ? "bg-amber-400" : "bg-emerald-500")}
                       style={{ width: `${Math.min(100, pct)}%` }}
                     />
                   </div>
