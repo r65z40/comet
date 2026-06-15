@@ -130,13 +130,13 @@ async function updateProgress(logId: string, message: string, itemCount: number)
   });
 }
 
-// Mark stale "running" logs (older than 30 minutes) as error
+// Mark stale "running" logs (older than 5 minutes) as error
 export async function cleanupStaleLogs() {
-  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
   await prisma.syncLog.updateMany({
     where: {
       status: "running",
-      startedAt: { lt: thirtyMinutesAgo },
+      startedAt: { lt: fiveMinutesAgo },
     },
     data: {
       status: "error",
@@ -155,18 +155,20 @@ export async function syncProducts() {
     let page = 1;
     let totalSynced = 0;
     let hasMore = true;
-    const PAGE_SIZE = 100;
+    const seenIds = new Set<number>();
 
     while (hasMore) {
       const data = await axonautFetch("/products", page);
       const products = Array.isArray(data) ? data : data.products || [];
 
-      if (products.length === 0) {
-        hasMore = false;
-        break;
-      }
+      if (products.length === 0) break;
 
+      let newOnThisPage = 0;
       for (const p of products) {
+        if (seenIds.has(p.id)) continue;
+        seenIds.add(p.id);
+        newOnThisPage++;
+
         try {
           const cf = p.custom_fields;
           const durationStr = getCustomField(cf, "Durée en mois") || getCustomField(cf, "Duree en mois");
@@ -240,9 +242,7 @@ export async function syncProducts() {
 
       await updateProgress(log.id, `Produits: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
 
-      if (products.length < PAGE_SIZE) {
-        hasMore = false;
-      }
+      if (newOnThisPage === 0) break;
       page++;
     }
 
@@ -279,18 +279,20 @@ export async function syncClients() {
     let page = 1;
     let totalSynced = 0;
     let hasMore = true;
-    const PAGE_SIZE = 100;
+    const seenIds = new Set<number>();
 
     while (hasMore) {
       const data = await axonautFetch("/companies", page);
       const companies = Array.isArray(data) ? data : data.companies || [];
 
-      if (companies.length === 0) {
-        hasMore = false;
-        break;
-      }
+      if (companies.length === 0) break;
 
+      let newOnThisPage = 0;
       for (const c of companies) {
+        if (seenIds.has(c.id)) continue;
+        seenIds.add(c.id);
+        newOnThisPage++;
+
         try {
           let clientType = "client";
           if (c.is_supplier || c.supplier) clientType = "fournisseur";
@@ -347,10 +349,7 @@ export async function syncClients() {
 
       await updateProgress(log.id, `Clients: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
 
-      // Stop if this page had fewer items than the page size (last page)
-      if (companies.length < PAGE_SIZE) {
-        hasMore = false;
-      }
+      if (newOnThisPage === 0) break;
       page++;
     }
 
@@ -387,18 +386,20 @@ export async function syncContacts() {
     let page = 1;
     let totalSynced = 0;
     let hasMore = true;
-    const PAGE_SIZE = 100;
+    const seenIds = new Set<number>();
 
     while (hasMore) {
       const data = await axonautFetch("/employees", page);
       const employees = Array.isArray(data) ? data : data.employees || [];
 
-      if (employees.length === 0) {
-        hasMore = false;
-        break;
-      }
+      if (employees.length === 0) break;
 
+      let newOnThisPage = 0;
       for (const emp of employees) {
+        if (seenIds.has(emp.id)) continue;
+        seenIds.add(emp.id);
+        newOnThisPage++;
+
         try {
           const companyId = emp.company_id || emp.company?.id;
           if (!companyId) continue;
@@ -437,9 +438,7 @@ export async function syncContacts() {
 
       await updateProgress(log.id, `Contacts: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
 
-      if (employees.length < PAGE_SIZE) {
-        hasMore = false;
-      }
+      if (newOnThisPage === 0) break;
       page++;
     }
 
@@ -654,18 +653,19 @@ export async function syncInvoices() {
     let totalInstMerged = 0;
     let errors = 0;
     let hasMore = true;
-    const PAGE_SIZE = 100;
+    const seenIds = new Set<number>();
 
     while (hasMore) {
       const data = await axonautFetch("/invoices", page);
       const invoices = Array.isArray(data) ? data : data.invoices || [];
 
-      if (invoices.length === 0) {
-        hasMore = false;
-        break;
-      }
+      if (invoices.length === 0) break;
 
+      let newOnThisPage = 0;
       for (const inv of invoices) {
+        if (seenIds.has(inv.id)) continue;
+        seenIds.add(inv.id);
+        newOnThisPage++;
         try {
           const companyId = inv.company_id || inv.company?.id;
           const client = companyId
@@ -721,9 +721,7 @@ export async function syncInvoices() {
 
       await updateProgress(log.id, `Factures: ${totalSynced} sync, ${totalInstCreated} inst. créées (page ${page})...`, totalSynced);
 
-      if (invoices.length < PAGE_SIZE) {
-        hasMore = false;
-      }
+      if (newOnThisPage === 0) break;
       page++;
     }
 
