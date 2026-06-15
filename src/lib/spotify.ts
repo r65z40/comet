@@ -60,7 +60,7 @@ export function getRedirectUri(requestUrl: string, headers?: Headers, config?: S
   return `${url.protocol}//${url.host}/api/spotify/callback`;
 }
 
-export function getAuthUrl(clientId: string, redirectUri: string): string {
+export function getAuthUrl(clientId: string, redirectUri: string, returnOrigin?: string): string {
   const scopes = [
     "streaming",
     "user-read-playback-state",
@@ -68,14 +68,26 @@ export function getAuthUrl(clientId: string, redirectUri: string): string {
     "user-read-currently-playing",
   ].join(" ");
 
+  const state = Buffer.from(JSON.stringify({ origin: returnOrigin || "" })).toString("base64url");
+
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
     scope: scopes,
     redirect_uri: redirectUri,
+    state,
   });
 
   return `${SPOTIFY_ACCOUNTS_URL}/authorize?${params}`;
+}
+
+export function parseState(stateParam: string | null): { origin: string } {
+  if (!stateParam) return { origin: "" };
+  try {
+    return JSON.parse(Buffer.from(stateParam, "base64url").toString());
+  } catch {
+    return { origin: "" };
+  }
 }
 
 export async function exchangeCode(code: string, redirectUri: string): Promise<{

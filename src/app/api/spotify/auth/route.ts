@@ -12,7 +12,12 @@ export async function GET(req: NextRequest) {
   }
 
   const redirectUri = getRedirectUri(req.url, req.headers, config);
-  const authUrl = getAuthUrl(config.clientId, redirectUri);
+
+  // Store the user's current origin so the callback can redirect back
+  const url = new URL(req.url);
+  const returnOrigin = `${url.protocol}//${url.host}`;
+
+  const authUrl = getAuthUrl(config.clientId, redirectUri, returnOrigin);
 
   return NextResponse.redirect(authUrl);
 }

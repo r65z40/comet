@@ -20,9 +20,10 @@ export default auth(async (req) => {
   const isBranding = pathname === "/api/branding";
   const isCron = pathname === "/api/cron";
   const isHealth = pathname === "/api/health";
+  const isSpotifyCallback = pathname === "/api/spotify/callback";
 
   // Allow public endpoints
-  if (isApiAuth || isBranding || isCron || isHealth) {
+  if (isApiAuth || isBranding || isCron || isHealth || isSpotifyCallback) {
     return addSecurityHeaders(NextResponse.next());
   }
 

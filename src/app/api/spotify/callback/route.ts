@@ -1,28 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { exchangeCode, getRedirectUri, getSpotifyConfig } from "@/lib/spotify";
+import { exchangeCode, getRedirectUri, getSpotifyConfig, parseState } from "@/lib/spotify";
 
-function getSettingsUrl(req: NextRequest, config: { redirectUri: string }): URL {
-  if (config.redirectUri) {
-    const origin = new URL(config.redirectUri).origin;
-    return new URL("/settings", origin);
+function getSettingsUrl(returnOrigin: string, fallbackUrl: string): URL {
+  if (returnOrigin) {
+    return new URL("/settings", returnOrigin);
   }
-  const forwardedHost = req.headers.get("x-forwarded-host");
-  const forwardedProto = req.headers.get("x-forwarded-proto");
-  if (forwardedHost) {
-    return new URL("/settings", `${forwardedProto || "https"}://${forwardedHost}`);
-  }
-  return new URL("/settings", req.url);
+  return new URL("/settings", fallbackUrl);
 }
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
+  const stateParam = req.nextUrl.searchParams.get("state");
 
+  const { origin: returnOrigin } = parseState(stateParam);
   const config = await getSpotifyConfig();
 
   if (error || !code) {
-    const base = getSettingsUrl(req, config);
+    const base = getSettingsUrl(returnOrigin, req.url);
     base.searchParams.set("spotify_error", error || "no_code");
     return NextResponse.redirect(base);
   }
@@ -50,11 +46,11 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const base = getSettingsUrl(req, config);
+    const base = getSettingsUrl(returnOrigin, req.url);
     base.searchParams.set("spotify_connected", "true");
     return NextResponse.redirect(base);
   } catch (err) {
-    const base = getSettingsUrl(req, config);
+    const base = getSettingsUrl(returnOrigin, req.url);
     base.searchParams.set("spotify_error", err instanceof Error ? err.message : "unknown");
     return NextResponse.redirect(base);
   }
