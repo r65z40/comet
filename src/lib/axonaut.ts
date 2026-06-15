@@ -514,7 +514,7 @@ async function upsertInvoiceLines(
     const description = (line.description || line.name || line.product_name || null) as string | null;
     const quantity = toFloat(line.quantity) ?? 1;
     let unitPrice = toFloat(line.unit_price ?? line.price ?? line.unitPrice ?? line.product_sale_price ?? line.sale_price);
-    let totalPrice = toFloat(line.total_price ?? line.total ?? line.totalPrice ?? line.amount ?? line.pre_tax_amount);
+    let totalPrice = toFloat(line.total_pre_tax_amount ?? line.total_price ?? line.total ?? line.totalPrice ?? line.total_amount ?? line.amount ?? line.pre_tax_amount);
 
     if (unitPrice != null && totalPrice == null && quantity > 0) {
       totalPrice = unitPrice * quantity;
@@ -687,7 +687,7 @@ export async function syncInvoices() {
               invoiceNumber: inv.number || inv.invoice_number || null,
               clientId: client.id,
               invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
-              totalAmount: toFloat(inv.total_amount ?? inv.total),
+              totalAmount: toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount),
               status: inv.status || null,
               importSource: "axonaut",
               importDetails: axonautImportDetails(),
@@ -696,7 +696,7 @@ export async function syncInvoices() {
               invoiceNumber: inv.number || inv.invoice_number || null,
               clientId: client.id,
               invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
-              totalAmount: toFloat(inv.total_amount ?? inv.total),
+              totalAmount: toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount),
               status: inv.status || null,
             },
           });
@@ -1018,7 +1018,7 @@ export async function refreshInvoice(axonautId: number) {
       invoiceNumber: inv.number || inv.invoice_number || null,
       clientId: client.id,
       invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
-      totalAmount: toFloat(inv.total_amount ?? inv.total),
+      totalAmount: toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount),
       status: inv.status || null,
       importSource: "axonaut",
       importDetails: axonautImportDetails(),
@@ -1027,7 +1027,7 @@ export async function refreshInvoice(axonautId: number) {
       invoiceNumber: inv.number || inv.invoice_number || null,
       clientId: client.id,
       invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
-      totalAmount: toFloat(inv.total_amount ?? inv.total),
+      totalAmount: toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount),
       status: inv.status || null,
     },
   });
