@@ -203,25 +203,37 @@ export async function searchTracks(query: string, limit = 10) {
 
 export async function getUserPlaylists(limit = 50) {
   const res = await spotifyFetch(`/me/playlists?limit=${limit}`);
-  if (!res.ok) throw new Error("Failed to fetch playlists");
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Playlists error (${res.status}): ${text}`);
+  }
   return res.json();
 }
 
 export async function getPlaylistTracks(playlistId: string, limit = 50) {
   const res = await spotifyFetch(`/playlists/${playlistId}/tracks?limit=${limit}`);
-  if (!res.ok) throw new Error("Failed to fetch playlist tracks");
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Playlist tracks error (${res.status}): ${text}`);
+  }
   return res.json();
 }
 
 export async function getFeaturedPlaylists(limit = 20) {
   const res = await spotifyFetch(`/browse/featured-playlists?limit=${limit}`);
-  if (!res.ok) throw new Error("Failed to fetch featured playlists");
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Featured playlists error (${res.status}): ${text}`);
+  }
   return res.json();
 }
 
 export async function getRecentlyPlayed(limit = 20) {
   const res = await spotifyFetch(`/me/player/recently-played?limit=${limit}`);
-  if (!res.ok) throw new Error("Failed to fetch recently played");
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Recently played error (${res.status}): ${text}`);
+  }
   return res.json();
 }
 
