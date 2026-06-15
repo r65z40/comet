@@ -1,5 +1,4 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
-import { Upload } from "@aws-sdk/lib-storage";
 import { Client as FtpClient } from "basic-ftp";
 import fs from "fs/promises";
 import { createReadStream, createWriteStream, statSync } from "fs";
@@ -96,19 +95,13 @@ async function s3Upload(config: CloudConfig, filepath: string, filename: string)
   const stream = createReadStream(filepath);
   const fileSize = statSync(filepath).size;
 
-  const upload = new Upload({
-    client,
-    params: {
-      Bucket: config.s3Bucket,
-      Key: s3Key(config, filename),
-      Body: stream,
-      ContentType: "application/gzip",
-      ContentLength: fileSize,
-    },
-    partSize: 10 * 1024 * 1024,
-  });
-
-  await upload.done();
+  await client.send(new PutObjectCommand({
+    Bucket: config.s3Bucket,
+    Key: s3Key(config, filename),
+    Body: stream,
+    ContentType: "application/gzip",
+    ContentLength: fileSize,
+  }));
 }
 
 async function s3Download(config: CloudConfig, filename: string, destPath: string): Promise<void> {
