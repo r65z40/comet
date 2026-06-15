@@ -325,15 +325,23 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
     }
   }
 
+  const [playlistError, setPlaylistError] = useState<string | null>(null);
+
   async function openPlaylist(playlist: Playlist) {
     setSelectedPlaylist(playlist);
+    setPlaylistTracks([]);
+    setPlaylistError(null);
     setLoadingPlaylistTracks(true);
     try {
       const res = await fetch(`/api/spotify/playlists?id=${playlist.id}`);
       const data = await res.json();
-      setPlaylistTracks(data.tracks || []);
+      if (data.error) {
+        setPlaylistError(data.error);
+      } else {
+        setPlaylistTracks(data.tracks || []);
+      }
     } catch {
-      setPlaylistTracks([]);
+      setPlaylistError("Impossible de charger les titres");
     }
     setLoadingPlaylistTracks(false);
   }
@@ -570,6 +578,13 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
               </div>
               {loadingPlaylistTracks ? (
                 <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-green-500" /></div>
+              ) : playlistError ? (
+                <div className={cn("text-xs text-center py-6 px-4", dark ? "text-red-400" : "text-red-500")}>
+                  {playlistError}
+                  <p className={cn("text-[10px] mt-1", dark ? "text-slate-500" : "text-slate-400")}>Reconnectez Spotify dans les paramètres pour mettre à jour les permissions</p>
+                </div>
+              ) : playlistTracks.length === 0 ? (
+                <p className={cn("text-xs text-center py-6", dark ? "text-slate-500" : "text-slate-400")}>Playlist vide</p>
               ) : (
                 playlistTracks.map((track, i) => (
                   <TrackRow key={`${track.id}-${i}`} track={track} dark={dark} onPlay={() => playTrack(track.uri, selectedPlaylist.uri)} />
