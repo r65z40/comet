@@ -513,8 +513,14 @@ async function upsertInvoiceLines(
     const product = await resolveProduct(line);
     const description = (line.description || line.name || line.product_name || null) as string | null;
     const quantity = toFloat(line.quantity) ?? 1;
-    const unitPrice = toFloat(line.unit_price ?? line.price ?? line.unitPrice);
-    const totalPrice = toFloat(line.total_price ?? line.total ?? line.totalPrice);
+    let unitPrice = toFloat(line.unit_price ?? line.price ?? line.unitPrice ?? line.product_sale_price ?? line.sale_price);
+    let totalPrice = toFloat(line.total_price ?? line.total ?? line.totalPrice ?? line.amount ?? line.pre_tax_amount);
+
+    if (unitPrice != null && totalPrice == null && quantity > 0) {
+      totalPrice = unitPrice * quantity;
+    } else if (totalPrice != null && unitPrice == null && quantity > 0) {
+      unitPrice = totalPrice / quantity;
+    }
 
     // Match existing line by position (index) — stable across re-syncs
     const match = existingLines[i] && !usedExistingIds.has(existingLines[i].id) ? existingLines[i] : null;

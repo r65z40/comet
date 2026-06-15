@@ -109,8 +109,14 @@ export async function GET() {
             company_id: sampleInvoice.company_id,
             company: sampleInvoice.company,
             date: sampleInvoice.date,
+            total_amount: sampleInvoice.total_amount,
+            total: sampleInvoice.total,
             linesCount: (sampleInvoice.lines || sampleInvoice.invoice_lines || sampleInvoice.products || []).length,
-            firstLine: (sampleInvoice.lines || sampleInvoice.invoice_lines || sampleInvoice.products || [])[0] || null,
+            firstLineRaw: (sampleInvoice.lines || sampleInvoice.invoice_lines || sampleInvoice.products || [])[0] || null,
+            firstLineKeys: (() => {
+              const fl = (sampleInvoice.lines || sampleInvoice.invoice_lines || sampleInvoice.products || [])[0];
+              return fl ? Object.keys(fl) : [];
+            })(),
           } : null,
         };
       }
