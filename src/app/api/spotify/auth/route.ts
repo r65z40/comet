@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Spotify non configuré. Ajoutez Client ID et Secret dans les paramètres." }, { status: 400 });
   }
 
-  const redirectUri = getRedirectUri(req.url);
+  const redirectUri = getRedirectUri(req.url, req.headers);
   const authUrl = getAuthUrl(config.clientId, redirectUri);
 
   return NextResponse.redirect(authUrl);

@@ -37,7 +37,15 @@ export async function getSpotifyConfig(): Promise<SpotifyConfig> {
   };
 }
 
-export function getRedirectUri(requestUrl: string): string {
+export function getRedirectUri(requestUrl: string, headers?: Headers): string {
+  const forwardedHost = headers?.get("x-forwarded-host");
+  const forwardedProto = headers?.get("x-forwarded-proto");
+
+  if (forwardedHost) {
+    const proto = forwardedProto || "https";
+    return `${proto}://${forwardedHost}/api/spotify/callback`;
+  }
+
   const url = new URL(requestUrl);
   return `${url.protocol}//${url.host}/api/spotify/callback`;
 }
