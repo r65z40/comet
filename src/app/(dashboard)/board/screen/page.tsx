@@ -40,6 +40,7 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
+  Music,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
@@ -51,6 +52,7 @@ import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
 import EmisoftWidget from "../EmisoftWidget";
 import EmisoftAlertsWidget from "../EmisoftAlertsWidget";
+import SpotifyWidget from "../SpotifyWidget";
 
 interface CardTag {
   id: string;
@@ -140,6 +142,7 @@ interface ScreenVisibility {
   showActivityFeed: boolean;
   showEmsisoft: boolean;
   showEmsisoftAlerts: boolean;
+  showSpotify: boolean;
 }
 
 const DEFAULT_VISIBILITY: ScreenVisibility = {
@@ -151,6 +154,7 @@ const DEFAULT_VISIBILITY: ScreenVisibility = {
   showActivityFeed: true,
   showEmsisoft: true,
   showEmsisoftAlerts: true,
+  showSpotify: true,
 };
 
 const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
@@ -162,7 +166,8 @@ const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "activity_feed", x: 0, y: 12, w: 4, h: 4, minW: 2, minH: 2 },
   { i: "emsisoft", x: 4, y: 12, w: 4, h: 4, minW: 2, minH: 2 },
   { i: "emsisoft_alerts", x: 8, y: 12, w: 4, h: 4, minW: 2, minH: 3 },
-  { i: "calendar", x: 0, y: 16, w: 12, h: 3, minW: 3, minH: 2 },
+  { i: "spotify", x: 0, y: 16, w: 3, h: 4, minW: 2, minH: 3 },
+  { i: "calendar", x: 3, y: 16, w: 9, h: 3, minW: 3, minH: 2 },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -483,6 +488,14 @@ export default function BoardScreenPage() {
           content: <EmisoftAlertsWidget dark />,
         }]
       : []),
+    ...(visibility.showSpotify
+      ? [{
+          id: "spotify",
+          title: "Spotify",
+          icon: <Music className="h-3 w-3 text-green-400" />,
+          content: <SpotifyWidget dark />,
+        }]
+      : []),
     ...(visibility.showCalendar
       ? [{
           id: "calendar",
@@ -583,6 +596,7 @@ export default function BoardScreenPage() {
             { key: "showActivityFeed" as const, label: "Fil d'activité" },
             { key: "showEmsisoft" as const, label: "Sécurité Emsisoft" },
             { key: "showEmsisoftAlerts" as const, label: "Alertes Emsisoft (live)" },
+            { key: "showSpotify" as const, label: "Spotify" },
             { key: "showCalendar" as const, label: "Calendrier" },
           ].map(({ key, label }) => (
             <div key={key} className="flex items-center justify-between py-3 border-b border-slate-700/50 last:border-b-0">
