@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough, ChevronDown, HardDrive, Settings2, Shield } from "lucide-react";
+import { Save, Loader2, Key, Globe, Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Mail, Bell, Send, Plug, FileText, Upload, ImageIcon, Palette, CalendarClock, AlertTriangle, Merge, Search, Megaphone, Bold, Italic, Underline, List, ListOrdered, Link, Type, Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, Strikethrough, ChevronDown, HardDrive, Settings2, Shield, Music, LogIn, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface User {
@@ -212,6 +212,14 @@ export default function SettingsPage() {
   const [savedEmsisoft, setSavedEmsisoft] = useState(false);
   const [testingEmsisoft, setTestingEmsisoft] = useState(false);
   const [emsisoftTestResult, setEmsisoftTestResult] = useState<{ success: boolean; error?: string; workspaces?: number } | null>(null);
+
+  // Spotify settings
+  const [spotifyClientId, setSpotifyClientId] = useState("");
+  const [spotifyClientSecret, setSpotifyClientSecret] = useState("");
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
+  const [savingSpotify, setSavingSpotify] = useState(false);
+  const [savedSpotify, setSavedSpotify] = useState(false);
+  const [disconnectingSpotify, setDisconnectingSpotify] = useState(false);
 
   // Collapsible sections
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -431,6 +439,9 @@ export default function SettingsPage() {
         setEmsisoftApiKey(data.emsisoft_api_key || "");
         setEmsisoftApiUrl(data.emsisoft_api_url || "https://api.emsisoft.com/v1");
         setEmsisoftEnabled(data.emsisoft_enabled === "true");
+        setSpotifyClientId(data.spotify_client_id || "");
+        setSpotifyClientSecret(data.spotify_client_secret || "");
+        setSpotifyConnected(!!(data.spotify_access_token || data.spotify_refresh_token));
       })
       .finally(() => setLoading(false));
 
@@ -1520,6 +1531,151 @@ export default function SettingsPage() {
               {emsisoftTestResult.success ? `Connexion Emsisoft réussie ! ${emsisoftTestResult.workspaces} workspace(s) trouvé(s).` : `Erreur : ${emsisoftTestResult.error}`}
             </div>
           )}
+        </div>}
+      </div>}
+
+      {/* Spotify Integration */}
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("spotify")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-green-50 p-2">
+              <Music className="h-4 w-4 text-green-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Spotify</h3>
+              <p className="text-xs text-slate-400">Lecteur de musique intégré au Board Screen</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {spotifyConnected && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">Connecté</span>}
+            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.spotify ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+        {openSections.spotify && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-xs text-green-800">
+              Pour utiliser Spotify, créez une application sur{" "}
+              <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline font-medium">developer.spotify.com</a>
+              {" "}et ajoutez l&apos;URL de callback :{" "}
+              <code className="text-[11px] bg-green-100 px-1 py-0.5 rounded">{typeof window !== "undefined" ? `${window.location.origin}/api/spotify/callback` : "/api/spotify/callback"}</code>
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Client ID</label>
+            <input
+              type="text"
+              value={spotifyClientId}
+              onChange={(e) => setSpotifyClientId(e.target.value)}
+              placeholder="Votre Client ID Spotify"
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Client Secret</label>
+            <input
+              type="password"
+              value={spotifyClientSecret}
+              onChange={(e) => setSpotifyClientSecret(e.target.value)}
+              placeholder="Votre Client Secret Spotify"
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={async () => {
+                setSavingSpotify(true);
+                setSavedSpotify(false);
+                try {
+                  await fetch("/api/settings", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      spotify_client_id: spotifyClientId,
+                      spotify_client_secret: spotifyClientSecret,
+                    }),
+                  });
+                  setSavedSpotify(true);
+                  setTimeout(() => setSavedSpotify(false), 3000);
+                } finally {
+                  setSavingSpotify(false);
+                }
+              }}
+              disabled={savingSpotify}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              {savingSpotify ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Enregistrer
+            </button>
+            {savedSpotify && <span className="text-xs text-emerald-600">Enregistré</span>}
+          </div>
+
+          <div className="border-t border-slate-100 pt-4">
+            <p className="text-sm font-medium text-slate-700 mb-3">Compte Spotify</p>
+            {spotifyConnected ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-200">
+                  <div className="h-2 w-2 rounded-full bg-green-500" />
+                  <span className="text-sm text-green-700 font-medium">Spotify connecté</span>
+                </div>
+                <button
+                  onClick={async () => {
+                    setDisconnectingSpotify(true);
+                    try {
+                      await fetch("/api/spotify/disconnect", { method: "POST" });
+                      setSpotifyConnected(false);
+                    } finally {
+                      setDisconnectingSpotify(false);
+                    }
+                  }}
+                  disabled={disconnectingSpotify}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+                >
+                  {disconnectingSpotify ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                  Déconnecter
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
+                  <div className="h-2 w-2 rounded-full bg-slate-400" />
+                  <span className="text-sm text-slate-500">Non connecté</span>
+                </div>
+                <a
+                  href="/api/spotify/auth"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    setSavingSpotify(true);
+                    await fetch("/api/settings", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        spotify_client_id: spotifyClientId,
+                        spotify_client_secret: spotifyClientSecret,
+                      }),
+                    });
+                    setSavingSpotify(false);
+                    window.location.href = "/api/spotify/auth";
+                  }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                    spotifyClientId && spotifyClientSecret
+                      ? "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-slate-200 text-slate-400 pointer-events-none"
+                  )}
+                >
+                  <LogIn className="h-4 w-4" />
+                  Connecter Spotify
+                </a>
+                {(!spotifyClientId || !spotifyClientSecret) && (
+                  <span className="text-xs text-slate-400">Renseignez le Client ID et Secret d&apos;abord</span>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-slate-400 mt-2">Un compte Spotify Premium est requis pour la lecture de musique.</p>
+          </div>
         </div>}
       </div>}
       </>)}
