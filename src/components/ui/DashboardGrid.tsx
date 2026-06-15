@@ -130,7 +130,7 @@ export default function DashboardGrid({
             >
               <div
                 className={cn(
-                  "widget-drag-handle flex items-center gap-2 px-3 py-1 cursor-grab active:cursor-grabbing shrink-0 select-none border-b",
+                  "widget-drag-handle flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing shrink-0 select-none border-b",
                   dark
                     ? "bg-slate-700/50 border-slate-600"
                     : "bg-slate-50/80 border-slate-100",
@@ -138,14 +138,14 @@ export default function DashboardGrid({
               >
                 <GripHorizontal
                   className={cn(
-                    "h-3 w-3 shrink-0",
+                    "h-4 w-4 shrink-0",
                     dark ? "text-slate-500" : "text-slate-300",
                   )}
                 />
                 {widget.icon}
                 <span
                   className={cn(
-                    "text-[11px] font-medium truncate",
+                    "text-xs font-medium truncate",
                     dark ? "text-slate-400" : "text-slate-500",
                   )}
                 >
@@ -167,14 +167,14 @@ export default function DashboardGrid({
       <button
         onClick={reset}
         className={cn(
-          "absolute bottom-2 right-2 p-1.5 rounded-lg z-50 opacity-30 hover:opacity-100 transition-opacity",
+          "absolute bottom-2 right-2 p-2.5 rounded-xl z-50 opacity-30 hover:opacity-100 transition-opacity",
           dark
             ? "bg-slate-700 text-slate-400"
             : "bg-white border border-slate-200 text-slate-400",
         )}
         title="Réinitialiser la disposition"
       >
-        <RotateCcw className="h-3 w-3" />
+        <RotateCcw className="h-4 w-4" />
       </button>
     </div>
   );

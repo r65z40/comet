@@ -38,6 +38,8 @@ import {
   Rss,
   HardDrive,
   Bell,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
@@ -425,13 +427,7 @@ export default function BoardScreenPage() {
       id: "kanban",
       title: `Kanban (${totalCards} carte${totalCards > 1 ? "s" : ""})`,
       icon: <Monitor className="h-3 w-3 text-blue-400" />,
-      content: (
-        <div className="flex gap-3 overflow-x-auto p-3 h-full">
-          {columns.map((column) => (
-            <ScreenColumn key={column.id} column={column} colCount={columns.length} />
-          ))}
-        </div>
-      ),
+      content: <KanbanContent columns={columns} />,
     },
     ...(visibility.showFeed
       ? [{
@@ -533,42 +529,65 @@ export default function BoardScreenPage() {
           <div className="relative" ref={settingsRef}>
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={cn("flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors", showSettings ? "bg-blue-600 text-white" : "bg-slate-700 hover:bg-slate-600 text-slate-300")}
+              className={cn("flex items-center justify-center gap-1.5 px-3 py-1.5 min-h-[44px] min-w-[44px] text-sm rounded-lg transition-colors", showSettings ? "bg-blue-600 text-white" : "bg-slate-700 hover:bg-slate-600 text-slate-300")}
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="h-5 w-5" />
             </button>
-            {showSettings && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl p-4 z-50">
-                <h3 className="text-sm font-semibold text-white mb-3">Widgets</h3>
-                <p className="text-[10px] text-slate-500 mb-2">Glissez les widgets pour les réorganiser. Redimensionnez avec le coin bas-droit.</p>
-                {[
-                  { key: "showCyberNews" as const, label: "Bandeau cyber" },
-                  { key: "showFeed" as const, label: "Flux en direct" },
-                  { key: "showBackups" as const, label: "Sauvegardes" },
-                  { key: "showAtera" as const, label: "Alertes Atera" },
-                  { key: "showActivityFeed" as const, label: "Fil d'activité" },
-                  { key: "showEmsisoft" as const, label: "Sécurité Emsisoft" },
-                  { key: "showEmsisoftAlerts" as const, label: "Alertes Emsisoft (live)" },
-                  { key: "showCalendar" as const, label: "Calendrier" },
-                ].map(({ key, label }) => (
-                  <div key={key} className="flex items-center justify-between py-2">
-                    <span className="text-sm text-slate-300">{label}</span>
-                    <button
-                      onClick={() => updateVisibility({ [key]: !visibility[key] })}
-                      className={cn("relative w-9 h-5 rounded-full transition-colors", visibility[key] ? "bg-blue-600" : "bg-slate-600")}
-                    >
-                      <div className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform", visibility[key] ? "translate-x-4" : "translate-x-0.5")} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
-          <button onClick={exitScreen} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">
-            <X className="h-4 w-4" />
+          <button onClick={exitScreen} className="flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] text-sm bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">
+            <X className="h-5 w-5" />
             Quitter
           </button>
+        </div>
+      </div>
+
+      {/* Settings drawer (slide-in from right) */}
+      <div
+        className={cn(
+          "fixed inset-0 z-[9997] bg-black/50 transition-opacity",
+          showSettings ? "opacity-100" : "opacity-0 pointer-events-none",
+        )}
+        onClick={() => setShowSettings(false)}
+      />
+      <div
+        ref={settingsRef}
+        className={cn(
+          "fixed top-0 right-0 h-full w-80 z-[9998] bg-slate-800 border-l border-slate-600 shadow-2xl transition-transform duration-300 ease-out flex flex-col",
+          showSettings ? "translate-x-0" : "translate-x-full",
+        )}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
+          <h3 className="text-base font-semibold text-white">Widgets</h3>
+          <button
+            onClick={() => setShowSettings(false)}
+            className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <p className="text-xs text-slate-500 mb-4">Glissez les widgets pour les réorganiser. Redimensionnez avec le coin bas-droit.</p>
+          {[
+            { key: "showCyberNews" as const, label: "Bandeau cyber" },
+            { key: "showFeed" as const, label: "Flux en direct" },
+            { key: "showBackups" as const, label: "Sauvegardes" },
+            { key: "showAtera" as const, label: "Alertes Atera" },
+            { key: "showActivityFeed" as const, label: "Fil d'activité" },
+            { key: "showEmsisoft" as const, label: "Sécurité Emsisoft" },
+            { key: "showEmsisoftAlerts" as const, label: "Alertes Emsisoft (live)" },
+            { key: "showCalendar" as const, label: "Calendrier" },
+          ].map(({ key, label }) => (
+            <div key={key} className="flex items-center justify-between py-3 border-b border-slate-700/50 last:border-b-0">
+              <span className="text-sm text-slate-300">{label}</span>
+              <button
+                onClick={() => updateVisibility({ [key]: !visibility[key] })}
+                className={cn("relative w-12 h-7 rounded-full transition-colors shrink-0", visibility[key] ? "bg-blue-600" : "bg-slate-600")}
+              >
+                <div className={cn("absolute top-0.5 w-6 h-6 rounded-full bg-white transition-transform", visibility[key] ? "translate-x-5" : "translate-x-0.5")} />
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -716,13 +735,106 @@ function FeedContent({
   );
 }
 
+/* Kanban content with horizontal scroll-snap and touch navigation arrows */
+function KanbanContent({ columns }: { columns: BoardColumn[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollState();
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    const ro = new ResizeObserver(updateScrollState);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", updateScrollState);
+      ro.disconnect();
+    };
+  }, [updateScrollState, columns]);
+
+  function scrollByAmount(amount: number) {
+    scrollRef.current?.scrollBy({ left: amount, behavior: "smooth" });
+  }
+
+  return (
+    <div className="relative h-full">
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto p-3 h-full snap-x snap-mandatory scroll-smooth"
+      >
+        {columns.map((column) => (
+          <ScreenColumn key={column.id} column={column} colCount={columns.length} />
+        ))}
+      </div>
+
+      {/* Left edge fade */}
+      <div
+        className={cn(
+          "pointer-events-none absolute left-0 top-0 h-full w-12 bg-gradient-to-r from-slate-900/80 to-transparent transition-opacity",
+          canScrollLeft ? "opacity-100" : "opacity-0",
+        )}
+      />
+      {/* Right edge fade */}
+      <div
+        className={cn(
+          "pointer-events-none absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-slate-900/80 to-transparent transition-opacity",
+          canScrollRight ? "opacity-100" : "opacity-0",
+        )}
+      />
+
+      {/* Left arrow */}
+      {canScrollLeft && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            scrollByAmount(-300);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center h-11 w-11 rounded-full bg-slate-800/70 hover:bg-slate-700/90 text-white shadow-lg transition-colors"
+          aria-label="Faire défiler vers la gauche"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+      )}
+
+      {/* Right arrow */}
+      {canScrollRight && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            scrollByAmount(300);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center h-11 w-11 rounded-full bg-slate-800/70 hover:bg-slate-700/90 text-white shadow-lg transition-colors"
+          aria-label="Faire défiler vers la droite"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* Screen column */
 function ScreenColumn({ column, colCount }: { column: BoardColumn; colCount: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
     <div
-      className="flex-shrink-0 flex flex-col bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden"
+      className="snap-start shrink-0 flex flex-col bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden"
       style={{ width: `${Math.max(220, Math.floor(100 / colCount))}%`, minWidth: 220, maxWidth: 340 }}
     >
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-700/50">
