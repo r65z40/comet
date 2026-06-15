@@ -192,8 +192,32 @@ export async function spotifyFetch(endpoint: string, options?: RequestInit) {
 }
 
 export async function searchTracks(query: string, limit = 10) {
-  const params = new URLSearchParams({ q: query, type: "track", limit: String(limit) });
+  const params = new URLSearchParams({ q: query, type: "track,playlist,album", limit: String(limit) });
   const res = await spotifyFetch(`/search?${params}`);
   if (!res.ok) throw new Error("Search failed");
+  return res.json();
+}
+
+export async function getUserPlaylists(limit = 50) {
+  const res = await spotifyFetch(`/me/playlists?limit=${limit}`);
+  if (!res.ok) throw new Error("Failed to fetch playlists");
+  return res.json();
+}
+
+export async function getPlaylistTracks(playlistId: string, limit = 50) {
+  const res = await spotifyFetch(`/playlists/${playlistId}/tracks?limit=${limit}`);
+  if (!res.ok) throw new Error("Failed to fetch playlist tracks");
+  return res.json();
+}
+
+export async function getFeaturedPlaylists(limit = 20) {
+  const res = await spotifyFetch(`/browse/featured-playlists?limit=${limit}`);
+  if (!res.ok) throw new Error("Failed to fetch featured playlists");
+  return res.json();
+}
+
+export async function getRecentlyPlayed(limit = 20) {
+  const res = await spotifyFetch(`/me/player/recently-played?limit=${limit}`);
+  if (!res.ok) throw new Error("Failed to fetch recently played");
   return res.json();
 }

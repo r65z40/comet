@@ -14,8 +14,18 @@ export async function GET(req: NextRequest) {
   const redirectUri = getRedirectUri(req.url, req.headers, config);
 
   // Store the user's current origin so the callback can redirect back
-  const url = new URL(req.url);
-  const returnOrigin = `${url.protocol}//${url.host}`;
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  const host = req.headers.get("host");
+  let returnOrigin: string;
+  if (forwardedHost) {
+    returnOrigin = `${forwardedProto || "https"}://${forwardedHost}`;
+  } else if (host) {
+    returnOrigin = `${forwardedProto || "http"}://${host}`;
+  } else {
+    const url = new URL(req.url);
+    returnOrigin = `${url.protocol}//${url.host}`;
+  }
 
   const authUrl = getAuthUrl(config.clientId, redirectUri, returnOrigin);
 
