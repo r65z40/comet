@@ -140,8 +140,16 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
           const title = f.threatName || f.malwareName || f.detectionName || f.name || f.title || f.findingType || f.type || "Alerte";
           const computer = f.computerName || f.deviceName || "";
           const findingType = f.findingType || f.type || "";
+          const severity = f.severity || f.Severity || f.risk || f.riskLevel || "";
+          const status = f.status || f.actionTaken || f.Action || "";
+          const path = f.path || f.filePath || f.location || f.FilePath || "";
+          const wsName = f._wsName || "";
           const dateStr = findDate(f);
           const isMalware = /malware|trojan|virus|worm|ransom|exploit|pup|adware/i.test(title);
+
+          const sevNorm = String(severity).toLowerCase();
+          const isCritical = sevNorm === "critical" || sevNorm === "high" || sevNorm === "danger";
+          const isMedium = sevNorm === "medium" || sevNorm === "moderate";
 
           const involvedDevices: string[] = [];
           if (Array.isArray(f.involvedDevices)) {
@@ -152,25 +160,34 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
           }
 
           return (
-            <div key={f.guid || f.id || i} className={cn("px-3 py-2", dark ? "hover:bg-slate-700/30" : "hover:bg-slate-50")}>
+            <div key={f.guid || f.id || i} className={cn(
+              "px-3 py-2",
+              dark ? "hover:bg-slate-700/30" : "hover:bg-slate-50",
+              isCritical && (dark ? "bg-red-500/5" : "bg-red-50/50"),
+            )}>
               <div className="flex items-start gap-2">
                 <div className={cn(
                   "h-5 w-5 rounded flex items-center justify-center shrink-0 mt-0.5",
-                  isMalware ? (dark ? "bg-red-900/50" : "bg-red-100") : (dark ? "bg-amber-900/40" : "bg-amber-100"),
+                  isMalware || isCritical ? (dark ? "bg-red-900/50" : "bg-red-100") : (dark ? "bg-amber-900/40" : "bg-amber-100"),
                 )}>
-                  {isMalware ? (
+                  {isMalware || isCritical ? (
                     <Bug className={cn("h-3 w-3", dark ? "text-red-400" : "text-red-500")} />
                   ) : (
                     <ShieldAlert className={cn("h-3 w-3", dark ? "text-amber-400" : "text-amber-500")} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={cn("text-xs font-medium truncate", dark ? (isMalware ? "text-red-300" : "text-white") : (isMalware ? "text-red-800" : "text-slate-800"))}>{title}</p>
+                  <p className={cn("text-xs font-medium truncate", dark ? (isMalware || isCritical ? "text-red-300" : "text-white") : (isMalware || isCritical ? "text-red-800" : "text-slate-800"))}>{title}</p>
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    {computer && (
-                      <span className={cn("inline-flex items-center gap-0.5 text-[10px]", dark ? "text-slate-400" : "text-slate-500")}>
-                        <Monitor className="h-2.5 w-2.5" /> {computer}
-                      </span>
+                    {severity && (
+                      <span className={cn(
+                        "text-[9px] font-bold uppercase rounded px-1 py-0.5",
+                        isCritical
+                          ? (dark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700")
+                          : isMedium
+                            ? (dark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700")
+                            : (dark ? "bg-slate-700 text-slate-400" : "bg-slate-100 text-slate-500"),
+                      )}>{severity}</span>
                     )}
                     {findingType && (
                       <span className={cn(
@@ -178,7 +195,30 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
                         dark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-500",
                       )}>{findingType}</span>
                     )}
+                    {status && (
+                      <span className={cn(
+                        "text-[9px] rounded px-1 py-0.5",
+                        dark ? "bg-slate-700/60 text-slate-400" : "bg-slate-50 text-slate-500",
+                      )}>{status}</span>
+                    )}
                   </div>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {computer && (
+                      <span className={cn("inline-flex items-center gap-0.5 text-[10px]", dark ? "text-slate-400" : "text-slate-500")}>
+                        <Monitor className="h-2.5 w-2.5" /> {computer}
+                      </span>
+                    )}
+                    {wsName && (
+                      <span className={cn("text-[9px]", dark ? "text-slate-600" : "text-slate-400")}>
+                        {wsName}
+                      </span>
+                    )}
+                  </div>
+                  {path && (
+                    <p className={cn("text-[9px] mt-0.5 truncate font-mono", dark ? "text-slate-600" : "text-slate-400")} title={path}>
+                      {path}
+                    </p>
+                  )}
                   {involvedDevices.length > 0 && (
                     <div className="flex items-center gap-1 mt-1 flex-wrap">
                       {involvedDevices.slice(0, 3).map((name, j) => (
