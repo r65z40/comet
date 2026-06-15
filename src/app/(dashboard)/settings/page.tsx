@@ -216,6 +216,7 @@ export default function SettingsPage() {
   // Spotify settings
   const [spotifyClientId, setSpotifyClientId] = useState("");
   const [spotifyClientSecret, setSpotifyClientSecret] = useState("");
+  const [spotifyRedirectUri, setSpotifyRedirectUri] = useState("");
   const [spotifyConnected, setSpotifyConnected] = useState(false);
   const [savingSpotify, setSavingSpotify] = useState(false);
   const [savedSpotify, setSavedSpotify] = useState(false);
@@ -441,6 +442,7 @@ export default function SettingsPage() {
         setEmsisoftEnabled(data.emsisoft_enabled === "true");
         setSpotifyClientId(data.spotify_client_id || "");
         setSpotifyClientSecret(data.spotify_client_secret || "");
+        setSpotifyRedirectUri(data.spotify_redirect_uri || "");
         setSpotifyConnected(!!(data.spotify_access_token || data.spotify_refresh_token));
       })
       .finally(() => setLoading(false));
@@ -1583,6 +1585,18 @@ export default function SettingsPage() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Redirect URI</label>
+            <input
+              type="text"
+              value={spotifyRedirectUri}
+              onChange={(e) => setSpotifyRedirectUri(e.target.value)}
+              placeholder={typeof window !== "undefined" ? `${window.location.origin}/api/spotify/callback` : "https://votre-domaine.com/api/spotify/callback"}
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            />
+            <p className="text-xs text-slate-400 mt-1">Doit correspondre exactement à l&apos;URL configurée dans le dashboard Spotify. Ex: <code className="text-[11px] bg-slate-100 px-1 rounded">https://comet-cedelia.duckdns.org/api/spotify/callback</code></p>
+          </div>
+
           <div className="flex items-center gap-3 pt-2">
             <button
               onClick={async () => {
@@ -1595,6 +1609,7 @@ export default function SettingsPage() {
                     body: JSON.stringify({
                       spotify_client_id: spotifyClientId,
                       spotify_client_secret: spotifyClientSecret,
+                      spotify_redirect_uri: spotifyRedirectUri,
                     }),
                   });
                   setSavedSpotify(true);
@@ -1654,6 +1669,7 @@ export default function SettingsPage() {
                       body: JSON.stringify({
                         spotify_client_id: spotifyClientId,
                         spotify_client_secret: spotifyClientSecret,
+                        spotify_redirect_uri: spotifyRedirectUri,
                       }),
                     });
                     setSavingSpotify(false);

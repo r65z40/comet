@@ -9,6 +9,7 @@ const SETTING_KEYS = [
   "spotify_access_token",
   "spotify_refresh_token",
   "spotify_token_expires",
+  "spotify_redirect_uri",
 ];
 
 export { SETTING_KEYS as SPOTIFY_SETTING_KEYS };
@@ -19,6 +20,7 @@ interface SpotifyConfig {
   accessToken: string;
   refreshToken: string;
   tokenExpires: number;
+  redirectUri: string;
 }
 
 export async function getSpotifyConfig(): Promise<SpotifyConfig> {
@@ -34,16 +36,24 @@ export async function getSpotifyConfig(): Promise<SpotifyConfig> {
     accessToken: map.spotify_access_token || "",
     refreshToken: map.spotify_refresh_token || "",
     tokenExpires: parseInt(map.spotify_token_expires || "0"),
+    redirectUri: map.spotify_redirect_uri || "",
   };
 }
 
-export function getRedirectUri(requestUrl: string, headers?: Headers): string {
+export function getRedirectUri(requestUrl: string, headers?: Headers, config?: SpotifyConfig): string {
+  if (config?.redirectUri) {
+    return config.redirectUri;
+  }
+
   const forwardedHost = headers?.get("x-forwarded-host");
   const forwardedProto = headers?.get("x-forwarded-proto");
-
   if (forwardedHost) {
-    const proto = forwardedProto || "https";
-    return `${proto}://${forwardedHost}/api/spotify/callback`;
+    return `${forwardedProto || "https"}://${forwardedHost}/api/spotify/callback`;
+  }
+
+  const host = headers?.get("host");
+  if (host && forwardedProto) {
+    return `${forwardedProto}://${host}/api/spotify/callback`;
   }
 
   const url = new URL(requestUrl);

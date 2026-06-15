@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { exchangeCode, getRedirectUri } from "@/lib/spotify";
+import { exchangeCode, getRedirectUri, getSpotifyConfig } from "@/lib/spotify";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -13,7 +13,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const redirectUri = getRedirectUri(req.url, req.headers);
+    const config = await getSpotifyConfig();
+    const redirectUri = getRedirectUri(req.url, req.headers, config);
     const tokens = await exchangeCode(code, redirectUri);
     const expires = Date.now() + tokens.expiresIn * 1000;
 
