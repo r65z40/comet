@@ -214,6 +214,27 @@ export default function SettingsPage() {
   const [testingEmsisoft, setTestingEmsisoft] = useState(false);
   const [emsisoftTestResult, setEmsisoftTestResult] = useState<{ success: boolean; error?: string; workspaces?: number } | null>(null);
 
+  // Quota alert settings
+  const [quotaAlertEnabled, setQuotaAlertEnabled] = useState(false);
+  const [quotaWarning, setQuotaWarning] = useState("80");
+  const [quotaCritical, setQuotaCritical] = useState("95");
+  const [quotaExceeded, setQuotaExceeded] = useState("100");
+  const [quotaAutoSend, setQuotaAutoSend] = useState(true);
+  const [quotaCooldown, setQuotaCooldown] = useState("24");
+  const [quotaRecipients, setQuotaRecipients] = useState("");
+  const [quotaSubjectPrefix, setQuotaSubjectPrefix] = useState("[COMET]");
+  const [quotaIncludeClientName, setQuotaIncludeClientName] = useState(true);
+  const [savingQuota, setSavingQuota] = useState(false);
+  const [savedQuota, setSavedQuota] = useState(false);
+  const [sendingQuotaAlert, setSendingQuotaAlert] = useState(false);
+  const [quotaAlertResult, setQuotaAlertResult] = useState<string | null>(null);
+  const [quotaPreview, setQuotaPreview] = useState<{ organizationId: string; clientName: string | null; usagePercent: number; alertLevel: string }[] | null>(null);
+  const [loadingQuotaPreview, setLoadingQuotaPreview] = useState(false);
+  const [quotaHistory, setQuotaHistory] = useState<{ id: string; organizationId: string; clientName: string | null; alertType: string; usagePercent: number; allocatedQuota: string | null; currentUsage: string | null; sentAt: string; manual: boolean }[]>([]);
+  const [quotaHistoryTotal, setQuotaHistoryTotal] = useState(0);
+  const [loadingQuotaHistory, setLoadingQuotaHistory] = useState(false);
+  const [showQuotaHistory, setShowQuotaHistory] = useState(false);
+
   // Spotify settings
   const [spotifyClientId, setSpotifyClientId] = useState("");
   const [spotifyClientSecret, setSpotifyClientSecret] = useState("");
@@ -464,6 +485,16 @@ export default function SettingsPage() {
         setEmsisoftApiKey(data.emsisoft_api_key || "");
         setEmsisoftApiUrl(data.emsisoft_api_url || "https://api.emsisoft.com/v1");
         setEmsisoftEnabled(data.emsisoft_enabled === "true");
+        // Quota alerts
+        setQuotaAlertEnabled(data.quota_alert_enabled === "true");
+        setQuotaWarning(data.quota_alert_warning || "80");
+        setQuotaCritical(data.quota_alert_critical || "95");
+        setQuotaExceeded(data.quota_alert_exceeded || "100");
+        setQuotaAutoSend(data.quota_alert_auto_send !== "false");
+        setQuotaCooldown(data.quota_alert_cooldown_hours || "24");
+        setQuotaRecipients(data.quota_alert_recipients || "");
+        setQuotaSubjectPrefix(data.quota_alert_subject_prefix || "[COMET]");
+        setQuotaIncludeClientName(data.quota_alert_include_client_name !== "false");
         setSpotifyClientId(data.spotify_client_id || "");
         setSpotifyClientSecret(data.spotify_client_secret || "");
         setSpotifyRedirectUri(data.spotify_redirect_uri || "");
@@ -625,6 +656,82 @@ export default function SettingsPage() {
     setSavingAlerts(false);
     setSavedAlerts(true);
     setTimeout(() => setSavedAlerts(false), 3000);
+  }
+
+  async function handleSaveQuotaAlerts() {
+    setSavingQuota(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quota_alert_enabled: quotaAlertEnabled ? "true" : "false",
+        quota_alert_warning: quotaWarning,
+        quota_alert_critical: quotaCritical,
+        quota_alert_exceeded: quotaExceeded,
+        quota_alert_auto_send: quotaAutoSend ? "true" : "false",
+        quota_alert_cooldown_hours: quotaCooldown,
+        quota_alert_recipients: quotaRecipients,
+        quota_alert_subject_prefix: quotaSubjectPrefix,
+        quota_alert_include_client_name: quotaIncludeClientName ? "true" : "false",
+      }),
+    });
+    setSavingQuota(false);
+    setSavedQuota(true);
+    setTimeout(() => setSavedQuota(false), 3000);
+  }
+
+  async function handleSendQuotaAlert() {
+    setSendingQuotaAlert(true);
+    setQuotaAlertResult(null);
+    try {
+      await handleSaveQuotaAlerts();
+      const res = await fetch("/api/quota-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send" }),
+      });
+      const result = await res.json();
+      if (result.sent) {
+        setQuotaAlertResult(`Email envoyé : ${result.count} organisation(s) alertée(s)`);
+      } else if (result.error) {
+        setQuotaAlertResult(`Erreur : ${result.error}`);
+      } else {
+        setQuotaAlertResult(result.reason || "Aucune alerte à envoyer");
+      }
+    } catch {
+      setQuotaAlertResult("Erreur lors de l'envoi");
+    }
+    setSendingQuotaAlert(false);
+  }
+
+  async function handlePreviewQuota() {
+    setLoadingQuotaPreview(true);
+    try {
+      const res = await fetch("/api/quota-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "preview" }),
+      });
+      const data = await res.json();
+      setQuotaPreview(data.organizations || []);
+    } catch {
+      setQuotaPreview([]);
+    }
+    setLoadingQuotaPreview(false);
+  }
+
+  async function handleLoadQuotaHistory() {
+    setLoadingQuotaHistory(true);
+    setShowQuotaHistory(true);
+    try {
+      const res = await fetch("/api/quota-alerts?action=history&limit=20");
+      const data = await res.json();
+      setQuotaHistory(data.alerts || []);
+      setQuotaHistoryTotal(data.total || 0);
+    } catch {
+      setQuotaHistory([]);
+    }
+    setLoadingQuotaHistory(false);
   }
 
   async function handleSaveSiteLogo() {
@@ -1981,6 +2088,319 @@ export default function SettingsPage() {
         )}
       </div>}
       </div>
+
+      {/* Alertes quota de sauvegarde */}
+      {isAdmin && (
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("quotaAlerts")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-amber-50 p-2">
+              <HardDrive className="h-4 w-4 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Alertes quota de sauvegarde</h3>
+              <p className="text-xs text-slate-400">Envoyez des alertes quand les quotas Oxibox approchent ou dépassent les seuils</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span onClick={(e) => { e.stopPropagation(); setQuotaAlertEnabled(!quotaAlertEnabled); }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                quotaAlertEnabled ? "bg-primary-600" : "bg-slate-300"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                quotaAlertEnabled ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </span>
+            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.quotaAlerts ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+        {openSections.quotaAlerts && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
+
+        {/* Seuils */}
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-2">Seuils d&apos;alerte (% d&apos;utilisation)</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                <span className="text-xs font-medium text-amber-700">Avertissement</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={quotaWarning}
+                  onChange={(e) => setQuotaWarning(e.target.value)}
+                  min="1" max="100"
+                  className="w-20 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                />
+                <span className="text-sm text-amber-600">%</span>
+              </div>
+            </div>
+            <div className="rounded-lg border border-orange-200 bg-orange-50/50 p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+                <span className="text-xs font-medium text-orange-700">Critique</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={quotaCritical}
+                  onChange={(e) => setQuotaCritical(e.target.value)}
+                  min="1" max="100"
+                  className="w-20 rounded-lg border border-orange-200 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                />
+                <span className="text-sm text-orange-600">%</span>
+              </div>
+            </div>
+            <div className="rounded-lg border border-red-200 bg-red-50/50 p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                <span className="text-xs font-medium text-red-700">Dépassé</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={quotaExceeded}
+                  onChange={(e) => setQuotaExceeded(e.target.value)}
+                  min="1" max="200"
+                  className="w-20 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
+                />
+                <span className="text-sm text-red-600">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mode d'envoi */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-2">Mode d&apos;envoi</label>
+            <div className="flex gap-2">
+              <button onClick={() => setQuotaAutoSend(true)}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                  quotaAutoSend
+                    ? "border-primary-500 bg-primary-50 text-primary-600"
+                    : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"
+                }`}>
+                Automatique
+              </button>
+              <button onClick={() => setQuotaAutoSend(false)}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                  !quotaAutoSend
+                    ? "border-primary-500 bg-primary-50 text-primary-600"
+                    : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"
+                }`}>
+                Manuel uniquement
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              {quotaAutoSend
+                ? "Les alertes sont envoyées automatiquement après chaque collecte Oxibox"
+                : "Les alertes ne sont envoyées que via le bouton ci-dessous"}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-2">Cooldown (heures)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={quotaCooldown}
+                onChange={(e) => setQuotaCooldown(e.target.value)}
+                min="1" max="168"
+                className="w-24 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+              <span className="text-xs text-slate-400">heures entre chaque alerte par organisation</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Destinataires */}
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+            Destinataires spécifiques <span className="text-slate-400 font-normal">(optionnel)</span>
+          </label>
+          <input
+            type="text"
+            value={quotaRecipients}
+            onChange={(e) => setQuotaRecipients(e.target.value)}
+            placeholder="Laisser vide pour utiliser les adresses de notification générales"
+            className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+          <p className="text-xs text-slate-400 mt-1">Séparer les adresses par des virgules. Si vide, les adresses de notification générales seront utilisées.</p>
+        </div>
+
+        {/* Options supplémentaires */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Préfixe objet email</label>
+            <input
+              type="text"
+              value={quotaSubjectPrefix}
+              onChange={(e) => setQuotaSubjectPrefix(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
+          <div className="flex items-center gap-3 pt-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={quotaIncludeClientName}
+                onChange={(e) => setQuotaIncludeClientName(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-slate-600">Afficher le nom du client dans l&apos;email</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <button
+            onClick={handleSaveQuotaAlerts}
+            disabled={savingQuota}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+          >
+            {savingQuota ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Enregistrer
+          </button>
+          <button
+            onClick={handleSendQuotaAlert}
+            disabled={sendingQuotaAlert}
+            className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
+          >
+            {sendingQuotaAlert ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Envoyer maintenant
+          </button>
+          <button
+            onClick={handlePreviewQuota}
+            disabled={loadingQuotaPreview}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+          >
+            {loadingQuotaPreview ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+            Aperçu
+          </button>
+          <button
+            onClick={handleLoadQuotaHistory}
+            disabled={loadingQuotaHistory}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+          >
+            {loadingQuotaHistory ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />}
+            Historique
+          </button>
+          {savedQuota && <span className="text-xs text-emerald-600">Configuration enregistrée</span>}
+        </div>
+
+        {/* Résultat envoi */}
+        {quotaAlertResult && (
+          <div className={`rounded-lg border px-4 py-2 text-sm ${
+            quotaAlertResult.startsWith("Erreur")
+              ? "border-red-200 bg-red-50 text-red-600"
+              : quotaAlertResult.startsWith("Email")
+              ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+              : "border-amber-200 bg-amber-50 text-amber-600"
+          }`}>
+            {quotaAlertResult}
+          </div>
+        )}
+
+        {/* Aperçu des organisations */}
+        {quotaPreview && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-slate-700">
+                {quotaPreview.length} organisation(s) au-dessus des seuils
+              </span>
+              <button onClick={() => setQuotaPreview(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {quotaPreview.length === 0 ? (
+              <p className="text-sm text-slate-400">Aucune organisation ne dépasse les seuils configurés.</p>
+            ) : (
+              <div className="space-y-2">
+                {quotaPreview.map((org) => (
+                  <div key={org.organizationId} className="flex items-center justify-between rounded-lg bg-white border border-slate-100 px-3 py-2">
+                    <span className="text-sm text-slate-700">{org.clientName || org.organizationId}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            org.alertLevel === "exceeded" ? "bg-red-500"
+                            : org.alertLevel === "critical" ? "bg-orange-500"
+                            : "bg-amber-400"
+                          }`}
+                          style={{ width: `${Math.min(org.usagePercent, 100)}%` }}
+                        />
+                      </div>
+                      <span className={`text-xs font-semibold ${
+                        org.alertLevel === "exceeded" ? "text-red-600"
+                        : org.alertLevel === "critical" ? "text-orange-600"
+                        : "text-amber-600"
+                      }`}>
+                        {org.usagePercent}%
+                      </span>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                        org.alertLevel === "exceeded" ? "bg-red-100 text-red-700"
+                        : org.alertLevel === "critical" ? "bg-orange-100 text-orange-700"
+                        : "bg-amber-100 text-amber-700"
+                      }`}>
+                        {org.alertLevel === "exceeded" ? "Dépassé" : org.alertLevel === "critical" ? "Critique" : "Attention"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Historique */}
+        {showQuotaHistory && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-slate-700">
+                Historique des alertes ({quotaHistoryTotal} total)
+              </span>
+              <button onClick={() => setShowQuotaHistory(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {loadingQuotaHistory ? (
+              <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
+            ) : quotaHistory.length === 0 ? (
+              <p className="text-sm text-slate-400">Aucune alerte envoyée.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                {quotaHistory.map((alert) => (
+                  <div key={alert.id} className="flex items-center justify-between rounded-lg bg-white border border-slate-100 px-3 py-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${
+                        alert.alertType === "exceeded" ? "bg-red-500"
+                        : alert.alertType === "critical" ? "bg-orange-500"
+                        : "bg-amber-400"
+                      }`} />
+                      <span className="font-medium text-slate-700">{alert.clientName || alert.organizationId}</span>
+                      <span className="text-slate-400">{alert.usagePercent}%</span>
+                      {alert.currentUsage && alert.allocatedQuota && (
+                        <span className="text-slate-300">({alert.currentUsage} / {alert.allocatedQuota})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-400">
+                      {alert.manual && <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">Manuel</span>}
+                      <span>{new Date(alert.sentAt).toLocaleDateString("fr-FR")} {new Date(alert.sentAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>}
+      </div>
+      )}
       </>)}
 
       {activeTab === "reports" && (<>

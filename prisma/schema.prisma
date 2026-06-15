@@ -668,3 +668,23 @@ model OxiboxSnapshot {
   @@index([status])
   @@map("oxibox_snapshots")
 }
+
+// ─── Quota Alert History ────────────────────────────────
+
+model QuotaAlert {
+  id              String   @id @default(cuid())
+  organizationId  String
+  clientName      String?
+  alertType       String   // "warning" | "critical" | "exceeded"
+  usagePercent    Float
+  allocatedQuota  BigInt?
+  currentUsage    BigInt?
+  recipients      String   // JSON array of email addresses
+  sentAt          DateTime @default(now())
+  manual          Boolean  @default(false)
+
+  @@index([organizationId])
+  @@index([alertType])
+  @@index([sentAt])
+  @@map("quota_alerts")
+}

@@ -136,6 +136,17 @@ export async function executeCronJob(): Promise<{
     console.error("[cron-scheduler] Oxibox jobs error:", err);
   }
 
+  // === Quota Alerts (after Oxibox snapshots) ===
+  try {
+    const { getQuotaAlertConfig, checkAndSendQuotaAlerts } = await import("@/lib/quota-alerts");
+    const quotaConfig = await getQuotaAlertConfig();
+    if (quotaConfig.enabled && quotaConfig.autoSend) {
+      await checkAndSendQuotaAlerts(false);
+    }
+  } catch (err) {
+    console.error("[cron-scheduler] Quota alerts error:", err);
+  }
+
   // === Automatic Backup ===
   try {
     backupResult = await runAutoBackup(parisHour, parisMinute, todayStr);
