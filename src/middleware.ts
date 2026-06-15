@@ -1,5 +1,14 @@
 import { auth } from "@/lib/auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+function buildUrl(path: string, req: NextRequest): URL {
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  if (forwardedHost) {
+    return new URL(path, `${forwardedProto || "https"}://${forwardedHost}`);
+  }
+  return new URL(path, req.url);
+}
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
@@ -28,11 +37,11 @@ export default auth(async (req) => {
   }
 
   if (!isLoggedIn && !isAuthPage) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(buildUrl("/login", req));
   }
 
   if (isLoggedIn && isLoginPage) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(buildUrl("/dashboard", req));
   }
 
   return addSecurityHeaders(NextResponse.next());
