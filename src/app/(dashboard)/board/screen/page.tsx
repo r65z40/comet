@@ -217,6 +217,7 @@ export default function BoardScreenPage() {
   const isDraggingRef = useRef(false);
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const [gridHeight, setGridHeight] = useState(0);
 
@@ -243,7 +244,12 @@ export default function BoardScreenPage() {
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        settingsRef.current &&
+        !settingsRef.current.contains(target) &&
+        !settingsButtonRef.current?.contains(target)
+      ) {
         setShowSettings(false);
       }
     }
@@ -526,8 +532,9 @@ export default function BoardScreenPage() {
           </div>
 
           {/* Widget visibility settings */}
-          <div className="relative" ref={settingsRef}>
+          <div className="relative">
             <button
+              ref={settingsButtonRef}
               onClick={() => setShowSettings(!showSettings)}
               className={cn("flex items-center justify-center gap-1.5 px-3 py-1.5 min-h-[44px] min-w-[44px] text-sm rounded-lg transition-colors", showSettings ? "bg-blue-600 text-white" : "bg-slate-700 hover:bg-slate-600 text-slate-300")}
             >
