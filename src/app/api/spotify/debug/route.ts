@@ -51,7 +51,7 @@ export async function GET() {
     // Test: get first playlist tracks (via /playlists/{id} to avoid 403)
     if (debug.firstPlaylists && (debug.firstPlaylists as { id: string }[]).length > 0) {
       const firstId = (debug.firstPlaylists as { id: string }[])[0].id;
-      const tracksRes = await spotifyFetch(`/playlists/${firstId}?fields=tracks.items(track(id,name)),tracks.total`);
+      const tracksRes = await spotifyFetch(`/playlists/${firstId}`);
       if (tracksRes.ok) {
         const data = await tracksRes.json();
         debug.firstPlaylistTrackCount = data.tracks?.total;

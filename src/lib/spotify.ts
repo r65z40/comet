@@ -212,10 +212,10 @@ export async function getUserPlaylists(limit = 50) {
 
 export async function getPlaylistTracks(playlistId: string) {
   // Use /playlists/{id} instead of /playlists/{id}/tracks (avoids 403 in dev mode)
-  const res = await spotifyFetch(`/playlists/${playlistId}?fields=tracks.items(track(id,uri,name,duration_ms,artists(name),album(name,images)))`);
+  const res = await spotifyFetch(`/playlists/${playlistId}`);
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Playlist tracks error (${res.status}): ${text}`);
+    throw new Error(`Playlist error (${res.status}): ${text}`);
   }
   return res.json();
 }
