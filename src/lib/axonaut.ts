@@ -130,13 +130,13 @@ async function updateProgress(logId: string, message: string, itemCount: number)
   });
 }
 
-// Mark stale "running" logs (older than 5 minutes) as error
+// Mark stale "running" logs (older than 30 minutes) as error
 export async function cleanupStaleLogs() {
-  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
   await prisma.syncLog.updateMany({
     where: {
       status: "running",
-      startedAt: { lt: fiveMinutesAgo },
+      startedAt: { lt: thirtyMinutesAgo },
     },
     data: {
       status: "error",
@@ -167,46 +167,20 @@ export async function syncProducts() {
       }
 
       for (const p of products) {
-        const cf = p.custom_fields;
-        const durationStr = getCustomField(cf, "Durée en mois") || getCustomField(cf, "Duree en mois");
-        const durationMonths = durationStr ? parseInt(durationStr, 10) : 0;
-        const family = getCustomField(cf, "Famille") || p.category || null;
-        const supplier = getCustomField(cf, "Fournisseur") || null;
-        const duration = getCustomField(cf, "Durée") || getCustomField(cf, "Duree") || null;
+        try {
+          const cf = p.custom_fields;
+          const durationStr = getCustomField(cf, "Durée en mois") || getCustomField(cf, "Duree en mois");
+          const durationMonths = durationStr ? parseInt(durationStr, 10) : 0;
+          const family = getCustomField(cf, "Famille") || p.category || null;
+          const supplier = getCustomField(cf, "Fournisseur") || null;
+          const duration = getCustomField(cf, "Durée") || getCustomField(cf, "Duree") || null;
 
-        // Check if a product with this axonautId already exists
-        const existingProductByAxonaut = await prisma.product.findUnique({ where: { axonautId: p.id } });
+          const existingProductByAxonaut = await prisma.product.findUnique({ where: { axonautId: p.id } });
 
-        if (existingProductByAxonaut) {
-          // Already linked to Axonaut — just update
-          await prisma.product.update({
-            where: { id: existingProductByAxonaut.id },
-            data: {
-              name: p.name || "Sans nom",
-              code: p.code || null,
-              description: p.description || null,
-              family,
-              supplier,
-              duration,
-              durationMonths: durationMonths || null,
-              unitPrice: toFloat(p.price),
-            },
-          });
-        } else {
-          // No axonautId match — look for a manually imported product with the same name
-          const existingProductByName = await prisma.product.findFirst({
-            where: {
-              name: { equals: p.name || "Sans nom", mode: "insensitive" },
-              axonautId: null,
-            },
-          });
-
-          if (existingProductByName) {
-            // Link the existing manually imported product to Axonaut
+          if (existingProductByAxonaut) {
             await prisma.product.update({
-              where: { id: existingProductByName.id },
+              where: { id: existingProductByAxonaut.id },
               data: {
-                axonautId: p.id,
                 name: p.name || "Sans nom",
                 code: p.code || null,
                 description: p.description || null,
@@ -218,25 +192,50 @@ export async function syncProducts() {
               },
             });
           } else {
-            // No match at all — create a new product
-            await prisma.product.create({
-              data: {
-                axonautId: p.id,
-                name: p.name || "Sans nom",
-                code: p.code || null,
-                description: p.description || null,
-                family,
-                supplier,
-                duration,
-                durationMonths: durationMonths || null,
-                unitPrice: toFloat(p.price),
-                importSource: "axonaut",
-                importDetails: axonautImportDetails(),
+            const existingProductByName = await prisma.product.findFirst({
+              where: {
+                name: { equals: p.name || "Sans nom", mode: "insensitive" },
+                axonautId: null,
               },
             });
+
+            if (existingProductByName) {
+              await prisma.product.update({
+                where: { id: existingProductByName.id },
+                data: {
+                  axonautId: p.id,
+                  name: p.name || "Sans nom",
+                  code: p.code || null,
+                  description: p.description || null,
+                  family,
+                  supplier,
+                  duration,
+                  durationMonths: durationMonths || null,
+                  unitPrice: toFloat(p.price),
+                },
+              });
+            } else {
+              await prisma.product.create({
+                data: {
+                  axonautId: p.id,
+                  name: p.name || "Sans nom",
+                  code: p.code || null,
+                  description: p.description || null,
+                  family,
+                  supplier,
+                  duration,
+                  durationMonths: durationMonths || null,
+                  unitPrice: toFloat(p.price),
+                  importSource: "axonaut",
+                  importDetails: axonautImportDetails(),
+                },
+              });
+            }
           }
+          totalSynced++;
+        } catch {
+          // Continue with next product
         }
-        totalSynced++;
       }
 
       await updateProgress(log.id, `Produits: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
@@ -292,57 +291,58 @@ export async function syncClients() {
       }
 
       for (const c of companies) {
-        // Determine client type from Axonaut flags (default to "client" if untyped)
-        let clientType = "client";
-        if (c.is_supplier || c.supplier) clientType = "fournisseur";
-        else if (c.is_prospect || c.prospect) clientType = "prospect";
+        try {
+          let clientType = "client";
+          if (c.is_supplier || c.supplier) clientType = "fournisseur";
+          else if (c.is_prospect || c.prospect) clientType = "prospect";
 
-        const clientData = {
-          name: c.name || "Sans nom",
-          email: c.email || null,
-          phone: c.phone || null,
-          mobile: c.cellphone_number || c.mobile || null,
-          fax: c.fax || null,
-          website: c.website || c.url || null,
-          siret: c.siret || c.registration_number || null,
-          address: c.address_street || null,
-          addressComplement: c.address_complement || c.address_street_2 || null,
-          city: c.address_city || null,
-          zipCode: c.address_zip_code || null,
-          country: c.address_country || null,
-          clientType,
-          notes: c.notes || c.comments || null,
-        };
+          const clientData = {
+            name: c.name || "Sans nom",
+            email: c.email || null,
+            phone: c.phone || null,
+            mobile: c.cellphone_number || c.mobile || null,
+            fax: c.fax || null,
+            website: c.website || c.url || null,
+            siret: c.siret || c.registration_number || null,
+            address: c.address_street || null,
+            addressComplement: c.address_complement || c.address_street_2 || null,
+            city: c.address_city || null,
+            zipCode: c.address_zip_code || null,
+            country: c.address_country || null,
+            clientType,
+            notes: c.notes || c.comments || null,
+          };
 
-        // Check if a client with this axonautId already exists
-        const existingByAxonaut = await prisma.client.findUnique({ where: { axonautId: c.id } });
+          const existingByAxonaut = await prisma.client.findUnique({ where: { axonautId: c.id } });
 
-        if (existingByAxonaut) {
-          await prisma.client.update({
-            where: { id: existingByAxonaut.id },
-            data: clientData,
-          });
-        } else {
-          // No axonautId match — look for a manually imported client with the same name
-          const existingByName = await prisma.client.findFirst({
-            where: {
-              name: { equals: c.name || "Sans nom", mode: "insensitive" },
-              axonautId: null,
-            },
-          });
-
-          if (existingByName) {
+          if (existingByAxonaut) {
             await prisma.client.update({
-              where: { id: existingByName.id },
-              data: { axonautId: c.id, ...clientData },
+              where: { id: existingByAxonaut.id },
+              data: clientData,
             });
           } else {
-            await prisma.client.create({
-              data: { axonautId: c.id, ...clientData, importSource: "axonaut", importDetails: axonautImportDetails() },
+            const existingByName = await prisma.client.findFirst({
+              where: {
+                name: { equals: c.name || "Sans nom", mode: "insensitive" },
+                axonautId: null,
+              },
             });
+
+            if (existingByName) {
+              await prisma.client.update({
+                where: { id: existingByName.id },
+                data: { axonautId: c.id, ...clientData },
+              });
+            } else {
+              await prisma.client.create({
+                data: { axonautId: c.id, ...clientData, importSource: "axonaut", importDetails: axonautImportDetails() },
+              });
+            }
           }
+          totalSynced++;
+        } catch {
+          // Continue with next client
         }
-        totalSynced++;
       }
 
       await updateProgress(log.id, `Clients: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
@@ -399,37 +399,40 @@ export async function syncContacts() {
       }
 
       for (const emp of employees) {
-        const companyId = emp.company_id || emp.company?.id;
-        if (!companyId) continue;
+        try {
+          const companyId = emp.company_id || emp.company?.id;
+          if (!companyId) continue;
 
-        // Find the local client linked to this Axonaut company
-        const client = await prisma.client.findUnique({ where: { axonautId: companyId } });
-        if (!client) continue;
+          const client = await prisma.client.findUnique({ where: { axonautId: companyId } });
+          if (!client) continue;
 
-        const contactData = {
-          clientId: client.id,
-          firstName: emp.firstname || emp.first_name || null,
-          lastName: emp.lastname || emp.last_name || null,
-          email: emp.email || null,
-          phone: emp.phone_number || emp.phone || null,
-          mobile: emp.cellphone_number || emp.mobile || null,
-          jobTitle: emp.job || emp.job_title || null,
-          isBillingContact: emp.is_billing_contact || false,
-        };
+          const contactData = {
+            clientId: client.id,
+            firstName: emp.firstname || emp.first_name || null,
+            lastName: emp.lastname || emp.last_name || null,
+            email: emp.email || null,
+            phone: emp.phone_number || emp.phone || null,
+            mobile: emp.cellphone_number || emp.mobile || null,
+            jobTitle: emp.job || emp.job_title || null,
+            isBillingContact: emp.is_billing_contact || false,
+          };
 
-        const existingContact = await prisma.contact.findUnique({ where: { axonautId: emp.id } });
+          const existingContact = await prisma.contact.findUnique({ where: { axonautId: emp.id } });
 
-        if (existingContact) {
-          await prisma.contact.update({
-            where: { id: existingContact.id },
-            data: contactData,
-          });
-        } else {
-          await prisma.contact.create({
-            data: { axonautId: emp.id, ...contactData, importSource: "axonaut", importDetails: axonautImportDetails() },
-          });
+          if (existingContact) {
+            await prisma.contact.update({
+              where: { id: existingContact.id },
+              data: contactData,
+            });
+          } else {
+            await prisma.contact.create({
+              data: { axonautId: emp.id, ...contactData, importSource: "axonaut", importDetails: axonautImportDetails() },
+            });
+          }
+          totalSynced++;
+        } catch {
+          // Continue with next contact
         }
-        totalSynced++;
       }
 
       await updateProgress(log.id, `Contacts: ${totalSynced} synchronisés (page ${page})...`, totalSynced);
@@ -464,14 +467,192 @@ export async function syncContacts() {
   }
 }
 
+async function resolveProduct(line: Record<string, unknown>): Promise<{ id: string; name: string; supplier: string | null; family: string | null; durationMonths: number | null } | null> {
+  const lineProductId = line.product_id || line.productId || (line.product as Record<string, unknown>)?.id;
+  if (lineProductId) {
+    const p = await prisma.product.findUnique({
+      where: { axonautId: lineProductId as number },
+      select: { id: true, name: true, supplier: true, family: true, durationMonths: true },
+    });
+    if (p) return p;
+  }
+
+  const searchName = (line.name || line.product_name) as string | undefined;
+  const searchCode = (line.product_code || line.code) as string | undefined;
+
+  if (searchCode) {
+    const p = await prisma.product.findFirst({
+      where: { code: searchCode },
+      select: { id: true, name: true, supplier: true, family: true, durationMonths: true },
+    });
+    if (p) return p;
+  }
+  if (searchName) {
+    const p = await prisma.product.findFirst({
+      where: { name: { equals: searchName, mode: "insensitive" } },
+      select: { id: true, name: true, supplier: true, family: true, durationMonths: true },
+    });
+    if (p) return p;
+  }
+  return null;
+}
+
+async function upsertInvoiceLines(
+  invoiceId: string,
+  incomingLines: Record<string, unknown>[],
+): Promise<{ lineId: string; product: Awaited<ReturnType<typeof resolveProduct>>; quantity: number; isNew: boolean }[]> {
+  const existingLines = await prisma.invoiceLine.findMany({
+    where: { invoiceId },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const results: { lineId: string; product: Awaited<ReturnType<typeof resolveProduct>>; quantity: number; isNew: boolean }[] = [];
+  const usedExistingIds = new Set<string>();
+
+  for (let i = 0; i < incomingLines.length; i++) {
+    const line = incomingLines[i];
+    const product = await resolveProduct(line);
+    const description = (line.description || line.name || line.product_name || null) as string | null;
+    const quantity = toFloat(line.quantity) ?? 1;
+    const unitPrice = toFloat(line.unit_price ?? line.price ?? line.unitPrice);
+    const totalPrice = toFloat(line.total_price ?? line.total ?? line.totalPrice);
+
+    // Match existing line by position (index) — stable across re-syncs
+    const match = existingLines[i] && !usedExistingIds.has(existingLines[i].id) ? existingLines[i] : null;
+
+    if (match) {
+      usedExistingIds.add(match.id);
+      await prisma.invoiceLine.update({
+        where: { id: match.id },
+        data: {
+          productId: product?.id || null,
+          description,
+          quantity,
+          unitPrice,
+          totalPrice,
+          importDetails: axonautImportDetails(),
+        },
+      });
+      results.push({ lineId: match.id, product, quantity, isNew: false });
+    } else {
+      const created = await prisma.invoiceLine.create({
+        data: {
+          invoiceId,
+          productId: product?.id || null,
+          description,
+          quantity,
+          unitPrice,
+          totalPrice,
+          importSource: "axonaut",
+          importDetails: axonautImportDetails(),
+        },
+      });
+      results.push({ lineId: created.id, product, quantity, isNew: true });
+    }
+  }
+
+  // Delete extra lines that no longer exist in Axonaut (only if they have no linked installation)
+  for (const existing of existingLines) {
+    if (!usedExistingIds.has(existing.id)) {
+      const hasInstallation = await prisma.installation.findUnique({ where: { invoiceLineId: existing.id } });
+      if (!hasInstallation) {
+        await prisma.invoiceLine.delete({ where: { id: existing.id } });
+      }
+    }
+  }
+
+  return results;
+}
+
+async function generateInstallationForLine(
+  lineId: string,
+  invoiceId: string,
+  clientId: string,
+  invoiceDate: Date,
+  product: NonNullable<Awaited<ReturnType<typeof resolveProduct>>>,
+  quantity: number,
+): Promise<"created" | "merged" | "skipped"> {
+  if (!product.durationMonths || product.durationMonths <= 0) return "skipped";
+
+  const existing = await prisma.installation.findUnique({ where: { invoiceLineId: lineId } });
+  if (existing) return "skipped";
+
+  const startDate = new Date(invoiceDate);
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + product.durationMonths);
+
+  // Search for an orphan installation to re-link
+  const normStr = (s: string | null | undefined) => (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const startMin = new Date(startDate); startMin.setDate(startMin.getDate() - 3);
+  const startMax = new Date(startDate); startMax.setDate(startMax.getDate() + 3);
+  const endMin = new Date(endDate); endMin.setDate(endMin.getDate() - 3);
+  const endMax = new Date(endDate); endMax.setDate(endMax.getDate() + 3);
+
+  const orphanCandidates = await prisma.installation.findMany({
+    where: {
+      clientId,
+      invoiceLineId: null,
+      deletedAt: null,
+      startDate: { gte: startMin, lte: startMax },
+      endDate: { gte: endMin, lte: endMax },
+    },
+    include: { product: { select: { name: true, supplier: true } } },
+  });
+
+  const productNameNorm = normStr(product.name);
+  const productSupplierNorm = normStr(product.supplier);
+  const orphan = orphanCandidates.find(
+    (o) =>
+      normStr(o.product.name) === productNameNorm &&
+      normStr(o.product.supplier) === productSupplierNorm &&
+      Math.abs(o.quantity - quantity) < 0.0001,
+  );
+
+  if (orphan) {
+    await prisma.installation.update({
+      where: { id: orphan.id },
+      data: {
+        invoiceId,
+        invoiceLineId: lineId,
+        supplier: product.supplier ?? orphan.supplier,
+        family: product.family ?? orphan.family,
+        quantity,
+      },
+    });
+    return "merged";
+  }
+
+  await prisma.installation.create({
+    data: {
+      clientId,
+      productId: product.id,
+      invoiceId,
+      invoiceLineId: lineId,
+      supplier: product.supplier,
+      family: product.family,
+      quantity,
+      startDate,
+      durationMonths: product.durationMonths,
+      endDate,
+      status: "EN_PARC",
+      importSource: "axonaut",
+      importDetails: axonautImportDetails(),
+    },
+  });
+  return "created";
+}
+
 export async function syncInvoices() {
   const log = await prisma.syncLog.create({
-    data: { type: "invoices", status: "running", message: "Synchronisation des factures..." },
+    data: { type: "invoices", status: "running", message: "Synchronisation des factures + installations..." },
   });
 
   try {
     let page = 1;
     let totalSynced = 0;
+    let totalInstCreated = 0;
+    let totalInstMerged = 0;
+    let errors = 0;
     let hasMore = true;
     const PAGE_SIZE = 100;
 
@@ -485,83 +666,60 @@ export async function syncInvoices() {
       }
 
       for (const inv of invoices) {
-        // Try company_id, then company.id
-        const companyId = inv.company_id || inv.company?.id;
-        const client = companyId
-          ? await prisma.client.findUnique({ where: { axonautId: companyId } })
-          : null;
+        try {
+          const companyId = inv.company_id || inv.company?.id;
+          const client = companyId
+            ? await prisma.client.findUnique({ where: { axonautId: companyId } })
+            : null;
 
-        if (!client) continue;
+          if (!client) continue;
 
-        const invoice = await prisma.invoice.upsert({
-          where: { axonautId: inv.id },
-          create: {
-            axonautId: inv.id,
-            invoiceNumber: inv.number || inv.invoice_number || null,
-            clientId: client.id,
-            invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
-            totalAmount: toFloat(inv.total_amount ?? inv.total),
-            status: inv.status || null,
-            importSource: "axonaut",
-            importDetails: axonautImportDetails(),
-          },
-          update: {
-            invoiceNumber: inv.number || inv.invoice_number || null,
-            clientId: client.id,
-            invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
-            totalAmount: toFloat(inv.total_amount ?? inv.total),
-            status: inv.status || null,
-          },
-        });
-
-        // Delete existing lines for this invoice before re-creating
-        await prisma.invoiceLine.deleteMany({
-          where: { invoiceId: invoice.id },
-        });
-
-        const lines = inv.lines || inv.invoice_lines || inv.products || [];
-        for (const line of lines) {
-          // Try multiple field names for product ID
-          const lineProductId = line.product_id || line.productId || line.product?.id;
-          let product = null;
-
-          if (lineProductId) {
-            product = await prisma.product.findUnique({ where: { axonautId: lineProductId } });
-          }
-
-          // Fallback: match by product name or code
-          if (!product && (line.name || line.product_name || line.product_code)) {
-            const searchName = line.name || line.product_name;
-            const searchCode = line.product_code || line.code;
-
-            if (searchCode) {
-              product = await prisma.product.findFirst({ where: { code: searchCode } });
-            }
-            if (!product && searchName) {
-              product = await prisma.product.findFirst({
-                where: { name: { equals: searchName, mode: "insensitive" } },
-              });
-            }
-          }
-
-          await prisma.invoiceLine.create({
-            data: {
-              invoiceId: invoice.id,
-              productId: product?.id || null,
-              description: line.description || line.name || line.product_name || null,
-              quantity: toFloat(line.quantity) ?? 1,
-              unitPrice: toFloat(line.unit_price ?? line.price ?? line.unitPrice),
-              totalPrice: toFloat(line.total_price ?? line.total ?? line.totalPrice),
+          const invoice = await prisma.invoice.upsert({
+            where: { axonautId: inv.id },
+            create: {
+              axonautId: inv.id,
+              invoiceNumber: inv.number || inv.invoice_number || null,
+              clientId: client.id,
+              invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
+              totalAmount: toFloat(inv.total_amount ?? inv.total),
+              status: inv.status || null,
               importSource: "axonaut",
               importDetails: axonautImportDetails(),
             },
+            update: {
+              invoiceNumber: inv.number || inv.invoice_number || null,
+              clientId: client.id,
+              invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
+              totalAmount: toFloat(inv.total_amount ?? inv.total),
+              status: inv.status || null,
+            },
           });
-        }
 
-        totalSynced++;
+          const incomingLines = inv.lines || inv.invoice_lines || inv.products || [];
+          const lineResults = await upsertInvoiceLines(invoice.id, incomingLines);
+
+          // Generate installations for each line that has a product with duration
+          for (const lr of lineResults) {
+            if (!lr.product) continue;
+            const result = await generateInstallationForLine(
+              lr.lineId,
+              invoice.id,
+              client.id,
+              new Date(inv.date || inv.invoice_date || inv.created_at),
+              lr.product,
+              lr.quantity,
+            );
+            if (result === "created") totalInstCreated++;
+            if (result === "merged") totalInstMerged++;
+          }
+
+          totalSynced++;
+        } catch {
+          errors++;
+        }
       }
 
-      await updateProgress(log.id, `Factures: ${totalSynced} synchronisées (page ${page})...`, totalSynced);
+      await updateProgress(log.id, `Factures: ${totalSynced} sync, ${totalInstCreated} inst. créées (page ${page})...`, totalSynced);
 
       if (invoices.length < PAGE_SIZE) {
         hasMore = false;
@@ -569,11 +727,16 @@ export async function syncInvoices() {
       page++;
     }
 
+    const parts = [`${totalSynced} factures synchronisées`];
+    if (totalInstCreated > 0) parts.push(`${totalInstCreated} installations créées`);
+    if (totalInstMerged > 0) parts.push(`${totalInstMerged} installations fusionnées`);
+    if (errors > 0) parts.push(`${errors} erreurs`);
+
     await prisma.syncLog.update({
       where: { id: log.id },
       data: {
-        status: "success",
-        message: `${totalSynced} factures synchronisées`,
+        status: errors > 0 && totalSynced === 0 ? "error" : "success",
+        message: parts.join(", "),
         itemCount: totalSynced,
         completedAt: new Date(),
       },
@@ -595,16 +758,13 @@ export async function syncInvoices() {
 
 export async function generateInstallations() {
   const log = await prisma.syncLog.create({
-    data: { type: "installations", status: "running", message: "Génération des installations..." },
+    data: { type: "installations", status: "running", message: "Génération des installations manquantes..." },
   });
 
   try {
     let totalGenerated = 0;
-    let skippedNoProduct = 0;
-    let skippedNoDuration = 0;
-    let skippedNoClient = 0;
-    let skippedExisting = 0;
-    let merged = 0;
+    let totalMerged = 0;
+    let skipped = 0;
 
     const invoiceLines = await prisma.invoiceLine.findMany({
       include: {
@@ -614,97 +774,34 @@ export async function generateInstallations() {
     });
 
     for (const line of invoiceLines) {
-      if (!line.product) { skippedNoProduct++; continue; }
-      if (!line.product.durationMonths || line.product.durationMonths <= 0) { skippedNoDuration++; continue; }
-      if (!line.invoice?.client) { skippedNoClient++; continue; }
-
-      // Vérifier si une installation existe déjà pour cette ligne de facture
-      const existing = await prisma.installation.findUnique({
-        where: { invoiceLineId: line.id },
-      });
-
-      if (existing) { skippedExisting++; continue; }
-
-      const startDate = new Date(line.invoice.invoiceDate);
-      const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + line.product.durationMonths);
-
-      // Avant de créer, chercher une installation "orpheline" correspondante
-      // (même client + produit équivalent + dates ±3j + même quantité) sans
-      // invoice liée, pour éviter les doublons. On matche sur nom + fournisseur
-      // pour attraper aussi les cas où Axonaut a dupliqué le produit.
-      const norm = (s: string | null | undefined) =>
-        (s || "").trim().toLowerCase().replace(/\s+/g, " ");
-      const startMin = new Date(startDate); startMin.setDate(startMin.getDate() - 3);
-      const startMax = new Date(startDate); startMax.setDate(startMax.getDate() + 3);
-      const endMin = new Date(endDate); endMin.setDate(endMin.getDate() - 3);
-      const endMax = new Date(endDate); endMax.setDate(endMax.getDate() + 3);
-
-      const orphanCandidates = await prisma.installation.findMany({
-        where: {
-          clientId: line.invoice.clientId,
-          invoiceLineId: null,
-          deletedAt: null,
-          startDate: { gte: startMin, lte: startMax },
-          endDate: { gte: endMin, lte: endMax },
-        },
-        include: { product: { select: { name: true, supplier: true } } },
-      });
-
-      const productNameNorm = norm(line.product.name);
-      const productSupplierNorm = norm(line.product.supplier);
-      const orphan = orphanCandidates.find(
-        (o) =>
-          norm(o.product.name) === productNameNorm &&
-          norm(o.product.supplier) === productSupplierNorm &&
-          Math.abs(o.quantity - line.quantity) < 0.0001
-      );
-
-      if (orphan) {
-        // Lier l'installation orpheline à la nouvelle ligne de facture
-        await prisma.installation.update({
-          where: { id: orphan.id },
-          data: {
-            invoiceId: line.invoiceId,
-            invoiceLineId: line.id,
-            supplier: line.product.supplier ?? orphan.supplier,
-            family: line.product.family ?? orphan.family,
-            quantity: line.quantity,
-          },
-        });
-        merged++;
+      if (!line.product || !line.product.durationMonths || line.product.durationMonths <= 0 || !line.invoice?.client) {
+        skipped++;
         continue;
       }
 
-      const status = "EN_PARC";
-
-      await prisma.installation.create({
-        data: {
-          clientId: line.invoice.clientId,
-          productId: line.product.id,
-          invoiceId: line.invoiceId,
-          invoiceLineId: line.id,
-          supplier: line.product.supplier,
-          family: line.product.family,
-          quantity: line.quantity,
-          startDate,
-          durationMonths: line.product.durationMonths,
-          endDate,
-          status,
-          importSource: "axonaut",
-          importDetails: axonautImportDetails(),
-        },
-      });
-
-      totalGenerated++;
+      const result = await generateInstallationForLine(
+        line.id,
+        line.invoiceId,
+        line.invoice.clientId,
+        line.invoice.invoiceDate,
+        line.product,
+        line.quantity,
+      );
+      if (result === "created") totalGenerated++;
+      else if (result === "merged") totalMerged++;
+      else skipped++;
     }
+
+    const parts = [`${totalGenerated} installations créées`];
+    if (totalMerged > 0) parts.push(`${totalMerged} fusionnées`);
+    parts.push(`${invoiceLines.length} lignes analysées, ${skipped} ignorées`);
 
     await prisma.syncLog.update({
       where: { id: log.id },
       data: {
         status: "success",
-        message: `${totalGenerated} installations générées, ${merged} fusionnées avec des orphelines (${invoiceLines.length} lignes analysées, ${skippedNoProduct} sans produit lié, ${skippedNoDuration} sans durée, ${skippedNoClient} sans client, ${skippedExisting} déjà existantes)`,
-        itemCount: totalGenerated + merged,
+        message: parts.join(", "),
+        itemCount: totalGenerated + totalMerged,
         completedAt: new Date(),
       },
     });
@@ -931,44 +1028,19 @@ export async function refreshInvoice(axonautId: number) {
     },
   });
 
-  // Re-create invoice lines
-  await prisma.invoiceLine.deleteMany({ where: { invoiceId: invoice.id } });
+  const incomingLines = inv.lines || inv.invoice_lines || inv.products || [];
+  const lineResults = await upsertInvoiceLines(invoice.id, incomingLines);
 
-  const lines = inv.lines || inv.invoice_lines || inv.products || [];
-  for (const line of lines) {
-    const lineProductId = line.product_id || line.productId || line.product?.id;
-    let product = null;
-
-    if (lineProductId) {
-      product = await prisma.product.findUnique({ where: { axonautId: lineProductId } });
-    }
-
-    if (!product && (line.name || line.product_name || line.product_code)) {
-      const searchName = line.name || line.product_name;
-      const searchCode = line.product_code || line.code;
-
-      if (searchCode) {
-        product = await prisma.product.findFirst({ where: { code: searchCode } });
-      }
-      if (!product && searchName) {
-        product = await prisma.product.findFirst({
-          where: { name: { equals: searchName, mode: "insensitive" } },
-        });
-      }
-    }
-
-    await prisma.invoiceLine.create({
-      data: {
-        invoiceId: invoice.id,
-        productId: product?.id || null,
-        description: line.description || line.name || line.product_name || null,
-        quantity: toFloat(line.quantity) ?? 1,
-        unitPrice: toFloat(line.unit_price ?? line.price ?? line.unitPrice),
-        totalPrice: toFloat(line.total_price ?? line.total ?? line.totalPrice),
-        importSource: "axonaut",
-        importDetails: axonautImportDetails(),
-      },
-    });
+  for (const lr of lineResults) {
+    if (!lr.product) continue;
+    await generateInstallationForLine(
+      lr.lineId,
+      invoice.id,
+      client.id,
+      new Date(inv.date || inv.invoice_date || inv.created_at),
+      lr.product,
+      lr.quantity,
+    );
   }
 
   return { success: true };
