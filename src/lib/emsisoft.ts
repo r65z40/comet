@@ -47,10 +47,8 @@ export interface EmsisoftConfig {
 }
 
 export async function getEmsisoftConfig(): Promise<EmsisoftConfig> {
-  const settings = await prisma.setting.findMany({
-    where: { key: { in: ["emsisoft_api_key", "emsisoft_enabled", "emsisoft_api_url"] } },
-  });
-  const map = Object.fromEntries(settings.map((s) => [s.key, s.value]));
+  const { getSettings } = await import("@/lib/settings");
+  const map = await getSettings(["emsisoft_api_key", "emsisoft_enabled", "emsisoft_api_url"]);
   return {
     apiKey: map.emsisoft_api_key || "",
     enabled: map.emsisoft_enabled === "true",

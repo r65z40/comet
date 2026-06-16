@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
 
 const SPOTIFY_ACCOUNTS_URL = "https://accounts.spotify.com";
 const SPOTIFY_API_URL = "https://api.spotify.com/v1";
@@ -24,11 +25,7 @@ interface SpotifyConfig {
 }
 
 export async function getSpotifyConfig(): Promise<SpotifyConfig> {
-  const settings = await prisma.setting.findMany({
-    where: { key: { in: SETTING_KEYS } },
-  });
-  const map: Record<string, string> = {};
-  for (const s of settings) map[s.key] = s.value;
+  const map = await getSettings(SETTING_KEYS);
 
   return {
     clientId: map.spotify_client_id || "",

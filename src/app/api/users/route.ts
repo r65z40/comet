@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { validatePassword, passwordErrorMessage } from "@/lib/password";
+import { logAudit } from "@/lib/audit";
 
 export async function GET() {
   const session = await auth();
@@ -32,8 +34,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nom, email et mot de passe requis" }, { status: 400 });
   }
 
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères" }, { status: 400 });
+  const validation = validatePassword(password);
+  if (!validation.valid) {
+    return NextResponse.json({ error: passwordErrorMessage(validation) }, { status: 400 });
   }
 
   try {
@@ -52,6 +55,15 @@ export async function POST(req: NextRequest) {
         role: role === "ADMIN" ? "ADMIN" : "USER",
       },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
+    });
+
+    await logAudit({
+      userId: session.user.id,
+      userName: session.user.name || session.user.email,
+      action: "CREATE",
+      entity: "user",
+      entityId: user.id,
+      details: `Utilisateur ${user.name} (${user.email}) créé avec le rôle ${user.role}`,
     });
 
     return NextResponse.json(user, { status: 201 });

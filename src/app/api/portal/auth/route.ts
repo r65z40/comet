@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { portalLogin } from "@/lib/portal-auth";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { logAudit } from "@/lib/audit";
 
 const PORTAL_COOKIE = "portal_token";
 
@@ -18,6 +20,10 @@ function buildSetCookie(name: string, value: string, maxAge: number): string {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = checkRateLimit(`portal-login:${ip}`, 5, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
   try {
     const { email, password } = await req.json();
     if (!email || !password) {
@@ -26,8 +32,11 @@ export async function POST(req: NextRequest) {
 
     const result = await portalLogin(email, password);
     if (!result) {
+      await logAudit({ action: "LOGIN_FAILED", entity: "portal", details: `Email: ${email}, IP: ${ip}` });
       return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 });
     }
+
+    await logAudit({ userId: result.clientId, userName: email, action: "LOGIN", entity: "portal" });
 
     const response = NextResponse.json({ success: true, clientId: result.clientId });
     response.headers.append(

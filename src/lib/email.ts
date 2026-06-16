@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { prisma } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
 
 interface SmtpConfig {
   host: string;
@@ -11,23 +12,9 @@ interface SmtpConfig {
 }
 
 export async function getSmtpConfig(): Promise<SmtpConfig | null> {
-  const settings = await prisma.setting.findMany({
-    where: {
-      key: {
-        in: [
-          "smtp_host",
-          "smtp_port",
-          "smtp_secure",
-          "smtp_user",
-          "smtp_pass",
-          "smtp_from",
-        ],
-      },
-    },
-  });
-
-  const map: Record<string, string> = {};
-  for (const s of settings) map[s.key] = s.value;
+  const map = await getSettings([
+    "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_pass", "smtp_from",
+  ]);
 
   if (!map.smtp_host || !map.smtp_user || !map.smtp_pass) return null;
 
@@ -42,16 +29,7 @@ export async function getSmtpConfig(): Promise<SmtpConfig | null> {
 }
 
 export async function getNotificationConfig() {
-  const settings = await prisma.setting.findMany({
-    where: {
-      key: {
-        in: ["notification_emails", "notification_delay_days"],
-      },
-    },
-  });
-
-  const map: Record<string, string> = {};
-  for (const s of settings) map[s.key] = s.value;
+  const map = await getSettings(["notification_emails", "notification_delay_days"]);
 
   return {
     emails: (map.notification_emails || "")

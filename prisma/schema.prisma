@@ -74,6 +74,7 @@ model Client {
   tickets           Ticket[]
 
   @@index([deletedAt])
+  @@index([name])
   @@map("clients")
 }
 
@@ -177,6 +178,8 @@ model Product {
   installations   Installation[]
 
   @@index([deletedAt])
+  @@index([family])
+  @@index([supplier])
   @@map("products")
 }
 

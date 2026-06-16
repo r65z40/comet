@@ -41,8 +41,8 @@ export function invalidateOxiboxCache(prefix?: string): void {
 const OXIBOX_API = "https://api.oxibox.com";
 
 export async function getOxiboxToken(): Promise<string | null> {
-  const row = await prisma.setting.findUnique({ where: { key: "oxibox_api_key" } });
-  return row?.value || null;
+  const { getSetting } = await import("@/lib/settings");
+  return getSetting("oxibox_api_key");
 }
 
 async function oxiboxFetch(path: string, token: string) {
