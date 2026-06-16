@@ -5,7 +5,10 @@ import {
   getClientsWithAlertStatus,
   sendQuotaAlertsToSelected,
   getQuotaAlertHistory,
+  sendTestQuotaAlert,
+  previewQuotaAlertHtml,
 } from "@/lib/quota-alerts";
+import type { AlertLevel } from "@/lib/quota-alerts";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -51,6 +54,35 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Erreur d'envoi" },
+        { status: 500 },
+      );
+    }
+  }
+
+  if (action === "test") {
+    const { email, alertType } = body;
+    if (!email || !alertType) {
+      return NextResponse.json({ error: "Email et type d'alerte requis" }, { status: 400 });
+    }
+    try {
+      const result = await sendTestQuotaAlert(email, alertType as AlertLevel);
+      return NextResponse.json({ sent: true, html: result.html });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Erreur d'envoi" },
+        { status: 500 },
+      );
+    }
+  }
+
+  if (action === "preview-html") {
+    const { alertType } = body;
+    try {
+      const html = await previewQuotaAlertHtml((alertType || "warning") as AlertLevel);
+      return NextResponse.json({ html });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Erreur" },
         { status: 500 },
       );
     }

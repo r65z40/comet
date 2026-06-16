@@ -108,6 +108,7 @@ export async function getOrgsExceedingThresholds(
       oxiboxId: true,
       name: true,
       email: true,
+      contacts: { select: { email: true }, where: { email: { not: null } } },
       portalUsers: { where: { active: true }, select: { email: true } },
     },
   });
@@ -128,12 +129,16 @@ export async function getOrgsExceedingThresholds(
     else if (pct >= warningPct) alertLevel = "warning";
 
     const client = clientMap.get(snap.organizationId);
+    const clientEmail = client?.email
+      || client?.contacts?.find(c => c.email)?.email
+      || client?.portalUsers?.[0]?.email
+      || null;
 
     results.push({
       organizationId: snap.organizationId,
       clientId: client?.id || null,
       clientName: client?.name || null,
-      clientEmail: client?.email || null,
+      clientEmail,
       portalUserEmails: client?.portalUsers.map(u => u.email) || [],
       allocatedQuota: snap.allocatedQuota,
       currentUsage: snap.currentUsage,
@@ -402,4 +407,62 @@ export async function getQuotaAlertHistory(limit = 50, offset = 0) {
     })),
     total,
   };
+}
+
+export async function sendTestQuotaAlert(testEmail: string, alertType: AlertLevel): Promise<{ html: string }> {
+  const config = await getQuotaAlertConfig();
+  const smtpConfig = await getSmtpConfig();
+  if (!smtpConfig) throw new Error("SMTP non configuré");
+
+  const fakeOrg: OrgQuotaInfo = {
+    organizationId: "TEST-ORG",
+    clientId: null,
+    clientName: "Client Exemple",
+    clientEmail: testEmail,
+    portalUserEmails: [],
+    allocatedQuota: BigInt(1099511627776),
+    currentUsage: alertType === "exceeded" ? BigInt(1121501860864) : BigInt(879609302221),
+    usagePercent: alertType === "exceeded" ? 102 : 80,
+    alertLevel: alertType,
+  };
+
+  const html = buildClientEmailHtml(fakeOrg, config);
+  const subject = replacePlaceholders(
+    alertType === "exceeded" ? config.subjectExceeded : config.subjectWarning,
+    fakeOrg,
+  );
+
+  const useSecure = smtpConfig.port === 465;
+  const transporter = nodemailer.createTransport({
+    host: smtpConfig.host,
+    port: smtpConfig.port,
+    secure: useSecure,
+    auth: { user: smtpConfig.user, pass: smtpConfig.pass },
+    tls: { rejectUnauthorized: false },
+  });
+
+  await transporter.sendMail({
+    from: smtpConfig.from,
+    to: testEmail,
+    subject: `[TEST] ${subject}`,
+    html,
+  });
+
+  return { html };
+}
+
+export async function previewQuotaAlertHtml(alertType: AlertLevel): Promise<string> {
+  const config = await getQuotaAlertConfig();
+  const fakeOrg: OrgQuotaInfo = {
+    organizationId: "EXEMPLE",
+    clientId: null,
+    clientName: "Client Exemple",
+    clientEmail: "client@exemple.fr",
+    portalUserEmails: [],
+    allocatedQuota: BigInt(1099511627776),
+    currentUsage: alertType === "exceeded" ? BigInt(1121501860864) : BigInt(879609302221),
+    usagePercent: alertType === "exceeded" ? 102 : 80,
+    alertLevel: alertType,
+  };
+  return buildClientEmailHtml(fakeOrg, config);
 }

@@ -239,6 +239,12 @@ export default function SettingsPage() {
   const [quotaHistoryTotal, setQuotaHistoryTotal] = useState(0);
   const [loadingQuotaHistory, setLoadingQuotaHistory] = useState(false);
   const [showQuotaHistory, setShowQuotaHistory] = useState(false);
+  const [quotaTestEmail, setQuotaTestEmail] = useState("");
+  const [quotaTestType, setQuotaTestType] = useState<"warning" | "exceeded">("warning");
+  const [sendingQuotaTest, setSendingQuotaTest] = useState(false);
+  const [quotaTestResult, setQuotaTestResult] = useState<string | null>(null);
+  const [quotaPreviewHtml, setQuotaPreviewHtml] = useState<string | null>(null);
+  const [loadingQuotaPreviewHtml, setLoadingQuotaPreviewHtml] = useState(false);
 
   // Spotify settings
   const [spotifyClientId, setSpotifyClientId] = useState("");
@@ -768,6 +774,46 @@ export default function SettingsPage() {
       setQuotaHistory([]);
     }
     setLoadingQuotaHistory(false);
+  }
+
+  async function handleSendQuotaTest() {
+    if (!quotaTestEmail) return;
+    setSendingQuotaTest(true);
+    setQuotaTestResult(null);
+    try {
+      await handleSaveQuotaAlerts();
+      const res = await fetch("/api/quota-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test", email: quotaTestEmail, alertType: quotaTestType }),
+      });
+      const data = await res.json();
+      if (data.sent) {
+        setQuotaTestResult(`Email de test envoyé à ${quotaTestEmail}`);
+      } else {
+        setQuotaTestResult(`Erreur : ${data.error}`);
+      }
+    } catch {
+      setQuotaTestResult("Erreur lors de l'envoi");
+    }
+    setSendingQuotaTest(false);
+  }
+
+  async function handlePreviewQuotaHtml() {
+    setLoadingQuotaPreviewHtml(true);
+    try {
+      await handleSaveQuotaAlerts();
+      const res = await fetch("/api/quota-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "preview-html", alertType: quotaTestType }),
+      });
+      const data = await res.json();
+      setQuotaPreviewHtml(data.html || null);
+    } catch {
+      setQuotaPreviewHtml(null);
+    }
+    setLoadingQuotaPreviewHtml(false);
   }
 
   async function handleSaveSiteLogo() {
@@ -2290,6 +2336,60 @@ export default function SettingsPage() {
           <div><label className="block text-xs text-slate-500 mb-1">Pied de page</label>
             <input type="text" value={quotaEmailFooter} onChange={(e) => setQuotaEmailFooter(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" /></div>
+        </div>
+
+        {/* Zone de test */}
+        <div className="border-t border-slate-100 pt-5">
+          <label className="block text-sm font-medium text-slate-600 mb-3">Test & aperçu</label>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs text-slate-500 mb-1">Email de test</label>
+                <input type="email" value={quotaTestEmail} onChange={(e) => setQuotaTestEmail(e.target.value)}
+                  placeholder="votre@email.com"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Type de mail</label>
+                <div className="flex gap-1">
+                  <button onClick={() => setQuotaTestType("warning")}
+                    className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${quotaTestType === "warning" ? "border-amber-300 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}>
+                    Avertissement
+                  </button>
+                  <button onClick={() => setQuotaTestType("exceeded")}
+                    className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${quotaTestType === "exceeded" ? "border-red-300 bg-red-50 text-red-700" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}>
+                    Dépassement
+                  </button>
+                </div>
+              </div>
+              <button onClick={handleSendQuotaTest} disabled={sendingQuotaTest || !quotaTestEmail}
+                className="flex items-center gap-1.5 rounded-lg bg-slate-700 px-4 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 transition-colors">
+                {sendingQuotaTest ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                Envoyer le test
+              </button>
+              <button onClick={handlePreviewQuotaHtml} disabled={loadingQuotaPreviewHtml}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 transition-colors">
+                {loadingQuotaPreviewHtml ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+                Aperçu
+              </button>
+            </div>
+            {quotaTestResult && (
+              <div className={`rounded-lg border px-3 py-2 text-xs ${
+                quotaTestResult.includes("Erreur") ? "border-red-200 bg-red-50 text-red-600" : "border-emerald-200 bg-emerald-50 text-emerald-600"
+              }`}>{quotaTestResult}</div>
+            )}
+            {quotaPreviewHtml && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-slate-500">Aperçu de l&apos;email ({quotaTestType === "exceeded" ? "dépassement" : "avertissement"})</span>
+                  <button onClick={() => setQuotaPreviewHtml(null)} className="text-slate-400 hover:text-slate-600"><X className="h-3.5 w-3.5" /></button>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+                  <iframe srcDoc={quotaPreviewHtml} className="w-full border-0" style={{ height: "420px" }} title="Aperçu email" />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Actions principales */}
