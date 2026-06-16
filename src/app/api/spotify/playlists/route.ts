@@ -27,15 +27,50 @@ export async function GET(req: NextRequest) {
 
   try {
     if (playlistId) {
-      const res = await spotifyFetch(`/playlists/${playlistId}`);
-      if (!res.ok) {
-        const text = await res.text();
+      // Strategy 1: Try /playlists/{id}/tracks directly (more reliable in dev mode)
+      const tracksRes = await spotifyFetch(`/playlists/${playlistId}/tracks?limit=100`);
+      if (tracksRes.ok) {
+        const tracksData = await tracksRes.json();
+        let rawItems: Record<string, unknown>[] = Array.isArray(tracksData.items) ? tracksData.items : [];
+
+        let tracks = rawItems
+          .map((item) => item ? extractTrack(item) : null)
+          .filter(Boolean);
+
+        // Fetch additional pages
+        let nextUrl = tracksData.next as string | null;
+        while (nextUrl) {
+          const pageRes = await spotifyFetch(nextUrl.replace("https://api.spotify.com/v1", ""));
+          if (!pageRes.ok) break;
+          const pageData = await pageRes.json();
+          const pageItems = (pageData.items || []) as Record<string, unknown>[];
+          tracks = tracks.concat(
+            pageItems.map((item) => item ? extractTrack(item) : null).filter(Boolean),
+          );
+          nextUrl = pageData.next as string | null;
+        }
+
+        if (tracks.length > 0) {
+          return NextResponse.json({
+            tracks,
+            total: tracksData.total || tracks.length,
+            debug: { source: "/tracks endpoint", rawItemCount: rawItems.length },
+          });
+        }
+
+        // Tracks endpoint returned 0 tracks — fall through to strategy 2
+      }
+
+      // Strategy 2: Try /playlists/{id} (full object)
+      const fullRes = await spotifyFetch(`/playlists/${playlistId}`);
+      if (!fullRes.ok) {
+        const text = await fullRes.text();
         return NextResponse.json(
-          { error: `Spotify ${res.status}`, tracks: [], detail: text },
+          { error: `Spotify ${fullRes.status}`, tracks: [], detail: text },
           { status: 200 },
         );
       }
-      const data = await res.json();
+      const data = await fullRes.json();
 
       let rawItems: Record<string, unknown>[] = [];
       if (data.tracks && Array.isArray(data.tracks.items)) {
@@ -46,28 +81,18 @@ export async function GET(req: NextRequest) {
         rawItems = data.items;
       }
 
-      let tracks = rawItems
+      const tracks = rawItems
         .map((item) => item ? extractTrack(item) : null)
         .filter(Boolean);
-
-      // If paging object has next pages, fetch them all
-      let nextUrl = data.tracks?.next as string | null;
-      while (nextUrl) {
-        const pageRes = await spotifyFetch(nextUrl.replace("https://api.spotify.com/v1", ""));
-        if (!pageRes.ok) break;
-        const pageData = await pageRes.json();
-        const pageItems = (pageData.items || []) as Record<string, unknown>[];
-        tracks = tracks.concat(
-          pageItems.map((item) => item ? extractTrack(item) : null).filter(Boolean),
-        );
-        nextUrl = pageData.next as string | null;
-      }
 
       return NextResponse.json({
         tracks,
         total: data.tracks?.total || tracks.length,
         debug: {
+          source: "/playlist full object",
+          responseKeys: Object.keys(data),
           hasTracksObj: !!data.tracks,
+          tracksType: data.tracks ? typeof data.tracks : "undefined",
           hasTracksItems: Array.isArray(data.tracks?.items),
           rawItemCount: rawItems.length,
           firstItemKeys: rawItems[0] ? Object.keys(rawItems[0]) : [],
