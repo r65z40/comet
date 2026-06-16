@@ -14,11 +14,17 @@ import {
   LogIn,
   X,
   ListMusic,
-  Compass,
+  Home,
+  Library,
   ChevronLeft,
-  Clock,
   Smartphone,
   MonitorSpeaker,
+  Shuffle,
+  Repeat,
+  Heart,
+  MoreHorizontal,
+  User,
+  Disc3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +48,24 @@ interface Playlist {
   description?: string;
 }
 
+interface Artist {
+  id: string;
+  name: string;
+  image: string;
+  uri: string;
+  genres?: string[];
+}
+
+interface Album {
+  id: string;
+  name: string;
+  artist: string;
+  image: string;
+  uri: string;
+  releaseDate?: string;
+  totalTracks?: number;
+}
+
 interface PlayerState {
   playing: boolean;
   paused: boolean;
@@ -51,6 +75,22 @@ interface PlayerState {
   positionMs: number;
   durationMs: number;
   deviceName: string;
+}
+
+interface BrowseData {
+  recentTracks: Track[];
+  topArtists: Artist[];
+  topTracks: Track[];
+  featuredPlaylists: Playlist[];
+  newReleases: Album[];
+  userPlaylists: Playlist[];
+}
+
+interface SearchResults {
+  tracks: Track[];
+  artists: Artist[];
+  albums: Album[];
+  playlists: Playlist[];
 }
 
 declare global {
@@ -85,48 +125,71 @@ function formatMs(ms: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-type Tab = "playing" | "search" | "playlists" | "browse";
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Bonjour";
+  if (h < 18) return "Bon après-midi";
+  return "Bonsoir";
+}
+
+const SCROLL_HIDE = "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+const GENRE_CARDS = [
+  { name: "Pop", color: "#8C67AB", q: "genre:pop" },
+  { name: "Rock", color: "#E13300", q: "genre:rock" },
+  { name: "Hip-Hop", color: "#BA5D07", q: "genre:hip-hop" },
+  { name: "Électro", color: "#DC148C", q: "genre:electronic" },
+  { name: "Jazz", color: "#477D95", q: "genre:jazz" },
+  { name: "Classique", color: "#7358FF", q: "genre:classical" },
+  { name: "R&B", color: "#1E3264", q: "genre:r&b" },
+  { name: "Chill", color: "#2D46B9", q: "genre:chill" },
+  { name: "Français", color: "#148A08", q: "genre:french" },
+  { name: "Ambient", color: "#537AA0", q: "genre:ambient" },
+];
+
+type Tab = "home" | "search" | "library" | "playing";
+type DetailView = null | { type: "playlist"; data: Playlist } | { type: "artist"; data: Artist };
 
 export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // SDK player (works on HTTPS only — gives browser audio)
   const [sdkPlayer, setSdkPlayer] = useState<SpotifyPlayer | null>(null);
   const [sdkDeviceId, setSdkDeviceId] = useState<string | null>(null);
   const [sdkState, setSdkState] = useState<PlayerState | null>(null);
   const sdkLoaded = useRef(false);
   const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
 
-  // API-based state (fallback for HTTP)
   const [apiState, setApiState] = useState<PlayerState | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval>>(null);
 
-  // Use SDK state when available, otherwise API state
   const state = sdkState || apiState;
   const usesSdk = !!sdkDeviceId;
 
   const [volume, setVolume] = useState(0.5);
   const [muted, setMuted] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("browse");
+  const [activeTab, setActiveTab] = useState<Tab>("home");
 
   const [query, setQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResults>({ tracks: [], artists: [], albums: [], playlists: [] });
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const [browseData, setBrowseData] = useState<BrowseData | null>(null);
+  const [loadingBrowse, setLoadingBrowse] = useState(false);
 
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
-  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
-  const [playlistTracks, setPlaylistTracks] = useState<Track[]>([]);
-  const [loadingPlaylistTracks, setLoadingPlaylistTracks] = useState(false);
 
-  const [featuredPlaylists, setFeaturedPlaylists] = useState<Playlist[]>([]);
-  const [recentTracks, setRecentTracks] = useState<Track[]>([]);
-  const [loadingBrowse, setLoadingBrowse] = useState(false);
+  const [detailView, setDetailView] = useState<DetailView>(null);
+  const [playlistTracks, setPlaylistTracks] = useState<Track[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const progressInterval = useRef<ReturnType<typeof setInterval>>(null);
   const [playError, setPlayError] = useState<string | null>(null);
+  const [likedTrack, setLikedTrack] = useState(false);
 
   // Check connection
   useEffect(() => {
@@ -220,7 +283,7 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
         if (data.trackName) setApiState(data);
         else setApiState(null);
       }
-    } catch {}
+    } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {
@@ -230,9 +293,28 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [connected, usesSdk, fetchApiState]);
 
-  // Load playlists
+  // Load browse data
   useEffect(() => {
-    if (activeTab === "playlists" && playlists.length === 0 && !loadingPlaylists && connected) {
+    if (connected && !browseData && !loadingBrowse) {
+      setLoadingBrowse(true);
+      fetch("/api/spotify/browse")
+        .then((r) => r.json())
+        .then((d) => setBrowseData({
+          recentTracks: d.recentTracks || [],
+          topArtists: d.topArtists || [],
+          topTracks: d.topTracks || [],
+          featuredPlaylists: d.featuredPlaylists || [],
+          newReleases: d.newReleases || [],
+          userPlaylists: d.userPlaylists || [],
+        }))
+        .catch(() => {})
+        .finally(() => setLoadingBrowse(false));
+    }
+  }, [connected, browseData, loadingBrowse]);
+
+  // Load playlists for library
+  useEffect(() => {
+    if (activeTab === "library" && playlists.length === 0 && !loadingPlaylists && connected) {
       setLoadingPlaylists(true);
       fetch("/api/spotify/playlists")
         .then((r) => r.json())
@@ -242,22 +324,7 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
     }
   }, [activeTab, playlists.length, loadingPlaylists, connected]);
 
-  // Load browse
-  useEffect(() => {
-    if (activeTab === "browse" && featuredPlaylists.length === 0 && recentTracks.length === 0 && !loadingBrowse && connected) {
-      setLoadingBrowse(true);
-      fetch("/api/spotify/browse")
-        .then((r) => r.json())
-        .then((d) => {
-          setFeaturedPlaylists(d.featuredPlaylists || []);
-          setRecentTracks(d.recentTracks || []);
-        })
-        .catch(() => {})
-        .finally(() => setLoadingBrowse(false));
-    }
-  }, [activeTab, featuredPlaylists.length, recentTracks.length, loadingBrowse, connected]);
-
-  // Controls: SDK or API
+  // Controls
   async function doControl(action: string) {
     if (usesSdk && sdkPlayer) {
       if (action === "pause" || action === "resume") await sdkPlayer.togglePlay();
@@ -300,10 +367,10 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
     }
   }
 
-  async function playPlaylist(playlist: Playlist) {
+  async function playContext(contextUri: string) {
     setPlayError(null);
     try {
-      const body: Record<string, string> = { contextUri: playlist.uri };
+      const body: Record<string, string> = { contextUri };
       if (sdkDeviceId) body.deviceId = sdkDeviceId;
 
       const res = await fetch("/api/spotify/play", {
@@ -325,42 +392,51 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
     }
   }
 
-  const [playlistError, setPlaylistError] = useState<string | null>(null);
-
-  async function openPlaylist(playlist: Playlist) {
-    setSelectedPlaylist(playlist);
+  function openPlaylist(playlist: Playlist) {
+    setDetailView({ type: "playlist", data: playlist });
     setPlaylistTracks([]);
-    setPlaylistError(null);
-    setLoadingPlaylistTracks(true);
-    try {
-      const res = await fetch(`/api/spotify/playlists?id=${playlist.id}`);
-      const data = await res.json();
-      if (data.error) {
-        setPlaylistError(data.error);
-      } else {
-        setPlaylistTracks(data.tracks || []);
-      }
-    } catch {
-      setPlaylistError("Impossible de charger les titres");
-    }
-    setLoadingPlaylistTracks(false);
+    setDetailError(null);
+    setLoadingDetail(true);
+    fetch(`/api/spotify/playlists?id=${playlist.id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) setDetailError(data.error);
+        else setPlaylistTracks(data.tracks || []);
+      })
+      .catch(() => setDetailError("Impossible de charger les titres"))
+      .finally(() => setLoadingDetail(false));
   }
 
   function handleSearch(value: string) {
     setQuery(value);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    if (value.length < 2) { setSearchResults([]); return; }
+    if (value.length < 2) {
+      setSearchResults({ tracks: [], artists: [], albums: [], playlists: [] });
+      setHasSearched(false);
+      return;
+    }
     searchTimeout.current = setTimeout(async () => {
       setSearching(true);
       try {
         const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(value)}`);
         if (res.ok) {
           const data = await res.json();
-          setSearchResults(data.tracks || []);
+          setSearchResults({
+            tracks: data.tracks || [],
+            artists: data.artists || [],
+            albums: data.albums || [],
+            playlists: data.playlists || [],
+          });
+          setHasSearched(true);
         }
-      } catch {}
+      } catch { /* ignore */ }
       setSearching(false);
     }, 400);
+  }
+
+  function searchGenre(q: string) {
+    setQuery(q);
+    handleSearch(q);
   }
 
   function toggleMute() {
@@ -382,12 +458,23 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
 
   if (!connected) {
     return (
-      <div className={cn("flex flex-col items-center justify-center h-full gap-3 p-4", dark ? "text-slate-400" : "text-slate-500")}>
-        <Music className="h-8 w-8 opacity-30" />
-        <p className="text-xs text-center">Connectez Spotify dans les paramètres</p>
-        <a href="/api/spotify/auth" className={cn("flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-colors", dark ? "bg-green-600 hover:bg-green-500 text-white" : "bg-green-500 hover:bg-green-600 text-white")}>
+      <div className={cn(
+        "flex flex-col items-center justify-center h-full gap-4 p-6",
+        dark ? "text-slate-400" : "text-slate-500",
+      )}>
+        <div className={cn("p-4 rounded-full", dark ? "bg-slate-800" : "bg-slate-100")}>
+          <Music className="h-8 w-8 opacity-40" />
+        </div>
+        <div className="text-center">
+          <p className={cn("text-sm font-medium mb-1", dark ? "text-slate-300" : "text-slate-600")}>Spotify</p>
+          <p className="text-xs opacity-70">Connectez votre compte pour écouter de la musique</p>
+        </div>
+        <a
+          href="/api/spotify/auth"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold bg-[#1DB954] hover:bg-[#1ed760] text-black transition-all hover:scale-105"
+        >
           <LogIn className="h-3.5 w-3.5" />
-          Connecter Spotify
+          Se connecter à Spotify
         </a>
       </div>
     );
@@ -395,48 +482,142 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
 
   const progress = state ? (state.positionMs / state.durationMs) * 100 : 0;
 
+  // Deduplicated recent items for quick access grid
+  const quickAccess = browseData
+    ? deduplicateByKey(browseData.recentTracks, "name").slice(0, 6)
+    : [];
+
   const tabs: { id: Tab; icon: typeof Music; label: string }[] = [
+    { id: "home", icon: Home, label: "Accueil" },
+    { id: "search", icon: Search, label: "Recherche" },
+    { id: "library", icon: Library, label: "Biblio" },
     { id: "playing", icon: Music, label: "Lecture" },
-    { id: "browse", icon: Compass, label: "Explorer" },
-    { id: "search", icon: Search, label: "Chercher" },
-    { id: "playlists", icon: ListMusic, label: "Playlists" },
   ];
+
+  // Detail view (playlist)
+  if (detailView) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Back header */}
+        <button
+          onClick={() => { setDetailView(null); setPlaylistTracks([]); }}
+          className={cn(
+            "flex items-center gap-2 px-3 py-2.5 text-xs font-medium shrink-0 border-b transition-colors",
+            dark ? "text-slate-300 border-slate-700/50 hover:bg-slate-800/50" : "text-slate-600 border-slate-200 hover:bg-slate-50",
+          )}
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Retour
+        </button>
+
+        {/* Detail header */}
+        <div className={cn("relative shrink-0 overflow-hidden", dark ? "bg-slate-800/30" : "bg-slate-50")}>
+          {detailView.type === "playlist" && (
+            <div className="flex items-end gap-3 p-4">
+              {detailView.data.image ? (
+                <img src={detailView.data.image} alt="" className="h-20 w-20 rounded-lg object-cover shadow-lg shrink-0" />
+              ) : (
+                <div className={cn("h-20 w-20 rounded-lg flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-200")}>
+                  <ListMusic className="h-8 w-8 text-slate-500" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0 pb-0.5">
+                <p className={cn("text-sm font-bold truncate", dark ? "text-white" : "text-slate-800")}>{detailView.data.name}</p>
+                <p className={cn("text-[10px] mt-0.5", dark ? "text-slate-400" : "text-slate-500")}>
+                  {detailView.data.owner && `${detailView.data.owner} · `}
+                  {playlistTracks.length || detailView.data.trackCount} titres
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={() => playContext(detailView.data.uri)}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#1DB954] hover:bg-[#1ed760] text-black text-[11px] font-bold transition-all hover:scale-105"
+                  >
+                    <Play className="h-3.5 w-3.5 ml-0.5" fill="currentColor" />
+                    Lecture
+                  </button>
+                  <button
+                    onClick={() => playContext(detailView.data.uri)}
+                    className={cn("p-1.5 rounded-full transition-colors", dark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-200 text-slate-500")}
+                  >
+                    <Shuffle className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {detailView.type === "artist" && (
+            <div className="flex items-end gap-3 p-4">
+              {detailView.data.image ? (
+                <img src={detailView.data.image} alt="" className="h-20 w-20 rounded-full object-cover shadow-lg shrink-0" />
+              ) : (
+                <div className={cn("h-20 w-20 rounded-full flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-200")}>
+                  <User className="h-8 w-8 text-slate-500" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0 pb-0.5">
+                <p className={cn("text-sm font-bold", dark ? "text-white" : "text-slate-800")}>{detailView.data.name}</p>
+                {detailView.data.genres && detailView.data.genres.length > 0 && (
+                  <p className={cn("text-[10px] mt-0.5 capitalize", dark ? "text-slate-400" : "text-slate-500")}>
+                    {detailView.data.genres.join(" · ")}
+                  </p>
+                )}
+                <button
+                  onClick={() => playContext(detailView.data.uri)}
+                  className="flex items-center gap-1.5 px-4 py-1.5 mt-2 rounded-full bg-[#1DB954] hover:bg-[#1ed760] text-black text-[11px] font-bold transition-all hover:scale-105"
+                >
+                  <Play className="h-3.5 w-3.5 ml-0.5" fill="currentColor" />
+                  Lecture aléatoire
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Detail content */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {loadingDetail ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-[#1DB954]" />
+            </div>
+          ) : detailError ? (
+            <div className={cn("text-xs text-center py-6 px-4", dark ? "text-red-400" : "text-red-500")}>
+              {detailError}
+              {detailError.includes("403") && (
+                <p className={cn("text-[10px] mt-1", dark ? "text-slate-500" : "text-slate-400")}>
+                  Spotify bloque l&apos;accès en mode développement pour cette playlist
+                </p>
+              )}
+            </div>
+          ) : playlistTracks.length === 0 && detailView.type === "playlist" ? (
+            <p className={cn("text-xs text-center py-8", dark ? "text-slate-500" : "text-slate-400")}>Playlist vide</p>
+          ) : (
+            playlistTracks.map((track, i) => (
+              <TrackRow
+                key={`${track.id}-${i}`}
+                track={track}
+                index={i + 1}
+                dark={dark}
+                onPlay={() => playTrack(track.uri, detailView.data.uri)}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Mini player in detail */}
+        {state && <MiniBar state={state} progress={progress} dark={dark} onPlay={() => doControl(state.paused ? "resume" : "pause")} onTab={() => { setDetailView(null); setActiveTab("playing"); }} />}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Mini player */}
+      {/* Mini player bar (when not on playing tab) */}
       {state && activeTab !== "playing" && (
-        <div className={cn("relative flex items-center gap-2.5 p-2 cursor-pointer shrink-0", dark ? "bg-slate-800/60" : "bg-slate-50")} onClick={() => setActiveTab("playing")}>
-          {state.albumImage ? (
-            <img src={state.albumImage} alt="" className="h-9 w-9 rounded-md object-cover shrink-0 shadow" />
-          ) : (
-            <div className={cn("h-9 w-9 rounded-md flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-200")}>
-              <Music className={cn("h-4 w-4", dark ? "text-slate-500" : "text-slate-400")} />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className={cn("text-[11px] font-medium truncate", dark ? "text-white" : "text-slate-800")}>{state.trackName}</p>
-            <p className={cn("text-[9px] truncate", dark ? "text-slate-400" : "text-slate-500")}>{state.artistName}</p>
-          </div>
-          <div className="flex items-center gap-0.5 shrink-0">
-            <button onClick={(e) => { e.stopPropagation(); doControl("previous"); }} className={cn("p-1 rounded-full", dark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-200 text-slate-500")}>
-              <SkipBack className="h-3 w-3" />
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); doControl(state.paused ? "resume" : "pause"); }} className={cn("p-1.5 rounded-full", dark ? "bg-green-600 text-white" : "bg-green-500 text-white")}>
-              {state.paused ? <Play className="h-3 w-3 ml-0.5" /> : <Pause className="h-3 w-3" />}
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); doControl("next"); }} className={cn("p-1 rounded-full", dark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-200 text-slate-500")}>
-              <SkipForward className="h-3 w-3" />
-            </button>
-          </div>
-          <div className={cn("absolute bottom-0 left-0 right-0 h-0.5", dark ? "bg-slate-700" : "bg-slate-200")}>
-            <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
+        <MiniBar state={state} progress={progress} dark={dark} onPlay={() => doControl(state.paused ? "resume" : "pause")} onTab={() => setActiveTab("playing")} />
       )}
 
       {/* Tab bar */}
-      <div className={cn("flex border-b shrink-0", dark ? "border-slate-700" : "border-slate-200")}>
+      <div className={cn("flex border-b shrink-0", dark ? "border-slate-700/50" : "border-slate-200")}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -444,11 +625,11 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 text-[10px] font-medium transition-colors",
               activeTab === tab.id
-                ? (dark ? "text-green-400 border-b-2 border-green-400" : "text-green-600 border-b-2 border-green-500")
+                ? (dark ? "text-[#1DB954] border-b-2 border-[#1DB954]" : "text-[#1DB954] border-b-2 border-[#1DB954]")
                 : (dark ? "text-slate-500 hover:text-slate-300" : "text-slate-400 hover:text-slate-600"),
             )}
           >
-            <tab.icon className="h-3 w-3" />
+            <tab.icon className="h-3.5 w-3.5" />
             {tab.label}
           </button>
         ))}
@@ -463,214 +644,481 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
 
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto min-h-0">
+
+        {/* ── HOME ─────────────────────────────────────────── */}
+        {activeTab === "home" && (
+          loadingBrowse ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-[#1DB954]" />
+            </div>
+          ) : (
+            <div className="pb-3">
+              {/* Greeting */}
+              <div className="px-4 pt-4 pb-2">
+                <h2 className={cn("text-base font-bold", dark ? "text-white" : "text-slate-800")}>{getGreeting()}</h2>
+              </div>
+
+              {/* Quick access grid */}
+              {quickAccess.length > 0 && (
+                <div className="grid grid-cols-2 gap-1.5 px-3 pb-3">
+                  {quickAccess.map((track) => (
+                    <button
+                      key={track.id}
+                      onClick={() => playTrack(track.uri)}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md overflow-hidden text-left transition-all group",
+                        dark ? "bg-slate-800/60 hover:bg-slate-700/60" : "bg-slate-100 hover:bg-slate-200/80",
+                      )}
+                    >
+                      {track.image ? (
+                        <img src={track.image} alt="" className="h-10 w-10 object-cover shrink-0" />
+                      ) : (
+                        <div className={cn("h-10 w-10 flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-300")}>
+                          <Music className="h-4 w-4 text-slate-500" />
+                        </div>
+                      )}
+                      <p className={cn("text-[10px] font-semibold truncate pr-2 flex-1", dark ? "text-white" : "text-slate-800")}>{track.name}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Top Artists */}
+              {browseData && browseData.topArtists.length > 0 && (
+                <div className="mb-3">
+                  <SectionTitle dark={dark}>Vos artistes préférés</SectionTitle>
+                  <div className={cn("flex gap-3 px-3 pb-1", SCROLL_HIDE)}>
+                    {browseData.topArtists.slice(0, 12).map((artist) => (
+                      <button
+                        key={artist.id}
+                        onClick={() => {
+                          setDetailView({ type: "artist", data: artist });
+                          setPlaylistTracks([]);
+                          setLoadingDetail(false);
+                          setDetailError(null);
+                        }}
+                        className="flex flex-col items-center gap-1.5 shrink-0 group w-[72px]"
+                      >
+                        <div className="relative">
+                          {artist.image ? (
+                            <img src={artist.image} alt="" className="h-[72px] w-[72px] rounded-full object-cover shadow-md" />
+                          ) : (
+                            <div className={cn("h-[72px] w-[72px] rounded-full flex items-center justify-center shadow-md", dark ? "bg-slate-700" : "bg-slate-200")}>
+                              <User className="h-6 w-6 text-slate-500" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Play className="h-5 w-5 text-white" fill="white" />
+                          </div>
+                        </div>
+                        <p className={cn("text-[10px] font-medium text-center line-clamp-2 leading-tight w-full", dark ? "text-slate-300" : "text-slate-700")}>{artist.name}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Top Tracks */}
+              {browseData && browseData.topTracks.length > 0 && (
+                <div className="mb-3">
+                  <SectionTitle dark={dark}>Vos titres du moment</SectionTitle>
+                  {browseData.topTracks.slice(0, 5).map((track, i) => (
+                    <TrackRow key={track.id} track={track} index={i + 1} dark={dark} onPlay={() => playTrack(track.uri)} />
+                  ))}
+                </div>
+              )}
+
+              {/* New Releases */}
+              {browseData && browseData.newReleases.length > 0 && (
+                <div className="mb-3">
+                  <SectionTitle dark={dark}>Nouveautés</SectionTitle>
+                  <div className={cn("flex gap-2.5 px-3 pb-1", SCROLL_HIDE)}>
+                    {browseData.newReleases.slice(0, 12).map((album) => (
+                      <AlbumCard key={album.id} album={album} dark={dark} onPlay={() => playContext(album.uri)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Featured Playlists */}
+              {browseData && browseData.featuredPlaylists.length > 0 && (
+                <div className="mb-3">
+                  <SectionTitle dark={dark}>Playlists populaires</SectionTitle>
+                  <div className={cn("flex gap-2.5 px-3 pb-1", SCROLL_HIDE)}>
+                    {browseData.featuredPlaylists.slice(0, 12).map((pl) => (
+                      <PlaylistCard key={pl.id} playlist={pl} dark={dark} onOpen={() => openPlaylist(pl)} onPlay={() => playContext(pl.uri)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* User Playlists */}
+              {browseData && browseData.userPlaylists.length > 0 && (
+                <div className="mb-3">
+                  <SectionTitle dark={dark}>Vos playlists</SectionTitle>
+                  <div className={cn("flex gap-2.5 px-3 pb-1", SCROLL_HIDE)}>
+                    {browseData.userPlaylists.slice(0, 12).map((pl) => (
+                      <PlaylistCard key={pl.id} playlist={pl} dark={dark} onOpen={() => openPlaylist(pl)} onPlay={() => playContext(pl.uri)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {browseData && !browseData.recentTracks.length && !browseData.topArtists.length && !browseData.topTracks.length && (
+                <div className={cn("flex flex-col items-center justify-center py-8 gap-2", dark ? "text-slate-500" : "text-slate-400")}>
+                  <Music className="h-6 w-6 opacity-30" />
+                  <p className="text-xs">Écoutez de la musique pour voir vos recommandations</p>
+                </div>
+              )}
+            </div>
+          )
+        )}
+
+        {/* ── SEARCH ───────────────────────────────────────── */}
+        {activeTab === "search" && (
+          <div className="flex flex-col h-full">
+            <div className="p-3 shrink-0">
+              <div className={cn("flex items-center gap-2 rounded-full px-3.5 py-2", dark ? "bg-slate-700/80" : "bg-slate-100")}>
+                <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Artistes, titres ou podcasts"
+                  autoFocus
+                  className={cn("flex-1 bg-transparent text-sm outline-none", dark ? "text-white placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400")}
+                />
+                {searching && <Loader2 className="h-4 w-4 animate-spin text-[#1DB954]" />}
+                {query && (
+                  <button onClick={() => { setQuery(""); setSearchResults({ tracks: [], artists: [], albums: [], playlists: [] }); setHasSearched(false); }}>
+                    <X className={cn("h-4 w-4", dark ? "text-slate-500" : "text-slate-400")} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {!hasSearched ? (
+                <>
+                  <SectionTitle dark={dark}>Explorer les genres</SectionTitle>
+                  <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+                    {GENRE_CARDS.map((g) => (
+                      <button
+                        key={g.name}
+                        onClick={() => searchGenre(g.q)}
+                        className="relative h-16 rounded-lg overflow-hidden text-left transition-transform hover:scale-[1.02]"
+                        style={{ backgroundColor: g.color }}
+                      >
+                        <p className="absolute top-2.5 left-3 text-xs font-bold text-white drop-shadow">{g.name}</p>
+                        <Music className="absolute bottom-1 right-1 h-8 w-8 text-white/20 rotate-12" />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Top result (first artist or track) */}
+                  {(searchResults.artists.length > 0 || searchResults.tracks.length > 0) && (
+                    <div className="px-3 pb-2">
+                      <p className={cn("text-xs font-bold mb-2", dark ? "text-white" : "text-slate-800")}>Meilleur résultat</p>
+                      {searchResults.artists.length > 0 ? (
+                        <button
+                          onClick={() => playContext(searchResults.artists[0].uri)}
+                          className={cn(
+                            "w-full p-3 rounded-lg text-left transition-colors group",
+                            dark ? "bg-slate-800/60 hover:bg-slate-700/60" : "bg-slate-50 hover:bg-slate-100",
+                          )}
+                        >
+                          <div className="relative w-fit">
+                            {searchResults.artists[0].image ? (
+                              <img src={searchResults.artists[0].image} alt="" className="h-16 w-16 rounded-full object-cover shadow" />
+                            ) : (
+                              <div className={cn("h-16 w-16 rounded-full flex items-center justify-center", dark ? "bg-slate-700" : "bg-slate-200")}>
+                                <User className="h-6 w-6 text-slate-500" />
+                              </div>
+                            )}
+                          </div>
+                          <p className={cn("text-sm font-bold mt-2", dark ? "text-white" : "text-slate-800")}>{searchResults.artists[0].name}</p>
+                          <p className={cn("text-[10px]", dark ? "text-slate-400" : "text-slate-500")}>Artiste</p>
+                          <div className="absolute bottom-3 right-3 p-2.5 rounded-full bg-[#1DB954] text-black opacity-0 group-hover:opacity-100 transition-all translate-y-1 group-hover:translate-y-0 shadow-lg">
+                            <Play className="h-4 w-4 ml-0.5" fill="currentColor" />
+                          </div>
+                        </button>
+                      ) : searchResults.tracks.length > 0 && (
+                        <button
+                          onClick={() => playTrack(searchResults.tracks[0].uri)}
+                          className={cn(
+                            "w-full p-3 rounded-lg text-left transition-colors group",
+                            dark ? "bg-slate-800/60 hover:bg-slate-700/60" : "bg-slate-50 hover:bg-slate-100",
+                          )}
+                        >
+                          {searchResults.tracks[0].image ? (
+                            <img src={searchResults.tracks[0].image} alt="" className="h-16 w-16 rounded-md object-cover shadow" />
+                          ) : (
+                            <div className={cn("h-16 w-16 rounded-md flex items-center justify-center", dark ? "bg-slate-700" : "bg-slate-200")}>
+                              <Music className="h-6 w-6 text-slate-500" />
+                            </div>
+                          )}
+                          <p className={cn("text-sm font-bold mt-2", dark ? "text-white" : "text-slate-800")}>{searchResults.tracks[0].name}</p>
+                          <p className={cn("text-[10px]", dark ? "text-slate-400" : "text-slate-500")}>{searchResults.tracks[0].artist} · Titre</p>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Tracks */}
+                  {searchResults.tracks.length > 0 && (
+                    <div className="mb-2">
+                      <SectionTitle dark={dark}>Titres</SectionTitle>
+                      {searchResults.tracks.slice(0, 4).map((track) => (
+                        <TrackRow key={track.id} track={track} dark={dark} onPlay={() => playTrack(track.uri)} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Artists */}
+                  {searchResults.artists.length > 1 && (
+                    <div className="mb-2">
+                      <SectionTitle dark={dark}>Artistes</SectionTitle>
+                      {searchResults.artists.slice(1, 5).map((artist) => (
+                        <button
+                          key={artist.id}
+                          onClick={() => playContext(artist.uri)}
+                          className={cn("w-full flex items-center gap-3 px-3 py-2 text-left transition-colors group", dark ? "hover:bg-slate-700/50" : "hover:bg-slate-50")}
+                        >
+                          {artist.image ? (
+                            <img src={artist.image} alt="" className="h-10 w-10 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-200")}>
+                              <User className="h-4 w-4 text-slate-500" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("text-xs font-medium truncate", dark ? "text-white" : "text-slate-800")}>{artist.name}</p>
+                            <p className={cn("text-[10px]", dark ? "text-slate-400" : "text-slate-500")}>Artiste</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Albums */}
+                  {searchResults.albums.length > 0 && (
+                    <div className="mb-2">
+                      <SectionTitle dark={dark}>Albums</SectionTitle>
+                      {searchResults.albums.slice(0, 4).map((album) => (
+                        <button
+                          key={album.id}
+                          onClick={() => playContext(album.uri)}
+                          className={cn("w-full flex items-center gap-3 px-3 py-2 text-left transition-colors group", dark ? "hover:bg-slate-700/50" : "hover:bg-slate-50")}
+                        >
+                          {album.image ? (
+                            <img src={album.image} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
+                          ) : (
+                            <div className={cn("h-10 w-10 rounded flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-200")}>
+                              <Disc3 className="h-4 w-4 text-slate-500" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("text-xs font-medium truncate", dark ? "text-white" : "text-slate-800")}>{album.name}</p>
+                            <p className={cn("text-[10px] truncate", dark ? "text-slate-400" : "text-slate-500")}>{album.artist} · Album</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Playlists */}
+                  {searchResults.playlists.length > 0 && (
+                    <div className="mb-2">
+                      <SectionTitle dark={dark}>Playlists</SectionTitle>
+                      {searchResults.playlists.slice(0, 4).map((pl) => (
+                        <button
+                          key={pl.id}
+                          onClick={() => openPlaylist(pl)}
+                          className={cn("w-full flex items-center gap-3 px-3 py-2 text-left transition-colors group", dark ? "hover:bg-slate-700/50" : "hover:bg-slate-50")}
+                        >
+                          {pl.image ? (
+                            <img src={pl.image} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
+                          ) : (
+                            <div className={cn("h-10 w-10 rounded flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-200")}>
+                              <ListMusic className="h-4 w-4 text-slate-500" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("text-xs font-medium truncate", dark ? "text-white" : "text-slate-800")}>{pl.name}</p>
+                            <p className={cn("text-[10px] truncate", dark ? "text-slate-400" : "text-slate-500")}>{pl.owner ? `${pl.owner} · ` : ""}Playlist</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* No results */}
+                  {hasSearched && !searchResults.tracks.length && !searchResults.artists.length && !searchResults.albums.length && !searchResults.playlists.length && (
+                    <p className={cn("text-xs text-center py-8", dark ? "text-slate-500" : "text-slate-400")}>
+                      Aucun résultat pour &quot;{query}&quot;
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── LIBRARY ──────────────────────────────────────── */}
+        {activeTab === "library" && (
+          loadingPlaylists ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-[#1DB954]" />
+            </div>
+          ) : (
+            <div>
+              <div className="px-4 pt-3 pb-2">
+                <h2 className={cn("text-base font-bold", dark ? "text-white" : "text-slate-800")}>Votre bibliothèque</h2>
+              </div>
+
+              {/* Liked songs shortcut */}
+              <button
+                onClick={() => playContext("spotify:collection:tracks")}
+                className={cn("w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors", dark ? "hover:bg-slate-700/50" : "hover:bg-slate-50")}
+              >
+                <div className="h-12 w-12 rounded-md bg-gradient-to-br from-indigo-400 to-blue-600 flex items-center justify-center shrink-0 shadow">
+                  <Heart className="h-5 w-5 text-white" fill="white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={cn("text-xs font-bold", dark ? "text-white" : "text-slate-800")}>Titres likés</p>
+                  <p className={cn("text-[10px]", dark ? "text-slate-400" : "text-slate-500")}>Playlist</p>
+                </div>
+              </button>
+
+              {/* Playlists */}
+              {playlists.length === 0 ? (
+                <p className={cn("text-xs text-center py-6", dark ? "text-slate-500" : "text-slate-400")}>Aucune playlist</p>
+              ) : (
+                playlists.map((pl) => (
+                  <button
+                    key={pl.id}
+                    onClick={() => openPlaylist(pl)}
+                    className={cn("w-full flex items-center gap-3 px-3 py-2 text-left transition-colors group", dark ? "hover:bg-slate-700/50" : "hover:bg-slate-50")}
+                  >
+                    {pl.image ? (
+                      <img src={pl.image} alt="" className="h-12 w-12 rounded-md object-cover shrink-0 shadow-sm" />
+                    ) : (
+                      <div className={cn("h-12 w-12 rounded-md flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-200")}>
+                        <ListMusic className="h-5 w-5 text-slate-500" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-xs font-medium truncate", dark ? "text-white" : "text-slate-800")}>{pl.name}</p>
+                      <p className={cn("text-[10px] truncate", dark ? "text-slate-400" : "text-slate-500")}>
+                        Playlist · {pl.owner}{pl.trackCount ? ` · ${pl.trackCount} titres` : ""}
+                      </p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )
+        )}
+
+        {/* ── NOW PLAYING ──────────────────────────────────── */}
         {activeTab === "playing" && (
           state ? (
             <div className="flex flex-col items-center p-4 gap-3">
-              {state.albumImage ? (
-                <img src={state.albumImage} alt="" className="w-28 h-28 rounded-xl object-cover shadow-lg" />
-              ) : (
-                <div className={cn("w-28 h-28 rounded-xl flex items-center justify-center", dark ? "bg-slate-700" : "bg-slate-200")}>
-                  <Music className={cn("h-10 w-10", dark ? "text-slate-500" : "text-slate-400")} />
-                </div>
-              )}
+              {/* Album art */}
+              <div className="relative group">
+                {state.albumImage ? (
+                  <img src={state.albumImage} alt="" className="w-36 h-36 rounded-xl object-cover shadow-2xl" />
+                ) : (
+                  <div className={cn("w-36 h-36 rounded-xl flex items-center justify-center", dark ? "bg-slate-700" : "bg-slate-200")}>
+                    <Music className={cn("h-12 w-12", dark ? "text-slate-500" : "text-slate-400")} />
+                  </div>
+                )}
+              </div>
+
+              {/* Track info */}
               <div className="text-center w-full">
-                <p className={cn("text-sm font-semibold truncate", dark ? "text-white" : "text-slate-800")}>{state.trackName}</p>
+                <div className="flex items-center justify-center gap-2">
+                  <p className={cn("text-sm font-bold truncate", dark ? "text-white" : "text-slate-800")}>{state.trackName}</p>
+                </div>
                 <p className={cn("text-xs truncate", dark ? "text-slate-400" : "text-slate-500")}>{state.artistName}</p>
               </div>
+
+              {/* Like button */}
+              <button
+                onClick={() => setLikedTrack(!likedTrack)}
+                className="p-1"
+              >
+                <Heart className={cn("h-4 w-4 transition-colors", likedTrack ? "text-[#1DB954] fill-[#1DB954]" : (dark ? "text-slate-500" : "text-slate-400"))} />
+              </button>
+
+              {/* Progress bar */}
               <div className="w-full px-2">
-                <div className={cn("w-full h-1.5 rounded-full overflow-hidden", dark ? "bg-slate-700" : "bg-slate-200")}>
-                  <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${progress}%` }} />
+                <div className={cn("w-full h-1 rounded-full overflow-hidden cursor-pointer group", dark ? "bg-slate-700" : "bg-slate-200")}>
+                  <div className="h-full rounded-full bg-[#1DB954] group-hover:bg-[#1ed760] transition-all duration-500" style={{ width: `${progress}%` }} />
                 </div>
                 <div className="flex justify-between mt-1">
                   <span className={cn("text-[9px] tabular-nums", dark ? "text-slate-600" : "text-slate-400")}>{formatMs(state.positionMs)}</span>
                   <span className={cn("text-[9px] tabular-nums", dark ? "text-slate-600" : "text-slate-400")}>{formatMs(state.durationMs)}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <button onClick={() => doControl("previous")} className={cn("p-2 rounded-full", dark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600")}>
-                  <SkipBack className="h-5 w-5" />
+
+              {/* Controls */}
+              <div className="flex items-center gap-3">
+                <button className={cn("p-1.5", dark ? "text-slate-500 hover:text-slate-300" : "text-slate-400 hover:text-slate-600")}>
+                  <Shuffle className="h-3.5 w-3.5" />
                 </button>
-                <button onClick={() => doControl(state.paused ? "resume" : "pause")} className={cn("p-3.5 rounded-full", dark ? "bg-green-600 hover:bg-green-500 text-white" : "bg-green-500 hover:bg-green-600 text-white")}>
-                  {state.paused ? <Play className="h-6 w-6 ml-0.5" /> : <Pause className="h-6 w-6" />}
+                <button onClick={() => doControl("previous")} className={cn("p-2 rounded-full transition-colors", dark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600")}>
+                  <SkipBack className="h-5 w-5" fill="currentColor" />
                 </button>
-                <button onClick={() => doControl("next")} className={cn("p-2 rounded-full", dark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600")}>
-                  <SkipForward className="h-5 w-5" />
+                <button
+                  onClick={() => doControl(state.paused ? "resume" : "pause")}
+                  className="p-3.5 rounded-full bg-white text-black hover:scale-105 transition-transform shadow-lg"
+                >
+                  {state.paused ? <Play className="h-6 w-6 ml-0.5" fill="currentColor" /> : <Pause className="h-6 w-6" fill="currentColor" />}
+                </button>
+                <button onClick={() => doControl("next")} className={cn("p-2 rounded-full transition-colors", dark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-200 text-slate-600")}>
+                  <SkipForward className="h-5 w-5" fill="currentColor" />
+                </button>
+                <button className={cn("p-1.5", dark ? "text-slate-500 hover:text-slate-300" : "text-slate-400 hover:text-slate-600")}>
+                  <Repeat className="h-3.5 w-3.5" />
                 </button>
               </div>
+
               {/* Volume (SDK only) */}
               {usesSdk && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full max-w-[200px]">
                   <button onClick={toggleMute} className={cn("p-1", dark ? "text-slate-500" : "text-slate-400")}>
                     {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
                   </button>
-                  <input type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume} onChange={(e) => handleVolume(parseFloat(e.target.value))} className="w-24 h-1 accent-green-500" />
+                  <input
+                    type="range"
+                    min={0} max={1} step={0.05}
+                    value={muted ? 0 : volume}
+                    onChange={(e) => handleVolume(parseFloat(e.target.value))}
+                    className="flex-1 h-1 accent-[#1DB954] rounded-full"
+                  />
                 </div>
               )}
+
+              {/* Device */}
               <div className={cn("flex items-center gap-1.5 text-[10px]", dark ? "text-slate-500" : "text-slate-400")}>
                 {usesSdk ? <MonitorSpeaker className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
                 {state.deviceName || (usesSdk ? "Comet Board" : "Appareil externe")}
               </div>
             </div>
           ) : (
-            <div className={cn("flex flex-col items-center justify-center h-full gap-2 p-4", dark ? "text-slate-500" : "text-slate-400")}>
-              <Music className="h-8 w-8 opacity-30" />
-              <p className="text-xs">Aucune lecture en cours</p>
+            <div className={cn("flex flex-col items-center justify-center h-full gap-3 p-6", dark ? "text-slate-500" : "text-slate-400")}>
+              <div className={cn("p-4 rounded-full", dark ? "bg-slate-800" : "bg-slate-100")}>
+                <Music className="h-8 w-8 opacity-30" />
+              </div>
+              <p className="text-xs font-medium">Aucune lecture en cours</p>
               <p className="text-[10px] opacity-60 text-center">
-                {usesSdk ? "Lancez une musique pour l'écouter ici" : "Ouvrez Spotify sur un appareil puis lancez une musique ici"}
+                {usesSdk ? "Lancez une musique depuis l'onglet Accueil ou Recherche" : "Ouvrez Spotify sur un appareil puis lancez une musique"}
               </p>
             </div>
-          )
-        )}
-
-        {activeTab === "search" && (
-          <div className="flex flex-col h-full">
-            <div className="p-2 shrink-0">
-              <div className={cn("flex items-center gap-2 rounded-lg px-3 py-2", dark ? "bg-slate-700" : "bg-slate-100")}>
-                <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                <input
-                  type="text" value={query} onChange={(e) => handleSearch(e.target.value)}
-                  placeholder="Titre, artiste, playlist..."
-                  autoFocus
-                  className={cn("flex-1 bg-transparent text-sm outline-none", dark ? "text-white placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400")}
-                />
-                {searching && <Loader2 className="h-3.5 w-3.5 animate-spin text-green-500" />}
-                {query && <button onClick={() => { setQuery(""); setSearchResults([]); }}><X className={cn("h-3.5 w-3.5", dark ? "text-slate-500" : "text-slate-400")} /></button>}
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {searchResults.map((track) => (
-                <TrackRow key={track.id} track={track} dark={dark} onPlay={() => playTrack(track.uri)} />
-              ))}
-              {query.length >= 2 && searchResults.length === 0 && !searching && (
-                <p className={cn("text-xs text-center py-6", dark ? "text-slate-500" : "text-slate-400")}>Aucun résultat</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "playlists" && (
-          selectedPlaylist ? (
-            <>
-              <button
-                onClick={() => { setSelectedPlaylist(null); setPlaylistTracks([]); }}
-                className={cn("flex items-center gap-2 p-2.5 text-xs font-medium shrink-0 w-full border-b", dark ? "text-slate-300 border-slate-700 hover:bg-slate-800" : "text-slate-600 border-slate-200 hover:bg-slate-50")}
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Retour
-              </button>
-              <div className={cn("flex items-center gap-3 p-3", dark ? "bg-slate-800/40" : "bg-slate-50")}>
-                {selectedPlaylist.image ? (
-                  <img src={selectedPlaylist.image} alt="" className="h-12 w-12 rounded-lg object-cover shadow" />
-                ) : (
-                  <div className={cn("h-12 w-12 rounded-lg flex items-center justify-center", dark ? "bg-slate-700" : "bg-slate-200")}>
-                    <ListMusic className="h-5 w-5 text-slate-500" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className={cn("text-sm font-medium truncate", dark ? "text-white" : "text-slate-800")}>{selectedPlaylist.name}</p>
-                  <p className={cn("text-[10px]", dark ? "text-slate-400" : "text-slate-500")}>
-                    {playlistTracks.length || selectedPlaylist.trackCount} titres
-                  </p>
-                </div>
-                <button onClick={() => playPlaylist(selectedPlaylist)} className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 shrink-0">
-                  <Play className="h-4 w-4 ml-0.5" />
-                </button>
-              </div>
-              {loadingPlaylistTracks ? (
-                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-green-500" /></div>
-              ) : playlistError ? (
-                <div className={cn("text-xs text-center py-6 px-4", dark ? "text-red-400" : "text-red-500")}>
-                  {playlistError}
-                  {playlistError.includes("403") && (
-                    <p className={cn("text-[10px] mt-1", dark ? "text-slate-500" : "text-slate-400")}>Spotify bloque l&apos;accès en mode développement pour cette playlist</p>
-                  )}
-                </div>
-              ) : playlistTracks.length === 0 ? (
-                <p className={cn("text-xs text-center py-6", dark ? "text-slate-500" : "text-slate-400")}>Playlist vide</p>
-              ) : (
-                playlistTracks.map((track, i) => (
-                  <TrackRow key={`${track.id}-${i}`} track={track} dark={dark} onPlay={() => playTrack(track.uri, selectedPlaylist.uri)} />
-                ))
-              )}
-            </>
-          ) : (
-            loadingPlaylists ? (
-              <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-green-500" /></div>
-            ) : playlists.length === 0 ? (
-              <p className={cn("text-xs text-center py-6", dark ? "text-slate-500" : "text-slate-400")}>Aucune playlist</p>
-            ) : (
-              playlists.map((pl) => (
-                <button
-                  key={pl.id}
-                  onClick={() => openPlaylist(pl)}
-                  className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors group", dark ? "hover:bg-slate-700/50" : "hover:bg-slate-50")}
-                >
-                  {pl.image ? (
-                    <img src={pl.image} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
-                  ) : (
-                    <div className={cn("h-10 w-10 rounded flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-200")}>
-                      <ListMusic className="h-4 w-4 text-slate-500" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className={cn("text-xs font-medium truncate", dark ? "text-white" : "text-slate-800")}>{pl.name}</p>
-                    <p className={cn("text-[10px] truncate", dark ? "text-slate-400" : "text-slate-500")}>{pl.owner} · {pl.trackCount} titres</p>
-                  </div>
-                </button>
-              ))
-            )
-          )
-        )}
-
-        {activeTab === "browse" && (
-          loadingBrowse ? (
-            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-green-500" /></div>
-          ) : (
-            <>
-              {recentTracks.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 px-3 pt-3 pb-1.5">
-                    <Clock className={cn("h-3.5 w-3.5", dark ? "text-slate-500" : "text-slate-400")} />
-                    <p className={cn("text-[10px] font-semibold uppercase tracking-wider", dark ? "text-slate-400" : "text-slate-500")}>Écoutés récemment</p>
-                  </div>
-                  {recentTracks.slice(0, 10).map((track, i) => (
-                    <TrackRow key={`${track.id}-${i}`} track={track} dark={dark} onPlay={() => playTrack(track.uri)} />
-                  ))}
-                </div>
-              )}
-              {featuredPlaylists.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 px-3 pt-3 pb-1.5">
-                    <Compass className={cn("h-3.5 w-3.5", dark ? "text-slate-500" : "text-slate-400")} />
-                    <p className={cn("text-[10px] font-semibold uppercase tracking-wider", dark ? "text-slate-400" : "text-slate-500")}>Playlists populaires</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 px-3 pb-3">
-                    {featuredPlaylists.slice(0, 8).map((pl) => (
-                      <button
-                        key={pl.id}
-                        onClick={() => { setActiveTab("playlists"); openPlaylist({ ...pl, trackCount: 0, owner: "" }); }}
-                        className={cn("flex items-center gap-2 rounded-lg p-2 text-left transition-colors", dark ? "bg-slate-800/50 hover:bg-slate-700/50" : "bg-slate-50 hover:bg-slate-100")}
-                      >
-                        {pl.image ? (
-                          <img src={pl.image} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
-                        ) : (
-                          <div className={cn("h-10 w-10 rounded flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-200")}>
-                            <ListMusic className="h-4 w-4 text-slate-500" />
-                          </div>
-                        )}
-                        <p className={cn("text-[10px] font-medium line-clamp-2 leading-tight", dark ? "text-white" : "text-slate-800")}>{pl.name}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {recentTracks.length === 0 && featuredPlaylists.length === 0 && (
-                <div className={cn("flex flex-col items-center justify-center py-8 gap-2", dark ? "text-slate-500" : "text-slate-400")}>
-                  <Compass className="h-6 w-6 opacity-30" />
-                  <p className="text-xs">Aucune donnée pour le moment</p>
-                </div>
-              )}
-            </>
           )
         )}
       </div>
@@ -678,29 +1126,141 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
   );
 }
 
-function TrackRow({ track, dark, onPlay }: { track: Track; dark: boolean; onPlay: () => void }) {
+/* ─── Sub-components ─────────────────────────────────────── */
+
+function MiniBar({ state, progress, dark, onPlay, onTab }: {
+  state: PlayerState;
+  progress: number;
+  dark: boolean;
+  onPlay: () => void;
+  onTab: () => void;
+}) {
+  return (
+    <div className={cn("relative flex items-center gap-2.5 p-2 cursor-pointer shrink-0", dark ? "bg-slate-800/60" : "bg-slate-50")} onClick={onTab}>
+      {state.albumImage ? (
+        <img src={state.albumImage} alt="" className="h-10 w-10 rounded-md object-cover shrink-0 shadow" />
+      ) : (
+        <div className={cn("h-10 w-10 rounded-md flex items-center justify-center shrink-0", dark ? "bg-slate-700" : "bg-slate-200")}>
+          <Music className={cn("h-4 w-4", dark ? "text-slate-500" : "text-slate-400")} />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className={cn("text-[11px] font-semibold truncate", dark ? "text-white" : "text-slate-800")}>{state.trackName}</p>
+        <p className={cn("text-[9px] truncate", dark ? "text-slate-400" : "text-slate-500")}>{state.artistName}</p>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={(e) => { e.stopPropagation(); onPlay(); }}
+          className="p-2 rounded-full bg-[#1DB954] text-black hover:bg-[#1ed760] transition-colors"
+        >
+          {state.paused ? <Play className="h-3.5 w-3.5 ml-0.5" fill="currentColor" /> : <Pause className="h-3.5 w-3.5" fill="currentColor" />}
+        </button>
+      </div>
+      <div className={cn("absolute bottom-0 left-0 right-0 h-0.5", dark ? "bg-slate-700/50" : "bg-slate-200")}>
+        <div className="h-full bg-[#1DB954] transition-all duration-500" style={{ width: `${progress}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({ dark, children }: { dark: boolean; children: React.ReactNode }) {
+  return (
+    <p className={cn("text-xs font-bold px-3 pt-3 pb-2", dark ? "text-white" : "text-slate-800")}>{children}</p>
+  );
+}
+
+function TrackRow({ track, dark, onPlay, index }: { track: Track; dark: boolean; onPlay: () => void; index?: number }) {
   return (
     <button
       onClick={onPlay}
-      className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors group", dark ? "hover:bg-slate-700/50" : "hover:bg-slate-50")}
+      className={cn("w-full flex items-center gap-2.5 px-3 py-1.5 text-left transition-colors group", dark ? "hover:bg-slate-700/50" : "hover:bg-slate-50")}
     >
+      {index !== undefined && (
+        <span className={cn("text-[10px] w-4 text-right shrink-0 tabular-nums group-hover:hidden", dark ? "text-slate-500" : "text-slate-400")}>{index}</span>
+      )}
+      {index !== undefined && (
+        <Play className={cn("h-3 w-3 shrink-0 hidden group-hover:block", dark ? "text-white" : "text-slate-800")} fill="currentColor" />
+      )}
       <div className="relative shrink-0">
         {track.image ? (
-          <img src={track.image} alt="" className="h-9 w-9 rounded object-cover" />
+          <img src={track.image} alt="" className="h-10 w-10 rounded object-cover" />
         ) : (
-          <div className={cn("h-9 w-9 rounded flex items-center justify-center", dark ? "bg-slate-700" : "bg-slate-200")}>
+          <div className={cn("h-10 w-10 rounded flex items-center justify-center", dark ? "bg-slate-700" : "bg-slate-200")}>
             <Music className="h-4 w-4 text-slate-500" />
           </div>
         )}
-        <div className="absolute inset-0 rounded flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Play className="h-4 w-4 text-white" />
-        </div>
+        {index === undefined && (
+          <div className="absolute inset-0 rounded flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Play className="h-4 w-4 text-white" fill="white" />
+          </div>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <p className={cn("text-xs font-medium truncate", dark ? "text-white" : "text-slate-800")}>{track.name}</p>
         <p className={cn("text-[10px] truncate", dark ? "text-slate-400" : "text-slate-500")}>{track.artist}</p>
       </div>
-      <span className={cn("text-[10px] shrink-0", dark ? "text-slate-600" : "text-slate-400")}>{formatMs(track.durationMs)}</span>
+      <span className={cn("text-[10px] shrink-0 tabular-nums", dark ? "text-slate-600" : "text-slate-400")}>{formatMs(track.durationMs)}</span>
     </button>
   );
+}
+
+function AlbumCard({ album, dark, onPlay }: { album: Album; dark: boolean; onPlay: () => void }) {
+  return (
+    <button
+      onClick={onPlay}
+      className={cn("flex flex-col shrink-0 w-[120px] p-2 rounded-lg transition-colors group", dark ? "hover:bg-slate-800/60" : "hover:bg-slate-50")}
+    >
+      <div className="relative mb-2">
+        {album.image ? (
+          <img src={album.image} alt="" className="w-[104px] h-[104px] rounded-md object-cover shadow-md" />
+        ) : (
+          <div className={cn("w-[104px] h-[104px] rounded-md flex items-center justify-center", dark ? "bg-slate-700" : "bg-slate-200")}>
+            <Disc3 className="h-8 w-8 text-slate-500" />
+          </div>
+        )}
+        <div className="absolute bottom-1.5 right-1.5 p-2 rounded-full bg-[#1DB954] text-black opacity-0 group-hover:opacity-100 transition-all translate-y-1 group-hover:translate-y-0 shadow-lg">
+          <Play className="h-3.5 w-3.5 ml-0.5" fill="currentColor" />
+        </div>
+      </div>
+      <p className={cn("text-[10px] font-semibold line-clamp-1 w-full text-left", dark ? "text-white" : "text-slate-800")}>{album.name}</p>
+      <p className={cn("text-[9px] line-clamp-1 w-full text-left", dark ? "text-slate-400" : "text-slate-500")}>{album.artist}</p>
+    </button>
+  );
+}
+
+function PlaylistCard({ playlist, dark, onOpen, onPlay }: { playlist: Playlist; dark: boolean; onOpen: () => void; onPlay: () => void }) {
+  return (
+    <button
+      onClick={onOpen}
+      className={cn("flex flex-col shrink-0 w-[120px] p-2 rounded-lg transition-colors group", dark ? "hover:bg-slate-800/60" : "hover:bg-slate-50")}
+    >
+      <div className="relative mb-2">
+        {playlist.image ? (
+          <img src={playlist.image} alt="" className="w-[104px] h-[104px] rounded-md object-cover shadow-md" />
+        ) : (
+          <div className={cn("w-[104px] h-[104px] rounded-md flex items-center justify-center", dark ? "bg-slate-700" : "bg-slate-200")}>
+            <ListMusic className="h-8 w-8 text-slate-500" />
+          </div>
+        )}
+        <div
+          onClick={(e) => { e.stopPropagation(); onPlay(); }}
+          className="absolute bottom-1.5 right-1.5 p-2 rounded-full bg-[#1DB954] text-black opacity-0 group-hover:opacity-100 transition-all translate-y-1 group-hover:translate-y-0 shadow-lg cursor-pointer"
+        >
+          <Play className="h-3.5 w-3.5 ml-0.5" fill="currentColor" />
+        </div>
+      </div>
+      <p className={cn("text-[10px] font-semibold line-clamp-1 w-full text-left", dark ? "text-white" : "text-slate-800")}>{playlist.name}</p>
+      <p className={cn("text-[9px] line-clamp-1 w-full text-left", dark ? "text-slate-400" : "text-slate-500")}>{playlist.description || playlist.owner || "Playlist"}</p>
+    </button>
+  );
+}
+
+function deduplicateByKey<T>(items: T[], key: keyof T): T[] {
+  const seen = new Set<unknown>();
+  return items.filter((item) => {
+    const v = item[key];
+    if (seen.has(v)) return false;
+    seen.add(v);
+    return true;
+  });
 }

@@ -67,6 +67,8 @@ export function getAuthUrl(clientId: string, redirectUri: string, returnOrigin?:
     "user-modify-playback-state",
     "user-read-currently-playing",
     "user-read-recently-played",
+    "user-top-read",
+    "user-library-read",
     "playlist-read-private",
     "playlist-read-collaborative",
   ].join(" ");
@@ -195,7 +197,7 @@ export async function spotifyFetch(endpoint: string, options?: RequestInit) {
 }
 
 export async function searchTracks(query: string, limit = 10) {
-  const params = new URLSearchParams({ q: query, type: "track,playlist,album", limit: String(limit) });
+  const params = new URLSearchParams({ q: query, type: "track,artist,playlist,album", limit: String(limit) });
   const res = await spotifyFetch(`/search?${params}`);
   if (!res.ok) throw new Error("Search failed");
   return res.json();
@@ -235,6 +237,24 @@ export async function getRecentlyPlayed(limit = 20) {
     const text = await res.text();
     throw new Error(`Recently played error (${res.status}): ${text}`);
   }
+  return res.json();
+}
+
+export async function getTopArtists(limit = 20, timeRange = "medium_term") {
+  const res = await spotifyFetch(`/me/top/artists?limit=${limit}&time_range=${timeRange}`);
+  if (!res.ok) throw new Error(`Top artists (${res.status})`);
+  return res.json();
+}
+
+export async function getTopTracks(limit = 20, timeRange = "medium_term") {
+  const res = await spotifyFetch(`/me/top/tracks?limit=${limit}&time_range=${timeRange}`);
+  if (!res.ok) throw new Error(`Top tracks (${res.status})`);
+  return res.json();
+}
+
+export async function getNewReleases(limit = 20) {
+  const res = await spotifyFetch(`/browse/new-releases?limit=${limit}`);
+  if (!res.ok) throw new Error(`New releases (${res.status})`);
   return res.json();
 }
 
