@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getUserPlaylists, getPlaylistTracks } from "@/lib/spotify";
+import { getUserPlaylists, spotifyFetch } from "@/lib/spotify";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -10,11 +10,30 @@ export async function GET(req: NextRequest) {
 
   try {
     if (playlistId) {
-      const data = await getPlaylistTracks(playlistId);
-      const items = data.tracks?.items || data.items || [];
-      const tracks = items
-        .filter((item: Record<string, unknown>) => item.track)
-        .map((item: Record<string, unknown>) => {
+      // Try /playlists/{id} first (full object with tracks embedded)
+      const res = await spotifyFetch(`/playlists/${playlistId}`);
+      if (!res.ok) {
+        const text = await res.text();
+        return NextResponse.json(
+          { error: `Spotify ${res.status}`, tracks: [], detail: text },
+          { status: 200 },
+        );
+      }
+      const data = await res.json();
+
+      // data.tracks is a paging object { items: [...], total, ... }
+      let rawItems: Record<string, unknown>[] = [];
+      if (data.tracks && Array.isArray(data.tracks.items)) {
+        rawItems = data.tracks.items;
+      } else if (Array.isArray(data.tracks)) {
+        rawItems = data.tracks;
+      } else if (Array.isArray(data.items)) {
+        rawItems = data.items;
+      }
+
+      const tracks = rawItems
+        .filter((item) => item && item.track)
+        .map((item) => {
           const t = item.track as Record<string, unknown>;
           const album = t.album as Record<string, unknown> | undefined;
           const images = (album?.images || []) as { url: string }[];
@@ -29,7 +48,7 @@ export async function GET(req: NextRequest) {
             durationMs: t.duration_ms,
           };
         });
-      return NextResponse.json({ tracks });
+      return NextResponse.json({ tracks, total: data.tracks?.total || tracks.length });
     }
 
     const data = await getUserPlaylists();

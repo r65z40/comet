@@ -581,7 +581,9 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
               ) : playlistError ? (
                 <div className={cn("text-xs text-center py-6 px-4", dark ? "text-red-400" : "text-red-500")}>
                   {playlistError}
-                  <p className={cn("text-[10px] mt-1", dark ? "text-slate-500" : "text-slate-400")}>Reconnectez Spotify dans les paramètres pour mettre à jour les permissions</p>
+                  {playlistError.includes("403") && (
+                    <p className={cn("text-[10px] mt-1", dark ? "text-slate-500" : "text-slate-400")}>Spotify bloque l&apos;accès en mode développement pour cette playlist</p>
+                  )}
                 </div>
               ) : playlistTracks.length === 0 ? (
                 <p className={cn("text-xs text-center py-6", dark ? "text-slate-500" : "text-slate-400")}>Playlist vide</p>
