@@ -400,28 +400,19 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
     }
   }
 
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
-
   function openPlaylist(playlist: Playlist) {
     setDetailView({ type: "playlist", data: playlist });
     setPlaylistTracks([]);
     setArtistDetail(null);
     setDetailError(null);
-    setDebugInfo(null);
     setLoadingDetail(true);
     fetch(`/api/spotify/playlists?id=${playlist.id}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.error) {
-          setDetailError(data.error);
-        } else {
-          setPlaylistTracks(data.tracks || []);
-        }
-        if (data.debug) {
-          setDebugInfo(JSON.stringify(data.debug, null, 2));
-        }
+        if (data.error) setDetailError(data.error);
+        else setPlaylistTracks(data.tracks || []);
       })
-      .catch((e) => setDetailError("Impossible de charger les titres: " + e.message))
+      .catch(() => setDetailError("Impossible de charger les titres"))
       .finally(() => setLoadingDetail(false));
   }
 
@@ -624,13 +615,35 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
             </div>
           ) : detailView.type === "playlist" ? (
             playlistTracks.length === 0 ? (
-              <div className="py-6 px-4 text-center">
-                <p className={cn("text-xs", dark ? "text-slate-500" : "text-slate-400")}>Playlist vide</p>
-                {debugInfo && (
-                  <pre className={cn("text-[9px] mt-3 p-2 rounded text-left overflow-x-auto", dark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500")}>
-                    {debugInfo}
-                  </pre>
-                )}
+              <div className="flex flex-col items-center gap-4 py-8 px-6 text-center">
+                <div className={cn("p-3 rounded-full", dark ? "bg-slate-800" : "bg-slate-100")}>
+                  <ListMusic className={cn("h-8 w-8", dark ? "text-slate-500" : "text-slate-400")} />
+                </div>
+                <div>
+                  <p className={cn("text-xs font-medium mb-1", dark ? "text-slate-300" : "text-slate-600")}>
+                    {detailView.data.trackCount
+                      ? `${detailView.data.trackCount} titres dans cette playlist`
+                      : "Playlist disponible"}
+                  </p>
+                  <p className={cn("text-[10px]", dark ? "text-slate-500" : "text-slate-400")}>
+                    Le détail des titres n&apos;est pas disponible en mode développement Spotify
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => playContext(detailView.data.uri)}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#1DB954] hover:bg-[#1ed760] text-black text-xs font-bold transition-all hover:scale-105"
+                  >
+                    <Play className="h-4 w-4 ml-0.5" fill="currentColor" />
+                    Lancer la lecture
+                  </button>
+                  <button
+                    onClick={() => playContext(detailView.data.uri)}
+                    className={cn("p-2.5 rounded-full transition-colors", dark ? "bg-slate-800 hover:bg-slate-700 text-slate-300" : "bg-slate-100 hover:bg-slate-200 text-slate-600")}
+                  >
+                    <Shuffle className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             ) : (
               playlistTracks.map((track, i) => (

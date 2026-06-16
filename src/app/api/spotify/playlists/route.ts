@@ -19,6 +19,56 @@ function extractTrack(item: Record<string, unknown>) {
   };
 }
 
+async function fetchAllTracks(playlistId: string) {
+  // Strategy 1: /playlists/{id}/tracks (most direct)
+  const tracksRes = await spotifyFetch(`/playlists/${playlistId}/tracks?market=FR&limit=100&additional_types=track`);
+  if (tracksRes.ok) {
+    const tracksData = await tracksRes.json();
+    const rawItems: Record<string, unknown>[] = Array.isArray(tracksData.items) ? tracksData.items : [];
+
+    let tracks = rawItems
+      .map((item) => item ? extractTrack(item) : null)
+      .filter(Boolean);
+
+    let nextUrl = tracksData.next as string | null;
+    while (nextUrl) {
+      const pageRes = await spotifyFetch(nextUrl.replace("https://api.spotify.com/v1", ""));
+      if (!pageRes.ok) break;
+      const pageData = await pageRes.json();
+      tracks = tracks.concat(
+        (pageData.items || []).map((item: Record<string, unknown>) => item ? extractTrack(item) : null).filter(Boolean),
+      );
+      nextUrl = pageData.next as string | null;
+    }
+
+    if (tracks.length > 0) return { tracks, total: tracksData.total || tracks.length };
+  }
+
+  // Strategy 2: /playlists/{id} full object
+  const fullRes = await spotifyFetch(`/playlists/${playlistId}?market=FR&additional_types=track`);
+  if (!fullRes.ok) {
+    const text = await fullRes.text();
+    return { tracks: [], total: 0, error: `Spotify ${fullRes.status}: ${text.slice(0, 100)}` };
+  }
+
+  const data = await fullRes.json();
+
+  let rawItems: Record<string, unknown>[] = [];
+  if (data.tracks && Array.isArray(data.tracks.items)) {
+    rawItems = data.tracks.items;
+  } else if (Array.isArray(data.tracks)) {
+    rawItems = data.tracks;
+  } else if (Array.isArray(data.items)) {
+    rawItems = data.items;
+  }
+
+  const tracks = rawItems
+    .map((item) => item ? extractTrack(item) : null)
+    .filter(Boolean);
+
+  return { tracks, total: data.tracks?.total || tracks.length };
+}
+
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -27,107 +77,8 @@ export async function GET(req: NextRequest) {
 
   try {
     if (playlistId) {
-      const debug: Record<string, unknown> = {};
-
-      // Strategy 1: /playlists/{id}/tracks with market param
-      try {
-        const tracksRes = await spotifyFetch(`/playlists/${playlistId}/tracks?market=FR&limit=100&additional_types=track`);
-        debug.tracksEndpointStatus = tracksRes.status;
-
-        if (tracksRes.ok) {
-          const tracksData = await tracksRes.json();
-          debug.tracksEndpointKeys = Object.keys(tracksData);
-          debug.tracksEndpointItemCount = Array.isArray(tracksData.items) ? tracksData.items.length : 0;
-
-          const rawItems: Record<string, unknown>[] = Array.isArray(tracksData.items) ? tracksData.items : [];
-
-          let tracks = rawItems
-            .map((item) => item ? extractTrack(item) : null)
-            .filter(Boolean);
-
-          // Fetch additional pages
-          let nextUrl = tracksData.next as string | null;
-          while (nextUrl) {
-            const pageRes = await spotifyFetch(nextUrl.replace("https://api.spotify.com/v1", ""));
-            if (!pageRes.ok) break;
-            const pageData = await pageRes.json();
-            const pageItems = (pageData.items || []) as Record<string, unknown>[];
-            tracks = tracks.concat(
-              pageItems.map((item) => item ? extractTrack(item) : null).filter(Boolean),
-            );
-            nextUrl = pageData.next as string | null;
-          }
-
-          if (tracks.length > 0) {
-            return NextResponse.json({
-              tracks,
-              total: tracksData.total || tracks.length,
-              debug: { source: "tracks-endpoint", ...debug },
-            });
-          }
-
-          // Check first item structure for diagnosis
-          if (rawItems.length > 0) {
-            debug.firstItemKeys = Object.keys(rawItems[0]);
-            debug.firstItemTrackType = rawItems[0].track ? typeof rawItems[0].track : "missing";
-            if (rawItems[0].track && typeof rawItems[0].track === "object") {
-              debug.firstTrackKeys = Object.keys(rawItems[0].track as object);
-            }
-          }
-        } else {
-          const errText = await tracksRes.text().catch(() => "");
-          debug.tracksEndpointError = errText.slice(0, 200);
-        }
-      } catch (e) {
-        debug.tracksEndpointException = e instanceof Error ? e.message : String(e);
-      }
-
-      // Strategy 2: /playlists/{id} with market + fields
-      try {
-        const fullRes = await spotifyFetch(`/playlists/${playlistId}?market=FR&additional_types=track`);
-        debug.fullEndpointStatus = fullRes.status;
-
-        if (!fullRes.ok) {
-          const text = await fullRes.text();
-          debug.fullEndpointError = text.slice(0, 200);
-          return NextResponse.json(
-            { error: `Spotify ${fullRes.status}`, tracks: [], debug },
-            { status: 200 },
-          );
-        }
-
-        const data = await fullRes.json();
-        debug.fullEndpointKeys = Object.keys(data);
-
-        let rawItems: Record<string, unknown>[] = [];
-        if (data.tracks && Array.isArray(data.tracks.items)) {
-          rawItems = data.tracks.items;
-          debug.tracksSource = "data.tracks.items";
-        } else if (Array.isArray(data.tracks)) {
-          rawItems = data.tracks;
-          debug.tracksSource = "data.tracks (array)";
-        } else if (Array.isArray(data.items)) {
-          rawItems = data.items;
-          debug.tracksSource = "data.items";
-        } else {
-          debug.tracksSource = "none found";
-          debug.tracksType = data.tracks === undefined ? "undefined" : typeof data.tracks;
-        }
-
-        const tracks = rawItems
-          .map((item) => item ? extractTrack(item) : null)
-          .filter(Boolean);
-
-        return NextResponse.json({
-          tracks,
-          total: data.tracks?.total || tracks.length,
-          debug: { source: "full-object", rawItemCount: rawItems.length, ...debug },
-        });
-      } catch (e) {
-        debug.fullEndpointException = e instanceof Error ? e.message : String(e);
-      }
-
-      return NextResponse.json({ tracks: [], debug });
+      const result = await fetchAllTracks(playlistId);
+      return NextResponse.json(result);
     }
 
     const data = await getUserPlaylists();
