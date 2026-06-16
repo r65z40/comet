@@ -93,6 +93,13 @@ interface SearchResults {
   playlists: Playlist[];
 }
 
+interface ArtistDetail {
+  artist: Artist & { followers?: number };
+  topTracks: Track[];
+  albums: Album[];
+  relatedArtists: Artist[];
+}
+
 declare global {
   interface Window {
     Spotify: {
@@ -184,6 +191,7 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
 
   const [detailView, setDetailView] = useState<DetailView>(null);
   const [playlistTracks, setPlaylistTracks] = useState<Track[]>([]);
+  const [artistDetail, setArtistDetail] = useState<ArtistDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
@@ -395,6 +403,7 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
   function openPlaylist(playlist: Playlist) {
     setDetailView({ type: "playlist", data: playlist });
     setPlaylistTracks([]);
+    setArtistDetail(null);
     setDetailError(null);
     setLoadingDetail(true);
     fetch(`/api/spotify/playlists?id=${playlist.id}`)
@@ -404,6 +413,22 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
         else setPlaylistTracks(data.tracks || []);
       })
       .catch(() => setDetailError("Impossible de charger les titres"))
+      .finally(() => setLoadingDetail(false));
+  }
+
+  function openArtist(artist: Artist) {
+    setDetailView({ type: "artist", data: artist });
+    setPlaylistTracks([]);
+    setArtistDetail(null);
+    setDetailError(null);
+    setLoadingDetail(true);
+    fetch(`/api/spotify/artists?id=${artist.id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) setDetailError(data.error);
+        else setArtistDetail(data);
+      })
+      .catch(() => setDetailError("Impossible de charger l'artiste"))
       .finally(() => setLoadingDetail(false));
   }
 
@@ -500,7 +525,7 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
       <div className="flex flex-col h-full overflow-hidden">
         {/* Back header */}
         <button
-          onClick={() => { setDetailView(null); setPlaylistTracks([]); }}
+          onClick={() => { setDetailView(null); setPlaylistTracks([]); setArtistDetail(null); }}
           className={cn(
             "flex items-center gap-2 px-3 py-2.5 text-xs font-medium shrink-0 border-b transition-colors",
             dark ? "text-slate-300 border-slate-700/50 hover:bg-slate-800/50" : "text-slate-600 border-slate-200 hover:bg-slate-50",
@@ -588,19 +613,87 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
                 </p>
               )}
             </div>
-          ) : playlistTracks.length === 0 && detailView.type === "playlist" ? (
-            <p className={cn("text-xs text-center py-8", dark ? "text-slate-500" : "text-slate-400")}>Playlist vide</p>
-          ) : (
-            playlistTracks.map((track, i) => (
-              <TrackRow
-                key={`${track.id}-${i}`}
-                track={track}
-                index={i + 1}
-                dark={dark}
-                onPlay={() => playTrack(track.uri, detailView.data.uri)}
-              />
-            ))
-          )}
+          ) : detailView.type === "playlist" ? (
+            playlistTracks.length === 0 ? (
+              <p className={cn("text-xs text-center py-8", dark ? "text-slate-500" : "text-slate-400")}>Playlist vide</p>
+            ) : (
+              playlistTracks.map((track, i) => (
+                <TrackRow
+                  key={`${track.id}-${i}`}
+                  track={track}
+                  index={i + 1}
+                  dark={dark}
+                  onPlay={() => playTrack(track.uri, detailView.data.uri)}
+                />
+              ))
+            )
+          ) : detailView.type === "artist" && artistDetail ? (
+            <div className="pb-3">
+              {/* Top Tracks */}
+              {artistDetail.topTracks.length > 0 && (
+                <div className="mb-2">
+                  <SectionTitle dark={dark}>Titres populaires</SectionTitle>
+                  {artistDetail.topTracks.map((track, i) => (
+                    <TrackRow
+                      key={track.id}
+                      track={track}
+                      index={i + 1}
+                      dark={dark}
+                      onPlay={() => playTrack(track.uri)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Albums */}
+              {artistDetail.albums.length > 0 && (
+                <div className="mb-2">
+                  <SectionTitle dark={dark}>Discographie</SectionTitle>
+                  <div className={cn("flex gap-2.5 px-3 pb-1", SCROLL_HIDE)}>
+                    {artistDetail.albums.map((album) => (
+                      <AlbumCard key={album.id} album={album} dark={dark} onPlay={() => playContext(album.uri)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Related Artists */}
+              {artistDetail.relatedArtists.length > 0 && (
+                <div className="mb-2">
+                  <SectionTitle dark={dark}>Artistes similaires</SectionTitle>
+                  <div className={cn("flex gap-3 px-3 pb-1", SCROLL_HIDE)}>
+                    {artistDetail.relatedArtists.map((ra) => (
+                      <button
+                        key={ra.id}
+                        onClick={() => openArtist(ra)}
+                        className="flex flex-col items-center gap-1.5 shrink-0 group w-[72px]"
+                      >
+                        {ra.image ? (
+                          <img src={ra.image} alt="" className="h-[72px] w-[72px] rounded-full object-cover shadow-md" />
+                        ) : (
+                          <div className={cn("h-[72px] w-[72px] rounded-full flex items-center justify-center shadow-md", dark ? "bg-slate-700" : "bg-slate-200")}>
+                            <User className="h-6 w-6 text-slate-500" />
+                          </div>
+                        )}
+                        <p className={cn("text-[10px] font-medium text-center line-clamp-2 leading-tight w-full", dark ? "text-slate-300" : "text-slate-700")}>{ra.name}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty artist */}
+              {!artistDetail.topTracks.length && !artistDetail.albums.length && (
+                <p className={cn("text-xs text-center py-8", dark ? "text-slate-500" : "text-slate-400")}>
+                  Aucune donnée disponible pour cet artiste
+                </p>
+              )}
+            </div>
+          ) : detailView.type === "artist" ? (
+            <p className={cn("text-xs text-center py-8", dark ? "text-slate-500" : "text-slate-400")}>
+              Aucune donnée disponible
+            </p>
+          ) : null}
         </div>
 
         {/* Mini player in detail */}
@@ -691,12 +784,7 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
                     {browseData.topArtists.slice(0, 12).map((artist) => (
                       <button
                         key={artist.id}
-                        onClick={() => {
-                          setDetailView({ type: "artist", data: artist });
-                          setPlaylistTracks([]);
-                          setLoadingDetail(false);
-                          setDetailError(null);
-                        }}
+                        onClick={() => openArtist(artist)}
                         className="flex flex-col items-center gap-1.5 shrink-0 group w-[72px]"
                       >
                         <div className="relative">
