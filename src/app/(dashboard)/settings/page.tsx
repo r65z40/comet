@@ -219,7 +219,8 @@ export default function SettingsPage() {
   const [quotaWarning, setQuotaWarning] = useState("80");
   const [quotaExceeded, setQuotaExceeded] = useState("100");
   const [quotaAutoSend, setQuotaAutoSend] = useState(true);
-  const [quotaCooldown, setQuotaCooldown] = useState("24");
+  const [quotaRepeatMode, setQuotaRepeatMode] = useState<"once" | "recurring">("once");
+  const [quotaRepeatDays, setQuotaRepeatDays] = useState("7");
   const [quotaSendToPortal, setQuotaSendToPortal] = useState(false);
   const [quotaCcAdmins, setQuotaCcAdmins] = useState(false);
   const [quotaSubjectWarning, setQuotaSubjectWarning] = useState("Votre espace de sauvegarde approche de sa limite");
@@ -494,7 +495,8 @@ export default function SettingsPage() {
         setQuotaWarning(data.quota_alert_warning || "80");
         setQuotaExceeded(data.quota_alert_exceeded || "100");
         setQuotaAutoSend(data.quota_alert_auto_send !== "false");
-        setQuotaCooldown(data.quota_alert_cooldown_hours || "24");
+        setQuotaRepeatMode(data.quota_alert_repeat_mode === "recurring" ? "recurring" : "once");
+        setQuotaRepeatDays(data.quota_alert_repeat_days || "7");
         setQuotaSendToPortal(data.quota_alert_send_to_portal_users === "true");
         setQuotaCcAdmins(data.quota_alert_cc_admins === "true");
         if (data.quota_alert_subject_warning) setQuotaSubjectWarning(data.quota_alert_subject_warning);
@@ -675,7 +677,8 @@ export default function SettingsPage() {
         quota_alert_warning: quotaWarning,
         quota_alert_exceeded: quotaExceeded,
         quota_alert_auto_send: quotaAutoSend ? "true" : "false",
-        quota_alert_cooldown_hours: quotaCooldown,
+        quota_alert_repeat_mode: quotaRepeatMode,
+        quota_alert_repeat_days: quotaRepeatDays,
         quota_alert_send_to_portal_users: quotaSendToPortal ? "true" : "false",
         quota_alert_cc_admins: quotaCcAdmins ? "true" : "false",
         quota_alert_subject_warning: quotaSubjectWarning,
@@ -2179,27 +2182,52 @@ export default function SettingsPage() {
         </div>
 
         {/* Mode d'envoi */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-2">Mode d&apos;envoi</label>
-            <div className="flex gap-2">
-              <button onClick={() => setQuotaAutoSend(true)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${quotaAutoSend ? "border-primary-500 bg-primary-50 text-primary-600" : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"}`}>
-                Automatique
-              </button>
-              <button onClick={() => setQuotaAutoSend(false)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${!quotaAutoSend ? "border-primary-500 bg-primary-50 text-primary-600" : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"}`}>
-                Manuel uniquement
-              </button>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">{quotaAutoSend ? "Envoi automatique après chaque collecte Oxibox (avec cooldown)" : "Vous choisissez manuellement à qui envoyer"}</p>
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-2">Mode d&apos;envoi</label>
+          <div className="flex gap-2 mb-3">
+            <button onClick={() => setQuotaAutoSend(true)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${quotaAutoSend ? "border-primary-500 bg-primary-50 text-primary-600" : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"}`}>
+              Automatique
+            </button>
+            <button onClick={() => setQuotaAutoSend(false)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${!quotaAutoSend ? "border-primary-500 bg-primary-50 text-primary-600" : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"}`}>
+              Manuel uniquement
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-2">Cooldown entre envois</label>
-            <div className="flex items-center gap-2">
-              <input type="number" value={quotaCooldown} onChange={(e) => setQuotaCooldown(e.target.value)} min="1" max="720"
-                className="w-24 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" />
-              <span className="text-xs text-slate-400">heures min. entre 2 envois au même client</span>
-            </div>
+          <p className="text-xs text-slate-400">{quotaAutoSend ? "Les emails sont envoyés automatiquement aux clients après chaque collecte Oxibox" : "Vous choisissez manuellement à qui envoyer depuis le tableau ci-dessous"}</p>
+        </div>
+
+        {/* Fréquence de rappel */}
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-2">Fréquence de rappel</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-colors ${
+              quotaRepeatMode === "once" ? "border-primary-300 bg-primary-50/50 ring-1 ring-primary-200" : "border-slate-200 hover:bg-slate-50"
+            }`}>
+              <input type="radio" name="quotaRepeat" checked={quotaRepeatMode === "once"} onChange={() => setQuotaRepeatMode("once")}
+                className="h-4 w-4 mt-0.5 border-slate-300 text-primary-600 focus:ring-primary-500" />
+              <div>
+                <p className="text-sm font-medium text-slate-700">Un seul envoi</p>
+                <p className="text-xs text-slate-400 mt-0.5">Le client reçoit un seul email par niveau d&apos;alerte. Pas de rappel tant que le niveau ne change pas.</p>
+              </div>
+            </label>
+            <label className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-colors ${
+              quotaRepeatMode === "recurring" ? "border-primary-300 bg-primary-50/50 ring-1 ring-primary-200" : "border-slate-200 hover:bg-slate-50"
+            }`}>
+              <input type="radio" name="quotaRepeat" checked={quotaRepeatMode === "recurring"} onChange={() => setQuotaRepeatMode("recurring")}
+                className="h-4 w-4 mt-0.5 border-slate-300 text-primary-600 focus:ring-primary-500" />
+              <div>
+                <p className="text-sm font-medium text-slate-700">Rappels récurrents</p>
+                <p className="text-xs text-slate-400 mt-0.5">Le client reçoit un rappel tous les X jours tant que le quota dépasse le seuil.</p>
+              </div>
+            </label>
           </div>
+          {quotaRepeatMode === "recurring" && (
+            <div className="mt-3 flex items-center gap-2 pl-1">
+              <span className="text-sm text-slate-600">Rappeler tous les</span>
+              <input type="number" value={quotaRepeatDays} onChange={(e) => setQuotaRepeatDays(e.target.value)} min="1" max="90"
+                className="w-20 rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" />
+              <span className="text-sm text-slate-600">jours</span>
+            </div>
+          )}
         </div>
 
         {/* Options destinataires */}

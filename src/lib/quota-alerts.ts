@@ -7,7 +7,8 @@ interface QuotaAlertConfig {
   warningThreshold: number;
   exceededThreshold: number;
   autoSend: boolean;
-  cooldownHours: number;
+  repeatMode: "once" | "recurring";
+  repeatDays: number;
   sendToPortalUsers: boolean;
   ccAdmins: boolean;
   adminEmails: string[];
@@ -31,7 +32,8 @@ export async function getQuotaAlertConfig(): Promise<QuotaAlertConfig> {
     "quota_alert_warning",
     "quota_alert_exceeded",
     "quota_alert_auto_send",
-    "quota_alert_cooldown_hours",
+    "quota_alert_repeat_mode",
+    "quota_alert_repeat_days",
     "quota_alert_send_to_portal_users",
     "quota_alert_cc_admins",
     "quota_alert_subject_warning",
@@ -54,7 +56,8 @@ export async function getQuotaAlertConfig(): Promise<QuotaAlertConfig> {
     warningThreshold: parseInt(m.quota_alert_warning || "80"),
     exceededThreshold: parseInt(m.quota_alert_exceeded || "100"),
     autoSend: m.quota_alert_auto_send !== "false",
-    cooldownHours: parseInt(m.quota_alert_cooldown_hours || "24"),
+    repeatMode: (m.quota_alert_repeat_mode === "recurring" ? "recurring" : "once") as "once" | "recurring",
+    repeatDays: parseInt(m.quota_alert_repeat_days || "7"),
     sendToPortalUsers: m.quota_alert_send_to_portal_users === "true",
     ccAdmins: m.quota_alert_cc_admins === "true",
     adminEmails,
@@ -345,16 +348,28 @@ export async function checkAndSendQuotaAlerts(): Promise<{
     return { sent: false, count: 0, reason: "Aucun client ne dépasse les seuils" };
   }
 
-  const cooldownCutoff = new Date(Date.now() - config.cooldownHours * 3600000);
-  const recentAlerts = await prisma.quotaAlert.findMany({
-    where: { sentAt: { gte: cooldownCutoff } },
-    select: { organizationId: true, alertType: true },
-  });
-  const recentSet = new Set(recentAlerts.map(a => `${a.organizationId}:${a.alertType}`));
-  const toSend = alertable.filter(o => !recentSet.has(`${o.organizationId}:${o.alertLevel}`));
+  // Filter based on repeat mode
+  let toSend = alertable;
+  if (config.repeatMode === "once") {
+    const alreadySent = await prisma.quotaAlert.findMany({
+      where: { organizationId: { in: alertable.map(o => o.organizationId) } },
+      select: { organizationId: true, alertType: true },
+      distinct: ["organizationId", "alertType"],
+    });
+    const sentSet = new Set(alreadySent.map(a => `${a.organizationId}:${a.alertType}`));
+    toSend = alertable.filter(o => !sentSet.has(`${o.organizationId}:${o.alertLevel}`));
+  } else {
+    const cutoff = new Date(Date.now() - config.repeatDays * 86400000);
+    const recentAlerts = await prisma.quotaAlert.findMany({
+      where: { sentAt: { gte: cutoff } },
+      select: { organizationId: true, alertType: true },
+    });
+    const recentSet = new Set(recentAlerts.map(a => `${a.organizationId}:${a.alertType}`));
+    toSend = alertable.filter(o => !recentSet.has(`${o.organizationId}:${o.alertLevel}`));
+  }
 
   if (toSend.length === 0) {
-    return { sent: false, count: 0, reason: "Cooldown actif pour tous les clients" };
+    return { sent: false, count: 0, reason: config.repeatMode === "once" ? "Tous les clients ont déjà été alertés" : "Prochain rappel pas encore dû" };
   }
 
   const results = await sendToOrgs(toSend, config, false);
