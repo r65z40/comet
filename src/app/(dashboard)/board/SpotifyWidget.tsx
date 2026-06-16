@@ -400,19 +400,28 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
     }
   }
 
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+
   function openPlaylist(playlist: Playlist) {
     setDetailView({ type: "playlist", data: playlist });
     setPlaylistTracks([]);
     setArtistDetail(null);
     setDetailError(null);
+    setDebugInfo(null);
     setLoadingDetail(true);
     fetch(`/api/spotify/playlists?id=${playlist.id}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.error) setDetailError(data.error);
-        else setPlaylistTracks(data.tracks || []);
+        if (data.error) {
+          setDetailError(data.error);
+        } else {
+          setPlaylistTracks(data.tracks || []);
+        }
+        if (data.debug) {
+          setDebugInfo(JSON.stringify(data.debug, null, 2));
+        }
       })
-      .catch(() => setDetailError("Impossible de charger les titres"))
+      .catch((e) => setDetailError("Impossible de charger les titres: " + e.message))
       .finally(() => setLoadingDetail(false));
   }
 
@@ -615,7 +624,14 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
             </div>
           ) : detailView.type === "playlist" ? (
             playlistTracks.length === 0 ? (
-              <p className={cn("text-xs text-center py-8", dark ? "text-slate-500" : "text-slate-400")}>Playlist vide</p>
+              <div className="py-6 px-4 text-center">
+                <p className={cn("text-xs", dark ? "text-slate-500" : "text-slate-400")}>Playlist vide</p>
+                {debugInfo && (
+                  <pre className={cn("text-[9px] mt-3 p-2 rounded text-left overflow-x-auto", dark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500")}>
+                    {debugInfo}
+                  </pre>
+                )}
+              </div>
             ) : (
               playlistTracks.map((track, i) => (
                 <TrackRow
