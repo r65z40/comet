@@ -141,7 +141,7 @@ export async function executeCronJob(): Promise<{
     const { getQuotaAlertConfig, checkAndSendQuotaAlerts } = await import("@/lib/quota-alerts");
     const quotaConfig = await getQuotaAlertConfig();
     if (quotaConfig.enabled && quotaConfig.autoSend) {
-      await checkAndSendQuotaAlerts(false);
+      await checkAndSendQuotaAlerts();
     }
   } catch (err) {
     console.error("[cron-scheduler] Quota alerts error:", err);

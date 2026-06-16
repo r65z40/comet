@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import {
   getQuotaAlertConfig,
-  checkAndSendQuotaAlerts,
+  getClientsWithAlertStatus,
+  sendQuotaAlertsToSelected,
   getQuotaAlertHistory,
-  getOrgsExceedingThresholds,
 } from "@/lib/quota-alerts";
 
 export async function GET(req: NextRequest) {
@@ -15,16 +15,17 @@ export async function GET(req: NextRequest) {
 
   const action = req.nextUrl.searchParams.get("action");
 
+  if (action === "clients") {
+    const config = await getQuotaAlertConfig();
+    const clients = await getClientsWithAlertStatus(config);
+    return NextResponse.json({ clients });
+  }
+
   if (action === "history") {
     const limit = parseInt(req.nextUrl.searchParams.get("limit") || "50");
     const offset = parseInt(req.nextUrl.searchParams.get("offset") || "0");
     const data = await getQuotaAlertHistory(limit, offset);
     return NextResponse.json(data);
-  }
-
-  if (action === "config") {
-    const config = await getQuotaAlertConfig();
-    return NextResponse.json(config);
   }
 
   return NextResponse.json({ error: "Action invalide" }, { status: 400 });
@@ -39,39 +40,17 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { action } = body;
 
-  if (action === "send") {
+  if (action === "send-selected") {
+    const { organizationIds } = body;
+    if (!Array.isArray(organizationIds) || organizationIds.length === 0) {
+      return NextResponse.json({ error: "Aucun client sélectionné" }, { status: 400 });
+    }
     try {
-      const result = await checkAndSendQuotaAlerts(true);
+      const result = await sendQuotaAlertsToSelected(organizationIds);
       return NextResponse.json(result);
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Erreur d'envoi" },
-        { status: 500 },
-      );
-    }
-  }
-
-  if (action === "preview") {
-    try {
-      const config = await getQuotaAlertConfig();
-      const orgs = await getOrgsExceedingThresholds(
-        config.warningThreshold,
-        config.exceededThreshold,
-      );
-      const alertable = orgs.filter(o => o.alertLevel !== null);
-      return NextResponse.json({
-        count: alertable.length,
-        organizations: alertable.map(o => ({
-          organizationId: o.organizationId,
-          clientName: o.clientName,
-          clientEmail: o.clientEmail,
-          usagePercent: o.usagePercent,
-          alertLevel: o.alertLevel,
-        })),
-      });
-    } catch (err) {
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Erreur" },
         { status: 500 },
       );
     }

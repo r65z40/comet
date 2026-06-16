@@ -206,56 +206,48 @@ function buildClientEmailHtml(org: OrgQuotaInfo, config: QuotaAlertConfig): stri
   `;
 }
 
-export async function checkAndSendQuotaAlerts(manual = false): Promise<{
-  sent: boolean;
-  count: number;
-  reason?: string;
-  details?: { organizationId: string; clientName: string | null; alertLevel: string; usagePercent: number; sentTo: string[] }[];
-}> {
-  const config = await getQuotaAlertConfig();
-
-  if (!manual && !config.enabled) {
-    return { sent: false, count: 0, reason: "Alertes quota désactivées" };
-  }
-
+export async function getClientsWithAlertStatus(config: QuotaAlertConfig) {
   const orgs = await getOrgsExceedingThresholds(
     config.warningThreshold,
     config.exceededThreshold,
   );
+  const alertable = orgs.filter(o => o.alertLevel !== null);
 
-  const alertableOrgs = orgs.filter(o => o.alertLevel !== null);
+  const lastAlerts = await prisma.quotaAlert.findMany({
+    where: {
+      organizationId: { in: alertable.map(o => o.organizationId) },
+    },
+    orderBy: { sentAt: "desc" },
+    distinct: ["organizationId"],
+  });
+  const lastAlertMap = new Map(lastAlerts.map(a => [a.organizationId, a]));
 
-  if (alertableOrgs.length === 0) {
-    return { sent: false, count: 0, reason: "Aucune organisation ne dépasse les seuils configurés" };
-  }
+  return alertable.map(o => {
+    const last = lastAlertMap.get(o.organizationId);
+    return {
+      organizationId: o.organizationId,
+      clientName: o.clientName,
+      clientEmail: o.clientEmail,
+      usagePercent: o.usagePercent,
+      allocatedQuota: o.allocatedQuota ? formatBytes(o.allocatedQuota) : null,
+      currentUsage: o.currentUsage ? formatBytes(o.currentUsage) : null,
+      alertLevel: o.alertLevel!,
+      lastAlert: last ? {
+        alertType: last.alertType,
+        sentAt: last.sentAt.toISOString(),
+        manual: last.manual,
+      } : null,
+    };
+  });
+}
 
-  // Filter orgs that have a client email
-  const orgsWithEmail = alertableOrgs.filter(o => o.clientEmail);
-  if (orgsWithEmail.length === 0) {
-    return { sent: false, count: 0, reason: "Aucun client avec adresse email trouvé parmi les organisations concernées" };
-  }
-
-  // Filter out orgs already alerted within cooldown (unless manual)
-  let orgsToAlert = orgsWithEmail;
-  if (!manual) {
-    const cooldownCutoff = new Date(Date.now() - config.cooldownHours * 3600000);
-    const recentAlerts = await prisma.quotaAlert.findMany({
-      where: { sentAt: { gte: cooldownCutoff } },
-      select: { organizationId: true, alertType: true },
-    });
-    const recentSet = new Set(recentAlerts.map(a => `${a.organizationId}:${a.alertType}`));
-    orgsToAlert = orgsWithEmail.filter(o => !recentSet.has(`${o.organizationId}:${o.alertLevel}`));
-  }
-
-  if (orgsToAlert.length === 0) {
-    return { sent: false, count: 0, reason: "Alertes déjà envoyées récemment (cooldown)" };
-  }
-
-  // Get SMTP config once
+async function sendToOrgs(
+  orgsToAlert: OrgQuotaInfo[],
+  config: QuotaAlertConfig,
+  manual: boolean,
+): Promise<{ organizationId: string; clientName: string | null; alertLevel: string; usagePercent: number; sentTo: string[]; error?: string }[]> {
   const smtpConfig = await getSmtpConfig();
-  if (!smtpConfig) {
-    return { sent: false, count: 0, reason: "SMTP non configuré" };
-  }
+  if (!smtpConfig) throw new Error("SMTP non configuré");
 
   const useSecure = smtpConfig.port === 465;
   const transporter = nodemailer.createTransport({
@@ -266,7 +258,7 @@ export async function checkAndSendQuotaAlerts(manual = false): Promise<{
     tls: { rejectUnauthorized: false },
   });
 
-  const details: { organizationId: string; clientName: string | null; alertLevel: string; usagePercent: number; sentTo: string[] }[] = [];
+  const results: { organizationId: string; clientName: string | null; alertLevel: string; usagePercent: number; sentTo: string[]; error?: string }[] = [];
 
   for (const org of orgsToAlert) {
     const recipients: string[] = [org.clientEmail!];
@@ -295,7 +287,6 @@ export async function checkAndSendQuotaAlerts(manual = false): Promise<{
 
     try {
       await transporter.sendMail(mailOptions);
-
       await prisma.quotaAlert.create({
         data: {
           organizationId: org.organizationId,
@@ -308,24 +299,67 @@ export async function checkAndSendQuotaAlerts(manual = false): Promise<{
           manual,
         },
       }).catch(() => {});
-
-      details.push({
-        organizationId: org.organizationId,
-        clientName: org.clientName,
-        alertLevel: org.alertLevel!,
-        usagePercent: org.usagePercent,
-        sentTo: recipients,
-      });
+      results.push({ organizationId: org.organizationId, clientName: org.clientName, alertLevel: org.alertLevel!, usagePercent: org.usagePercent, sentTo: recipients });
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur inconnue";
       console.error(`[quota-alerts] Failed to send to ${org.clientEmail}:`, err);
+      results.push({ organizationId: org.organizationId, clientName: org.clientName, alertLevel: org.alertLevel!, usagePercent: org.usagePercent, sentTo: recipients, error: msg });
     }
   }
 
-  return {
-    sent: details.length > 0,
-    count: details.length,
-    details,
-  };
+  return results;
+}
+
+export async function sendQuotaAlertsToSelected(organizationIds: string[]): Promise<{
+  sent: boolean;
+  count: number;
+  results: { organizationId: string; clientName: string | null; alertLevel: string; sentTo: string[]; error?: string }[];
+}> {
+  const config = await getQuotaAlertConfig();
+  const orgs = await getOrgsExceedingThresholds(config.warningThreshold, config.exceededThreshold);
+  const selected = orgs.filter(o => organizationIds.includes(o.organizationId) && o.alertLevel !== null && o.clientEmail);
+
+  if (selected.length === 0) {
+    return { sent: false, count: 0, results: [] };
+  }
+
+  const results = await sendToOrgs(selected, config, true);
+  const successes = results.filter(r => !r.error);
+  return { sent: successes.length > 0, count: successes.length, results };
+}
+
+export async function checkAndSendQuotaAlerts(): Promise<{
+  sent: boolean;
+  count: number;
+  reason?: string;
+}> {
+  const config = await getQuotaAlertConfig();
+  if (!config.enabled || !config.autoSend) {
+    return { sent: false, count: 0, reason: "Alertes auto désactivées" };
+  }
+
+  const orgs = await getOrgsExceedingThresholds(config.warningThreshold, config.exceededThreshold);
+  const alertable = orgs.filter(o => o.alertLevel !== null && o.clientEmail);
+
+  if (alertable.length === 0) {
+    return { sent: false, count: 0, reason: "Aucun client ne dépasse les seuils" };
+  }
+
+  const cooldownCutoff = new Date(Date.now() - config.cooldownHours * 3600000);
+  const recentAlerts = await prisma.quotaAlert.findMany({
+    where: { sentAt: { gte: cooldownCutoff } },
+    select: { organizationId: true, alertType: true },
+  });
+  const recentSet = new Set(recentAlerts.map(a => `${a.organizationId}:${a.alertType}`));
+  const toSend = alertable.filter(o => !recentSet.has(`${o.organizationId}:${o.alertLevel}`));
+
+  if (toSend.length === 0) {
+    return { sent: false, count: 0, reason: "Cooldown actif pour tous les clients" };
+  }
+
+  const results = await sendToOrgs(toSend, config, false);
+  const successes = results.filter(r => !r.error);
+  return { sent: successes.length > 0, count: successes.length };
 }
 
 export async function getQuotaAlertHistory(limit = 50, offset = 0) {

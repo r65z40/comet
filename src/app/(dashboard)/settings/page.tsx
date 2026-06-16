@@ -231,8 +231,9 @@ export default function SettingsPage() {
   const [savedQuota, setSavedQuota] = useState(false);
   const [sendingQuotaAlert, setSendingQuotaAlert] = useState(false);
   const [quotaAlertResult, setQuotaAlertResult] = useState<string | null>(null);
-  const [quotaPreview, setQuotaPreview] = useState<{ organizationId: string; clientName: string | null; clientEmail: string | null; usagePercent: number; alertLevel: string }[] | null>(null);
-  const [loadingQuotaPreview, setLoadingQuotaPreview] = useState(false);
+  const [quotaClients, setQuotaClients] = useState<{ organizationId: string; clientName: string | null; clientEmail: string | null; usagePercent: number; allocatedQuota: string | null; currentUsage: string | null; alertLevel: string; lastAlert: { alertType: string; sentAt: string; manual: boolean } | null }[]>([]);
+  const [loadingQuotaClients, setLoadingQuotaClients] = useState(false);
+  const [quotaSelectedIds, setQuotaSelectedIds] = useState<Set<string>>(new Set());
   const [quotaHistory, setQuotaHistory] = useState<{ id: string; organizationId: string; clientName: string | null; alertType: string; usagePercent: number; allocatedQuota: string | null; currentUsage: string | null; recipients: string[]; sentAt: string; manual: boolean }[]>([]);
   const [quotaHistoryTotal, setQuotaHistoryTotal] = useState(0);
   const [loadingQuotaHistory, setLoadingQuotaHistory] = useState(false);
@@ -689,23 +690,44 @@ export default function SettingsPage() {
     setTimeout(() => setSavedQuota(false), 3000);
   }
 
-  async function handleSendQuotaAlert() {
+  async function handleLoadQuotaClients() {
+    setLoadingQuotaClients(true);
+    try {
+      await handleSaveQuotaAlerts();
+      const res = await fetch("/api/quota-alerts?action=clients");
+      const data = await res.json();
+      setQuotaClients(data.clients || []);
+      setQuotaSelectedIds(new Set());
+    } catch {
+      setQuotaClients([]);
+    }
+    setLoadingQuotaClients(false);
+  }
+
+  async function handleSendToSelected() {
+    if (quotaSelectedIds.size === 0) return;
     setSendingQuotaAlert(true);
     setQuotaAlertResult(null);
     try {
-      await handleSaveQuotaAlerts();
       const res = await fetch("/api/quota-alerts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send" }),
+        body: JSON.stringify({ action: "send-selected", organizationIds: Array.from(quotaSelectedIds) }),
       });
       const result = await res.json();
-      if (result.sent) {
-        setQuotaAlertResult(`Email envoyé : ${result.count} organisation(s) alertée(s)`);
-      } else if (result.error) {
+      if (result.error) {
         setQuotaAlertResult(`Erreur : ${result.error}`);
+      } else if (result.sent) {
+        const errors = (result.results || []).filter((r: Record<string, unknown>) => r.error);
+        if (errors.length > 0) {
+          setQuotaAlertResult(`${result.count} email(s) envoyé(s), ${errors.length} erreur(s)`);
+        } else {
+          setQuotaAlertResult(`${result.count} email(s) envoyé(s) avec succès`);
+        }
+        setQuotaSelectedIds(new Set());
+        handleLoadQuotaClients();
       } else {
-        setQuotaAlertResult(result.reason || "Aucune alerte à envoyer");
+        setQuotaAlertResult("Aucun email envoyé");
       }
     } catch {
       setQuotaAlertResult("Erreur lors de l'envoi");
@@ -713,27 +735,29 @@ export default function SettingsPage() {
     setSendingQuotaAlert(false);
   }
 
-  async function handlePreviewQuota() {
-    setLoadingQuotaPreview(true);
-    try {
-      const res = await fetch("/api/quota-alerts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "preview" }),
-      });
-      const data = await res.json();
-      setQuotaPreview(data.organizations || []);
-    } catch {
-      setQuotaPreview([]);
+  function toggleQuotaSelect(orgId: string) {
+    setQuotaSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(orgId)) next.delete(orgId);
+      else next.add(orgId);
+      return next;
+    });
+  }
+
+  function toggleQuotaSelectAll() {
+    const selectable = quotaClients.filter(c => c.clientEmail);
+    if (quotaSelectedIds.size === selectable.length) {
+      setQuotaSelectedIds(new Set());
+    } else {
+      setQuotaSelectedIds(new Set(selectable.map(c => c.organizationId)));
     }
-    setLoadingQuotaPreview(false);
   }
 
   async function handleLoadQuotaHistory() {
     setLoadingQuotaHistory(true);
     setShowQuotaHistory(true);
     try {
-      const res = await fetch("/api/quota-alerts?action=history&limit=20");
+      const res = await fetch("/api/quota-alerts?action=history&limit=30");
       const data = await res.json();
       setQuotaHistory(data.alerts || []);
       setQuotaHistoryTotal(data.total || 0);
@@ -2126,228 +2150,134 @@ export default function SettingsPage() {
         </button>
         {openSections.quotaAlerts && <div className="px-6 pb-6 space-y-5 border-t border-slate-100 pt-5">
 
-        {/* Seuils */}
-        <div>
-          <label className="block text-sm font-medium text-slate-600 mb-2">Seuils d&apos;alerte (% d&apos;utilisation du quota)</label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                <span className="text-sm font-medium text-amber-700">Avertissement</span>
-              </div>
-              <p className="text-xs text-amber-600/70 mb-2">Email envoyé quand le client approche de sa limite</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={quotaWarning}
-                  onChange={(e) => setQuotaWarning(e.target.value)}
-                  min="1" max="100"
-                  className="w-20 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                />
-                <span className="text-sm text-amber-600">%</span>
-              </div>
+        {/* Seuils + Mode */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+              <span className="text-sm font-medium text-amber-700">Seuil avertissement</span>
             </div>
-            <div className="rounded-lg border border-red-200 bg-red-50/50 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                <span className="text-sm font-medium text-red-700">Dépassé</span>
-              </div>
-              <p className="text-xs text-red-600/70 mb-2">Email envoyé quand le quota est atteint ou dépassé</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={quotaExceeded}
-                  onChange={(e) => setQuotaExceeded(e.target.value)}
-                  min="1" max="200"
-                  className="w-20 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
-                />
-                <span className="text-sm text-red-600">%</span>
-              </div>
+            <p className="text-xs text-amber-600/70 mb-2">Approche de la limite</p>
+            <div className="flex items-center gap-2">
+              <input type="number" value={quotaWarning} onChange={(e) => setQuotaWarning(e.target.value)} min="1" max="100"
+                className="w-20 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400" />
+              <span className="text-sm text-amber-600">%</span>
+            </div>
+          </div>
+          <div className="rounded-lg border border-red-200 bg-red-50/50 p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
+              <span className="text-sm font-medium text-red-700">Seuil dépassement</span>
+            </div>
+            <p className="text-xs text-red-600/70 mb-2">Quota atteint ou dépassé</p>
+            <div className="flex items-center gap-2">
+              <input type="number" value={quotaExceeded} onChange={(e) => setQuotaExceeded(e.target.value)} min="1" max="200"
+                className="w-20 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400" />
+              <span className="text-sm text-red-600">%</span>
             </div>
           </div>
         </div>
 
-        {/* Envoi & options */}
+        {/* Mode d'envoi */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-2">Mode d&apos;envoi</label>
             <div className="flex gap-2">
-              <button onClick={() => setQuotaAutoSend(true)}
-                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                  quotaAutoSend
-                    ? "border-primary-500 bg-primary-50 text-primary-600"
-                    : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"
-                }`}>
+              <button onClick={() => setQuotaAutoSend(true)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${quotaAutoSend ? "border-primary-500 bg-primary-50 text-primary-600" : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"}`}>
                 Automatique
               </button>
-              <button onClick={() => setQuotaAutoSend(false)}
-                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                  !quotaAutoSend
-                    ? "border-primary-500 bg-primary-50 text-primary-600"
-                    : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"
-                }`}>
+              <button onClick={() => setQuotaAutoSend(false)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${!quotaAutoSend ? "border-primary-500 bg-primary-50 text-primary-600" : "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300"}`}>
                 Manuel uniquement
               </button>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              {quotaAutoSend
-                ? "Les emails sont envoyés automatiquement aux clients après chaque collecte Oxibox"
-                : "Les emails ne sont envoyés que manuellement via le bouton ci-dessous"}
-            </p>
+            <p className="text-xs text-slate-400 mt-1">{quotaAutoSend ? "Envoi automatique après chaque collecte Oxibox (avec cooldown)" : "Vous choisissez manuellement à qui envoyer"}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-2">Cooldown (heures)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-2">Cooldown entre envois</label>
             <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={quotaCooldown}
-                onChange={(e) => setQuotaCooldown(e.target.value)}
-                min="1" max="720"
-                className="w-24 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              />
-              <span className="text-xs text-slate-400">heures min. entre deux emails au même client</span>
+              <input type="number" value={quotaCooldown} onChange={(e) => setQuotaCooldown(e.target.value)} min="1" max="720"
+                className="w-24 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" />
+              <span className="text-xs text-slate-400">heures min. entre 2 envois au même client</span>
             </div>
           </div>
         </div>
 
-        {/* Destinataires */}
-        <div>
-          <label className="block text-sm font-medium text-slate-600 mb-2">Destinataires</label>
-          <p className="text-xs text-slate-400 mb-3">Les emails sont envoyés à l&apos;adresse email du client (fiche client). Options supplémentaires :</p>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2.5 cursor-pointer rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
-              <input
-                type="checkbox"
-                checked={quotaSendToPortal}
-                onChange={(e) => setQuotaSendToPortal(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-              />
-              <div>
-                <span className="text-sm text-slate-700">Envoyer aussi aux utilisateurs du portail client</span>
-                <p className="text-xs text-slate-400">Tous les utilisateurs actifs du portail recevront l&apos;email</p>
-              </div>
-            </label>
-            <label className="flex items-center gap-2.5 cursor-pointer rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
-              <input
-                type="checkbox"
-                checked={quotaCcAdmins}
-                onChange={(e) => setQuotaCcAdmins(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-              />
-              <div>
-                <span className="text-sm text-slate-700">Mettre les administrateurs en copie (CC)</span>
-                <p className="text-xs text-slate-400">Les adresses de notification générales recevront une copie</p>
-              </div>
-            </label>
-          </div>
+        {/* Options destinataires */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2.5 cursor-pointer rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
+            <input type="checkbox" checked={quotaSendToPortal} onChange={(e) => setQuotaSendToPortal(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
+            <div>
+              <span className="text-sm text-slate-700">Envoyer aussi aux utilisateurs portail du client</span>
+              <p className="text-xs text-slate-400">Tous les utilisateurs actifs du portail recevront l&apos;email</p>
+            </div>
+          </label>
+          <label className="flex items-center gap-2.5 cursor-pointer rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
+            <input type="checkbox" checked={quotaCcAdmins} onChange={(e) => setQuotaCcAdmins(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
+            <div>
+              <span className="text-sm text-slate-700">Mettre les administrateurs en copie (CC)</span>
+              <p className="text-xs text-slate-400">Les adresses de notification générales recevront une copie</p>
+            </div>
+          </label>
         </div>
 
         {/* Templates email */}
         <div className="border-t border-slate-100 pt-5">
-          <label className="block text-sm font-medium text-slate-600 mb-3">Personnalisation des emails</label>
+          <label className="block text-sm font-medium text-slate-600 mb-2">Personnalisation des emails</label>
           <p className="text-xs text-slate-400 mb-3">
-            Variables disponibles : <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{clientName}"}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{usagePercent}"}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{currentUsage}"}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{allocatedQuota}"}</code>
+            Variables : <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{clientName}"}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{usagePercent}"}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{currentUsage}"}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{allocatedQuota}"}</code>
           </p>
 
-          {/* Avertissement */}
           <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-4 mb-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="h-2 w-2 rounded-full bg-amber-400" />
               <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Email d&apos;avertissement</span>
             </div>
             <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">Objet</label>
-                <input
-                  type="text"
-                  value={quotaSubjectWarning}
-                  onChange={(e) => setQuotaSubjectWarning(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">Contenu</label>
-                <textarea
-                  value={quotaBodyWarning}
-                  onChange={(e) => setQuotaBodyWarning(e.target.value)}
-                  rows={5}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-y"
-                />
-              </div>
+              <div><label className="block text-xs text-slate-500 mb-1">Objet</label>
+                <input type="text" value={quotaSubjectWarning} onChange={(e) => setQuotaSubjectWarning(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400" /></div>
+              <div><label className="block text-xs text-slate-500 mb-1">Contenu</label>
+                <textarea value={quotaBodyWarning} onChange={(e) => setQuotaBodyWarning(e.target.value)} rows={4}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-y" /></div>
             </div>
           </div>
 
-          {/* Dépassé */}
           <div className="rounded-lg border border-red-100 bg-red-50/30 p-4 mb-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="h-2 w-2 rounded-full bg-red-500" />
               <span className="text-xs font-semibold text-red-700 uppercase tracking-wide">Email de dépassement</span>
             </div>
             <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">Objet</label>
-                <input
-                  type="text"
-                  value={quotaSubjectExceeded}
-                  onChange={(e) => setQuotaSubjectExceeded(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">Contenu</label>
-                <textarea
-                  value={quotaBodyExceeded}
-                  onChange={(e) => setQuotaBodyExceeded(e.target.value)}
-                  rows={5}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400 resize-y"
-                />
-              </div>
+              <div><label className="block text-xs text-slate-500 mb-1">Objet</label>
+                <input type="text" value={quotaSubjectExceeded} onChange={(e) => setQuotaSubjectExceeded(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400" /></div>
+              <div><label className="block text-xs text-slate-500 mb-1">Contenu</label>
+                <textarea value={quotaBodyExceeded} onChange={(e) => setQuotaBodyExceeded(e.target.value)} rows={4}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400 resize-y" /></div>
             </div>
           </div>
 
-          {/* Footer */}
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">Pied de page email</label>
-            <input
-              type="text"
-              value={quotaEmailFooter}
-              onChange={(e) => setQuotaEmailFooter(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            />
-          </div>
+          <div><label className="block text-xs text-slate-500 mb-1">Pied de page</label>
+            <input type="text" value={quotaEmailFooter} onChange={(e) => setQuotaEmailFooter(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" /></div>
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-wrap items-center gap-3 pt-2">
-          <button
-            onClick={handleSaveQuotaAlerts}
-            disabled={savingQuota}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
-          >
+        {/* Actions principales */}
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
+          <button onClick={handleSaveQuotaAlerts} disabled={savingQuota}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors">
             {savingQuota ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Enregistrer
           </button>
-          <button
-            onClick={handleSendQuotaAlert}
-            disabled={sendingQuotaAlert}
-            className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
-          >
-            {sendingQuotaAlert ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Envoyer maintenant
+          <button onClick={handleLoadQuotaClients} disabled={loadingQuotaClients}
+            className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50 transition-colors">
+            {loadingQuotaClients ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+            Voir les clients concernés
           </button>
-          <button
-            onClick={handlePreviewQuota}
-            disabled={loadingQuotaPreview}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-          >
-            {loadingQuotaPreview ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-            Aperçu
-          </button>
-          <button
-            onClick={handleLoadQuotaHistory}
-            disabled={loadingQuotaHistory}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-          >
+          <button onClick={handleLoadQuotaHistory} disabled={loadingQuotaHistory}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors">
             {loadingQuotaHistory ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />}
             Historique
           </button>
@@ -2357,65 +2287,130 @@ export default function SettingsPage() {
         {/* Résultat envoi */}
         {quotaAlertResult && (
           <div className={`rounded-lg border px-4 py-2.5 text-sm ${
-            quotaAlertResult.startsWith("Erreur")
-              ? "border-red-200 bg-red-50 text-red-600"
-              : quotaAlertResult.startsWith("Email")
-              ? "border-emerald-200 bg-emerald-50 text-emerald-600"
-              : "border-amber-200 bg-amber-50 text-amber-600"
+            quotaAlertResult.includes("Erreur") ? "border-red-200 bg-red-50 text-red-600"
+            : quotaAlertResult.includes("succès") || quotaAlertResult.includes("envoyé") ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+            : "border-amber-200 bg-amber-50 text-amber-600"
           }`}>
             {quotaAlertResult}
           </div>
         )}
 
-        {/* Aperçu — clients concernés */}
-        {quotaPreview && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-700">
-                {quotaPreview.length} client(s) concerné(s)
-              </span>
-              <button onClick={() => setQuotaPreview(null)} className="text-slate-400 hover:text-slate-600">
-                <X className="h-3.5 w-3.5" />
-              </button>
+        {/* Tableau des clients concernés */}
+        {quotaClients.length > 0 && (
+          <div className="rounded-lg border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 px-4 py-3 flex items-center justify-between border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-slate-700">{quotaClients.length} client(s) au-dessus des seuils</span>
+                {quotaSelectedIds.size > 0 && (
+                  <span className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full font-medium">{quotaSelectedIds.size} sélectionné(s)</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {quotaSelectedIds.size > 0 && (
+                  <button onClick={handleSendToSelected} disabled={sendingQuotaAlert}
+                    className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50 transition-colors">
+                    {sendingQuotaAlert ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Envoyer aux sélectionnés
+                  </button>
+                )}
+                <button onClick={() => { setQuotaClients([]); setQuotaSelectedIds(new Set()); }} className="text-slate-400 hover:text-slate-600">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            {quotaPreview.length === 0 ? (
-              <p className="text-sm text-slate-400">Aucun client ne dépasse les seuils configurés.</p>
-            ) : (
-              <div className="space-y-2">
-                {quotaPreview.map((org) => (
-                  <div key={org.organizationId} className="flex items-center justify-between rounded-lg bg-white border border-slate-100 px-3 py-2.5">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-slate-700">{org.clientName || org.organizationId}</span>
-                      {org.clientEmail ? (
-                        <span className="text-xs text-slate-400">{org.clientEmail}</span>
+
+            {/* Header */}
+            <div className="grid grid-cols-[32px_1fr_1fr_100px_120px_80px] gap-2 px-4 py-2 bg-slate-50/50 border-b border-slate-100 text-[11px] font-medium text-slate-400 uppercase tracking-wide">
+              <div className="flex items-center">
+                <input type="checkbox"
+                  checked={quotaSelectedIds.size === quotaClients.filter(c => c.clientEmail).length && quotaClients.filter(c => c.clientEmail).length > 0}
+                  onChange={toggleQuotaSelectAll}
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
+              </div>
+              <div>Client</div>
+              <div>Utilisation</div>
+              <div>Type</div>
+              <div>Dernier envoi</div>
+              <div>Statut</div>
+            </div>
+
+            {/* Rows */}
+            <div className="max-h-[400px] overflow-y-auto divide-y divide-slate-100">
+              {quotaClients.map((client) => {
+                const isSelected = quotaSelectedIds.has(client.organizationId);
+                const hasEmail = !!client.clientEmail;
+                const lastAlert = client.lastAlert;
+                const barWidth = Math.min(client.usagePercent, 100);
+                const isExceeded = client.alertLevel === "exceeded";
+                const barColor = isExceeded ? "bg-red-500" : "bg-amber-400";
+
+                return (
+                  <div key={client.organizationId}
+                    className={cn(
+                      "grid grid-cols-[32px_1fr_1fr_100px_120px_80px] gap-2 px-4 py-3 items-center transition-colors",
+                      isSelected ? "bg-primary-50/50" : "hover:bg-slate-50",
+                      !hasEmail && "opacity-60",
+                    )}>
+                    <div>
+                      <input type="checkbox" disabled={!hasEmail} checked={isSelected}
+                        onChange={() => toggleQuotaSelect(client.organizationId)}
+                        className="h-3.5 w-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500 disabled:opacity-30" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">{client.clientName || client.organizationId}</p>
+                      {hasEmail ? (
+                        <p className="text-xs text-slate-400 truncate">{client.clientEmail}</p>
                       ) : (
-                        <span className="text-xs text-red-400">Pas d&apos;email configuré</span>
+                        <p className="text-xs text-red-400">Pas d&apos;email</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${
-                            org.alertLevel === "exceeded" ? "bg-red-500" : "bg-amber-400"
-                          }`}
-                          style={{ width: `${Math.min(org.usagePercent, 100)}%` }}
-                        />
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${barColor}`} style={{ width: `${barWidth}%` }} />
+                        </div>
+                        <span className={`text-xs font-bold ${isExceeded ? "text-red-600" : "text-amber-600"}`}>{client.usagePercent}%</span>
                       </div>
-                      <span className={`text-xs font-semibold ${
-                        org.alertLevel === "exceeded" ? "text-red-600" : "text-amber-600"
+                      <p className="text-[11px] text-slate-400">{client.currentUsage} / {client.allocatedQuota}</p>
+                    </div>
+                    <div>
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full ${
+                        isExceeded ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
                       }`}>
-                        {org.usagePercent}%
-                      </span>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                        org.alertLevel === "exceeded" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
-                      }`}>
-                        {org.alertLevel === "exceeded" ? "Dépassé" : "Attention"}
+                        <span className={`h-1.5 w-1.5 rounded-full ${isExceeded ? "bg-red-500" : "bg-amber-500"}`} />
+                        {isExceeded ? "Dépassé" : "Attention"}
                       </span>
                     </div>
+                    <div>
+                      {lastAlert ? (
+                        <div>
+                          <p className="text-xs text-slate-600">{new Date(lastAlert.sentAt).toLocaleDateString("fr-FR")}</p>
+                          <p className="text-[10px] text-slate-400">{new Date(lastAlert.sentAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} — {lastAlert.manual ? "Manuel" : "Auto"}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-300">—</span>
+                      )}
+                    </div>
+                    <div>
+                      {lastAlert ? (
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full ${
+                          lastAlert.alertType === "exceeded"
+                            ? "bg-red-50 text-red-600 border border-red-200"
+                            : "bg-amber-50 text-amber-600 border border-amber-200"
+                        }`}>
+                          <Check className="h-3 w-3" />
+                          Envoyé
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-400">
+                          Jamais
+                        </span>
+                      )}
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -2423,12 +2418,8 @@ export default function SettingsPage() {
         {showQuotaHistory && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-700">
-                Historique des envois ({quotaHistoryTotal} total)
-              </span>
-              <button onClick={() => setShowQuotaHistory(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="h-3.5 w-3.5" />
-              </button>
+              <span className="text-sm font-medium text-slate-700">Historique des envois ({quotaHistoryTotal})</span>
+              <button onClick={() => setShowQuotaHistory(false)} className="text-slate-400 hover:text-slate-600"><X className="h-3.5 w-3.5" /></button>
             </div>
             {loadingQuotaHistory ? (
               <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
@@ -2439,18 +2430,17 @@ export default function SettingsPage() {
                 {quotaHistory.map((alert) => (
                   <div key={alert.id} className="flex items-center justify-between rounded-lg bg-white border border-slate-100 px-3 py-2.5 text-xs">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className={`h-2 w-2 rounded-full flex-shrink-0 ${
-                        alert.alertType === "exceeded" ? "bg-red-500" : "bg-amber-400"
-                      }`} />
+                      <span className={`h-2 w-2 rounded-full flex-shrink-0 ${alert.alertType === "exceeded" ? "bg-red-500" : "bg-amber-400"}`} />
                       <span className="font-medium text-slate-700 truncate">{alert.clientName || alert.organizationId}</span>
+                      <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${alert.alertType === "exceeded" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                        {alert.alertType === "exceeded" ? "Dépassé" : "Avertissement"}
+                      </span>
                       <span className="text-slate-400 flex-shrink-0">{alert.usagePercent}%</span>
-                      {alert.currentUsage && alert.allocatedQuota && (
-                        <span className="text-slate-300 flex-shrink-0">({alert.currentUsage} / {alert.allocatedQuota})</span>
-                      )}
                     </div>
                     <div className="flex items-center gap-2 text-slate-400 flex-shrink-0 ml-2">
-                      <span className="text-[10px] text-slate-400 truncate max-w-[120px]" title={alert.recipients?.join(", ")}>{alert.recipients?.[0]}</span>
-                      {alert.manual && <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">Manuel</span>}
+                      <span className="text-[10px] truncate max-w-[140px]" title={alert.recipients?.join(", ")}>{alert.recipients?.[0]}</span>
+                      {alert.manual && <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">Manuel</span>}
+                      {!alert.manual && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">Auto</span>}
                       <span>{new Date(alert.sentAt).toLocaleDateString("fr-FR")} {new Date(alert.sentAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
                   </div>
