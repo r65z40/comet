@@ -4,7 +4,7 @@ import {
   getQuotaAlertConfig,
   checkAndSendQuotaAlerts,
   getQuotaAlertHistory,
-  getQuotaOverview,
+  getOrgsExceedingThresholds,
 } from "@/lib/quota-alerts";
 
 export async function GET(req: NextRequest) {
@@ -20,11 +20,6 @@ export async function GET(req: NextRequest) {
     const offset = parseInt(req.nextUrl.searchParams.get("offset") || "0");
     const data = await getQuotaAlertHistory(limit, offset);
     return NextResponse.json(data);
-  }
-
-  if (action === "overview") {
-    const data = await getQuotaOverview();
-    return NextResponse.json({ organizations: data });
   }
 
   if (action === "config") {
@@ -58,18 +53,18 @@ export async function POST(req: NextRequest) {
 
   if (action === "preview") {
     try {
-      const { getOrgsExceedingThresholds } = await import("@/lib/quota-alerts");
       const config = await getQuotaAlertConfig();
       const orgs = await getOrgsExceedingThresholds(
         config.warningThreshold,
-        config.criticalThreshold,
         config.exceededThreshold,
       );
+      const alertable = orgs.filter(o => o.alertLevel !== null);
       return NextResponse.json({
-        count: orgs.length,
-        organizations: orgs.map(o => ({
+        count: alertable.length,
+        organizations: alertable.map(o => ({
           organizationId: o.organizationId,
           clientName: o.clientName,
+          clientEmail: o.clientEmail,
           usagePercent: o.usagePercent,
           alertLevel: o.alertLevel,
         })),

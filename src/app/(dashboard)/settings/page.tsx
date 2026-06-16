@@ -217,20 +217,23 @@ export default function SettingsPage() {
   // Quota alert settings
   const [quotaAlertEnabled, setQuotaAlertEnabled] = useState(false);
   const [quotaWarning, setQuotaWarning] = useState("80");
-  const [quotaCritical, setQuotaCritical] = useState("95");
   const [quotaExceeded, setQuotaExceeded] = useState("100");
   const [quotaAutoSend, setQuotaAutoSend] = useState(true);
   const [quotaCooldown, setQuotaCooldown] = useState("24");
-  const [quotaRecipients, setQuotaRecipients] = useState("");
-  const [quotaSubjectPrefix, setQuotaSubjectPrefix] = useState("[COMET]");
-  const [quotaIncludeClientName, setQuotaIncludeClientName] = useState(true);
+  const [quotaSendToPortal, setQuotaSendToPortal] = useState(false);
+  const [quotaCcAdmins, setQuotaCcAdmins] = useState(false);
+  const [quotaSubjectWarning, setQuotaSubjectWarning] = useState("Votre espace de sauvegarde approche de sa limite");
+  const [quotaSubjectExceeded, setQuotaSubjectExceeded] = useState("Votre espace de sauvegarde est plein");
+  const [quotaBodyWarning, setQuotaBodyWarning] = useState("Bonjour {clientName},\n\nNous vous informons que votre espace de sauvegarde atteint {usagePercent}% de sa capacité ({currentUsage} utilisés sur {allocatedQuota} alloués).\n\nNous vous recommandons de vérifier vos données ou de nous contacter pour augmenter votre quota avant d'atteindre la limite.");
+  const [quotaBodyExceeded, setQuotaBodyExceeded] = useState("Bonjour {clientName},\n\nVotre espace de sauvegarde a atteint {usagePercent}% de sa capacité ({currentUsage} utilisés sur {allocatedQuota} alloués).\n\nVos prochaines sauvegardes risquent d'échouer. Veuillez nous contacter rapidement pour augmenter votre quota.");
+  const [quotaEmailFooter, setQuotaEmailFooter] = useState("Cet email a été envoyé automatiquement. Pour toute question, contactez votre prestataire informatique.");
   const [savingQuota, setSavingQuota] = useState(false);
   const [savedQuota, setSavedQuota] = useState(false);
   const [sendingQuotaAlert, setSendingQuotaAlert] = useState(false);
   const [quotaAlertResult, setQuotaAlertResult] = useState<string | null>(null);
-  const [quotaPreview, setQuotaPreview] = useState<{ organizationId: string; clientName: string | null; usagePercent: number; alertLevel: string }[] | null>(null);
+  const [quotaPreview, setQuotaPreview] = useState<{ organizationId: string; clientName: string | null; clientEmail: string | null; usagePercent: number; alertLevel: string }[] | null>(null);
   const [loadingQuotaPreview, setLoadingQuotaPreview] = useState(false);
-  const [quotaHistory, setQuotaHistory] = useState<{ id: string; organizationId: string; clientName: string | null; alertType: string; usagePercent: number; allocatedQuota: string | null; currentUsage: string | null; sentAt: string; manual: boolean }[]>([]);
+  const [quotaHistory, setQuotaHistory] = useState<{ id: string; organizationId: string; clientName: string | null; alertType: string; usagePercent: number; allocatedQuota: string | null; currentUsage: string | null; recipients: string[]; sentAt: string; manual: boolean }[]>([]);
   const [quotaHistoryTotal, setQuotaHistoryTotal] = useState(0);
   const [loadingQuotaHistory, setLoadingQuotaHistory] = useState(false);
   const [showQuotaHistory, setShowQuotaHistory] = useState(false);
@@ -488,13 +491,16 @@ export default function SettingsPage() {
         // Quota alerts
         setQuotaAlertEnabled(data.quota_alert_enabled === "true");
         setQuotaWarning(data.quota_alert_warning || "80");
-        setQuotaCritical(data.quota_alert_critical || "95");
         setQuotaExceeded(data.quota_alert_exceeded || "100");
         setQuotaAutoSend(data.quota_alert_auto_send !== "false");
         setQuotaCooldown(data.quota_alert_cooldown_hours || "24");
-        setQuotaRecipients(data.quota_alert_recipients || "");
-        setQuotaSubjectPrefix(data.quota_alert_subject_prefix || "[COMET]");
-        setQuotaIncludeClientName(data.quota_alert_include_client_name !== "false");
+        setQuotaSendToPortal(data.quota_alert_send_to_portal_users === "true");
+        setQuotaCcAdmins(data.quota_alert_cc_admins === "true");
+        if (data.quota_alert_subject_warning) setQuotaSubjectWarning(data.quota_alert_subject_warning);
+        if (data.quota_alert_subject_exceeded) setQuotaSubjectExceeded(data.quota_alert_subject_exceeded);
+        if (data.quota_alert_body_warning) setQuotaBodyWarning(data.quota_alert_body_warning);
+        if (data.quota_alert_body_exceeded) setQuotaBodyExceeded(data.quota_alert_body_exceeded);
+        if (data.quota_alert_email_footer) setQuotaEmailFooter(data.quota_alert_email_footer);
         setSpotifyClientId(data.spotify_client_id || "");
         setSpotifyClientSecret(data.spotify_client_secret || "");
         setSpotifyRedirectUri(data.spotify_redirect_uri || "");
@@ -666,13 +672,16 @@ export default function SettingsPage() {
       body: JSON.stringify({
         quota_alert_enabled: quotaAlertEnabled ? "true" : "false",
         quota_alert_warning: quotaWarning,
-        quota_alert_critical: quotaCritical,
         quota_alert_exceeded: quotaExceeded,
         quota_alert_auto_send: quotaAutoSend ? "true" : "false",
         quota_alert_cooldown_hours: quotaCooldown,
-        quota_alert_recipients: quotaRecipients,
-        quota_alert_subject_prefix: quotaSubjectPrefix,
-        quota_alert_include_client_name: quotaIncludeClientName ? "true" : "false",
+        quota_alert_send_to_portal_users: quotaSendToPortal ? "true" : "false",
+        quota_alert_cc_admins: quotaCcAdmins ? "true" : "false",
+        quota_alert_subject_warning: quotaSubjectWarning,
+        quota_alert_subject_exceeded: quotaSubjectExceeded,
+        quota_alert_body_warning: quotaBodyWarning,
+        quota_alert_body_exceeded: quotaBodyExceeded,
+        quota_alert_email_footer: quotaEmailFooter,
       }),
     });
     setSavingQuota(false);
@@ -2089,7 +2098,7 @@ export default function SettingsPage() {
       </div>}
       </div>
 
-      {/* Alertes quota de sauvegarde */}
+      {/* Alertes quota de sauvegarde — emails clients */}
       {isAdmin && (
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <button onClick={() => toggleSection("quotaAlerts")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
@@ -2099,7 +2108,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <h3 className="text-sm font-medium text-slate-900">Alertes quota de sauvegarde</h3>
-              <p className="text-xs text-slate-400">Envoyez des alertes quand les quotas Oxibox approchent ou dépassent les seuils</p>
+              <p className="text-xs text-slate-400">Envoyez un email aux clients quand leur quota approche ou dépasse la limite</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -2119,13 +2128,14 @@ export default function SettingsPage() {
 
         {/* Seuils */}
         <div>
-          <label className="block text-sm font-medium text-slate-600 mb-2">Seuils d&apos;alerte (% d&apos;utilisation)</label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-              <div className="flex items-center gap-2 mb-1.5">
+          <label className="block text-sm font-medium text-slate-600 mb-2">Seuils d&apos;alerte (% d&apos;utilisation du quota)</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+              <div className="flex items-center gap-2 mb-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                <span className="text-xs font-medium text-amber-700">Avertissement</span>
+                <span className="text-sm font-medium text-amber-700">Avertissement</span>
               </div>
+              <p className="text-xs text-amber-600/70 mb-2">Email envoyé quand le client approche de sa limite</p>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -2137,27 +2147,12 @@ export default function SettingsPage() {
                 <span className="text-sm text-amber-600">%</span>
               </div>
             </div>
-            <div className="rounded-lg border border-orange-200 bg-orange-50/50 p-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="h-2.5 w-2.5 rounded-full bg-orange-500" />
-                <span className="text-xs font-medium text-orange-700">Critique</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={quotaCritical}
-                  onChange={(e) => setQuotaCritical(e.target.value)}
-                  min="1" max="100"
-                  className="w-20 rounded-lg border border-orange-200 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
-                />
-                <span className="text-sm text-orange-600">%</span>
-              </div>
-            </div>
-            <div className="rounded-lg border border-red-200 bg-red-50/50 p-3">
-              <div className="flex items-center gap-2 mb-1.5">
+            <div className="rounded-lg border border-red-200 bg-red-50/50 p-4">
+              <div className="flex items-center gap-2 mb-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                <span className="text-xs font-medium text-red-700">Dépassé</span>
+                <span className="text-sm font-medium text-red-700">Dépassé</span>
               </div>
+              <p className="text-xs text-red-600/70 mb-2">Email envoyé quand le quota est atteint ou dépassé</p>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -2172,7 +2167,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Mode d'envoi */}
+        {/* Envoi & options */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-2">Mode d&apos;envoi</label>
@@ -2196,11 +2191,10 @@ export default function SettingsPage() {
             </div>
             <p className="text-xs text-slate-400 mt-1">
               {quotaAutoSend
-                ? "Les alertes sont envoyées automatiquement après chaque collecte Oxibox"
-                : "Les alertes ne sont envoyées que via le bouton ci-dessous"}
+                ? "Les emails sont envoyés automatiquement aux clients après chaque collecte Oxibox"
+                : "Les emails ne sont envoyés que manuellement via le bouton ci-dessous"}
             </p>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-2">Cooldown (heures)</label>
             <div className="flex items-center gap-2">
@@ -2208,50 +2202,118 @@ export default function SettingsPage() {
                 type="number"
                 value={quotaCooldown}
                 onChange={(e) => setQuotaCooldown(e.target.value)}
-                min="1" max="168"
+                min="1" max="720"
                 className="w-24 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
-              <span className="text-xs text-slate-400">heures entre chaque alerte par organisation</span>
+              <span className="text-xs text-slate-400">heures min. entre deux emails au même client</span>
             </div>
           </div>
         </div>
 
         {/* Destinataires */}
         <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
-            Destinataires spécifiques <span className="text-slate-400 font-normal">(optionnel)</span>
-          </label>
-          <input
-            type="text"
-            value={quotaRecipients}
-            onChange={(e) => setQuotaRecipients(e.target.value)}
-            placeholder="Laisser vide pour utiliser les adresses de notification générales"
-            className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          />
-          <p className="text-xs text-slate-400 mt-1">Séparer les adresses par des virgules. Si vide, les adresses de notification générales seront utilisées.</p>
-        </div>
-
-        {/* Options supplémentaires */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1.5">Préfixe objet email</label>
-            <input
-              type="text"
-              value={quotaSubjectPrefix}
-              onChange={(e) => setQuotaSubjectPrefix(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            />
-          </div>
-          <div className="flex items-center gap-3 pt-6">
-            <label className="flex items-center gap-2 cursor-pointer">
+          <label className="block text-sm font-medium text-slate-600 mb-2">Destinataires</label>
+          <p className="text-xs text-slate-400 mb-3">Les emails sont envoyés à l&apos;adresse email du client (fiche client). Options supplémentaires :</p>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2.5 cursor-pointer rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
               <input
                 type="checkbox"
-                checked={quotaIncludeClientName}
-                onChange={(e) => setQuotaIncludeClientName(e.target.checked)}
+                checked={quotaSendToPortal}
+                onChange={(e) => setQuotaSendToPortal(e.target.checked)}
                 className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
               />
-              <span className="text-sm text-slate-600">Afficher le nom du client dans l&apos;email</span>
+              <div>
+                <span className="text-sm text-slate-700">Envoyer aussi aux utilisateurs du portail client</span>
+                <p className="text-xs text-slate-400">Tous les utilisateurs actifs du portail recevront l&apos;email</p>
+              </div>
             </label>
+            <label className="flex items-center gap-2.5 cursor-pointer rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors">
+              <input
+                type="checkbox"
+                checked={quotaCcAdmins}
+                onChange={(e) => setQuotaCcAdmins(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <div>
+                <span className="text-sm text-slate-700">Mettre les administrateurs en copie (CC)</span>
+                <p className="text-xs text-slate-400">Les adresses de notification générales recevront une copie</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {/* Templates email */}
+        <div className="border-t border-slate-100 pt-5">
+          <label className="block text-sm font-medium text-slate-600 mb-3">Personnalisation des emails</label>
+          <p className="text-xs text-slate-400 mb-3">
+            Variables disponibles : <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{clientName}"}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{usagePercent}"}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{currentUsage}"}</code> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{"{allocatedQuota}"}</code>
+          </p>
+
+          {/* Avertissement */}
+          <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-2 w-2 rounded-full bg-amber-400" />
+              <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Email d&apos;avertissement</span>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Objet</label>
+                <input
+                  type="text"
+                  value={quotaSubjectWarning}
+                  onChange={(e) => setQuotaSubjectWarning(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Contenu</label>
+                <textarea
+                  value={quotaBodyWarning}
+                  onChange={(e) => setQuotaBodyWarning(e.target.value)}
+                  rows={5}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-y"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Dépassé */}
+          <div className="rounded-lg border border-red-100 bg-red-50/30 p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-2 w-2 rounded-full bg-red-500" />
+              <span className="text-xs font-semibold text-red-700 uppercase tracking-wide">Email de dépassement</span>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Objet</label>
+                <input
+                  type="text"
+                  value={quotaSubjectExceeded}
+                  onChange={(e) => setQuotaSubjectExceeded(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Contenu</label>
+                <textarea
+                  value={quotaBodyExceeded}
+                  onChange={(e) => setQuotaBodyExceeded(e.target.value)}
+                  rows={5}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400 resize-y"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Pied de page email</label>
+            <input
+              type="text"
+              value={quotaEmailFooter}
+              onChange={(e) => setQuotaEmailFooter(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
           </div>
         </div>
 
@@ -2294,7 +2356,7 @@ export default function SettingsPage() {
 
         {/* Résultat envoi */}
         {quotaAlertResult && (
-          <div className={`rounded-lg border px-4 py-2 text-sm ${
+          <div className={`rounded-lg border px-4 py-2.5 text-sm ${
             quotaAlertResult.startsWith("Erreur")
               ? "border-red-200 bg-red-50 text-red-600"
               : quotaAlertResult.startsWith("Email")
@@ -2305,48 +2367,49 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Aperçu des organisations */}
+        {/* Aperçu — clients concernés */}
         {quotaPreview && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-slate-700">
-                {quotaPreview.length} organisation(s) au-dessus des seuils
+                {quotaPreview.length} client(s) concerné(s)
               </span>
               <button onClick={() => setQuotaPreview(null)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
             {quotaPreview.length === 0 ? (
-              <p className="text-sm text-slate-400">Aucune organisation ne dépasse les seuils configurés.</p>
+              <p className="text-sm text-slate-400">Aucun client ne dépasse les seuils configurés.</p>
             ) : (
               <div className="space-y-2">
                 {quotaPreview.map((org) => (
-                  <div key={org.organizationId} className="flex items-center justify-between rounded-lg bg-white border border-slate-100 px-3 py-2">
-                    <span className="text-sm text-slate-700">{org.clientName || org.organizationId}</span>
+                  <div key={org.organizationId} className="flex items-center justify-between rounded-lg bg-white border border-slate-100 px-3 py-2.5">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-slate-700">{org.clientName || org.organizationId}</span>
+                      {org.clientEmail ? (
+                        <span className="text-xs text-slate-400">{org.clientEmail}</span>
+                      ) : (
+                        <span className="text-xs text-red-400">Pas d&apos;email configuré</span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-3">
                       <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${
-                            org.alertLevel === "exceeded" ? "bg-red-500"
-                            : org.alertLevel === "critical" ? "bg-orange-500"
-                            : "bg-amber-400"
+                            org.alertLevel === "exceeded" ? "bg-red-500" : "bg-amber-400"
                           }`}
                           style={{ width: `${Math.min(org.usagePercent, 100)}%` }}
                         />
                       </div>
                       <span className={`text-xs font-semibold ${
-                        org.alertLevel === "exceeded" ? "text-red-600"
-                        : org.alertLevel === "critical" ? "text-orange-600"
-                        : "text-amber-600"
+                        org.alertLevel === "exceeded" ? "text-red-600" : "text-amber-600"
                       }`}>
                         {org.usagePercent}%
                       </span>
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                        org.alertLevel === "exceeded" ? "bg-red-100 text-red-700"
-                        : org.alertLevel === "critical" ? "bg-orange-100 text-orange-700"
-                        : "bg-amber-100 text-amber-700"
+                        org.alertLevel === "exceeded" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
                       }`}>
-                        {org.alertLevel === "exceeded" ? "Dépassé" : org.alertLevel === "critical" ? "Critique" : "Attention"}
+                        {org.alertLevel === "exceeded" ? "Dépassé" : "Attention"}
                       </span>
                     </div>
                   </div>
@@ -2356,12 +2419,12 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Historique */}
+        {/* Historique des envois */}
         {showQuotaHistory && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-slate-700">
-                Historique des alertes ({quotaHistoryTotal} total)
+                Historique des envois ({quotaHistoryTotal} total)
               </span>
               <button onClick={() => setShowQuotaHistory(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-3.5 w-3.5" />
@@ -2372,22 +2435,21 @@ export default function SettingsPage() {
             ) : quotaHistory.length === 0 ? (
               <p className="text-sm text-slate-400">Aucune alerte envoyée.</p>
             ) : (
-              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              <div className="space-y-1.5 max-h-72 overflow-y-auto">
                 {quotaHistory.map((alert) => (
-                  <div key={alert.id} className="flex items-center justify-between rounded-lg bg-white border border-slate-100 px-3 py-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${
-                        alert.alertType === "exceeded" ? "bg-red-500"
-                        : alert.alertType === "critical" ? "bg-orange-500"
-                        : "bg-amber-400"
+                  <div key={alert.id} className="flex items-center justify-between rounded-lg bg-white border border-slate-100 px-3 py-2.5 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                        alert.alertType === "exceeded" ? "bg-red-500" : "bg-amber-400"
                       }`} />
-                      <span className="font-medium text-slate-700">{alert.clientName || alert.organizationId}</span>
-                      <span className="text-slate-400">{alert.usagePercent}%</span>
+                      <span className="font-medium text-slate-700 truncate">{alert.clientName || alert.organizationId}</span>
+                      <span className="text-slate-400 flex-shrink-0">{alert.usagePercent}%</span>
                       {alert.currentUsage && alert.allocatedQuota && (
-                        <span className="text-slate-300">({alert.currentUsage} / {alert.allocatedQuota})</span>
+                        <span className="text-slate-300 flex-shrink-0">({alert.currentUsage} / {alert.allocatedQuota})</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-slate-400">
+                    <div className="flex items-center gap-2 text-slate-400 flex-shrink-0 ml-2">
+                      <span className="text-[10px] text-slate-400 truncate max-w-[120px]" title={alert.recipients?.join(", ")}>{alert.recipients?.[0]}</span>
                       {alert.manual && <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">Manuel</span>}
                       <span>{new Date(alert.sentAt).toLocaleDateString("fr-FR")} {new Date(alert.sentAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
                     </div>

@@ -1,58 +1,80 @@
 import { prisma } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, getSmtpConfig } from "@/lib/email";
+import nodemailer from "nodemailer";
 
 interface QuotaAlertConfig {
   enabled: boolean;
-  warningThreshold: number;    // e.g. 80
-  criticalThreshold: number;   // e.g. 95
-  exceededThreshold: number;   // 100
+  warningThreshold: number;
+  exceededThreshold: number;
   autoSend: boolean;
-  cooldownHours: number;       // don't re-alert same org within this window
-  recipients: string[];        // override emails (empty = use notification_emails)
-  emailSubjectPrefix: string;
-  includeClientName: boolean;
+  cooldownHours: number;
+  sendToPortalUsers: boolean;
+  ccAdmins: boolean;
+  adminEmails: string[];
+  subjectWarning: string;
+  subjectExceeded: string;
+  bodyWarning: string;
+  bodyExceeded: string;
+  emailFooter: string;
+  companyName: string;
 }
+
+const DEFAULT_SUBJECT_WARNING = "Votre espace de sauvegarde approche de sa limite";
+const DEFAULT_SUBJECT_EXCEEDED = "Votre espace de sauvegarde est plein";
+const DEFAULT_BODY_WARNING = "Bonjour {clientName},\n\nNous vous informons que votre espace de sauvegarde atteint {usagePercent}% de sa capacité ({currentUsage} utilisés sur {allocatedQuota} alloués).\n\nNous vous recommandons de vérifier vos données ou de nous contacter pour augmenter votre quota avant d'atteindre la limite.";
+const DEFAULT_BODY_EXCEEDED = "Bonjour {clientName},\n\nVotre espace de sauvegarde a atteint {usagePercent}% de sa capacité ({currentUsage} utilisés sur {allocatedQuota} alloués).\n\nVos prochaines sauvegardes risquent d'échouer. Veuillez nous contacter rapidement pour augmenter votre quota.";
+const DEFAULT_FOOTER = "Cet email a été envoyé automatiquement. Pour toute question, contactez votre prestataire informatique.";
 
 export async function getQuotaAlertConfig(): Promise<QuotaAlertConfig> {
   const keys = [
     "quota_alert_enabled",
     "quota_alert_warning",
-    "quota_alert_critical",
     "quota_alert_exceeded",
     "quota_alert_auto_send",
     "quota_alert_cooldown_hours",
-    "quota_alert_recipients",
-    "quota_alert_subject_prefix",
-    "quota_alert_include_client_name",
+    "quota_alert_send_to_portal_users",
+    "quota_alert_cc_admins",
+    "quota_alert_subject_warning",
+    "quota_alert_subject_exceeded",
+    "quota_alert_body_warning",
+    "quota_alert_body_exceeded",
+    "quota_alert_email_footer",
     "notification_emails",
+    "company_name",
   ];
   const settings = await prisma.setting.findMany({ where: { key: { in: keys } } });
   const m: Record<string, string> = {};
   for (const s of settings) m[s.key] = s.value;
 
-  const specificRecipients = (m.quota_alert_recipients || "")
-    .split(",").map(e => e.trim()).filter(Boolean);
-  const fallbackRecipients = (m.notification_emails || "")
+  const adminEmails = (m.notification_emails || "")
     .split(",").map(e => e.trim()).filter(Boolean);
 
   return {
     enabled: m.quota_alert_enabled === "true",
     warningThreshold: parseInt(m.quota_alert_warning || "80"),
-    criticalThreshold: parseInt(m.quota_alert_critical || "95"),
     exceededThreshold: parseInt(m.quota_alert_exceeded || "100"),
     autoSend: m.quota_alert_auto_send !== "false",
     cooldownHours: parseInt(m.quota_alert_cooldown_hours || "24"),
-    recipients: specificRecipients.length > 0 ? specificRecipients : fallbackRecipients,
-    emailSubjectPrefix: m.quota_alert_subject_prefix || "[COMET]",
-    includeClientName: m.quota_alert_include_client_name !== "false",
+    sendToPortalUsers: m.quota_alert_send_to_portal_users === "true",
+    ccAdmins: m.quota_alert_cc_admins === "true",
+    adminEmails,
+    subjectWarning: m.quota_alert_subject_warning || DEFAULT_SUBJECT_WARNING,
+    subjectExceeded: m.quota_alert_subject_exceeded || DEFAULT_SUBJECT_EXCEEDED,
+    bodyWarning: m.quota_alert_body_warning || DEFAULT_BODY_WARNING,
+    bodyExceeded: m.quota_alert_body_exceeded || DEFAULT_BODY_EXCEEDED,
+    emailFooter: m.quota_alert_email_footer || DEFAULT_FOOTER,
+    companyName: m.company_name || "COMET",
   };
 }
 
-export type AlertLevel = "warning" | "critical" | "exceeded";
+export type AlertLevel = "warning" | "exceeded";
 
 interface OrgQuotaInfo {
   organizationId: string;
+  clientId: string | null;
   clientName: string | null;
+  clientEmail: string | null;
+  portalUserEmails: string[];
   allocatedQuota: bigint | null;
   currentUsage: bigint | null;
   usagePercent: number;
@@ -61,7 +83,6 @@ interface OrgQuotaInfo {
 
 export async function getOrgsExceedingThresholds(
   warningPct: number,
-  criticalPct: number,
   exceededPct: number,
 ): Promise<OrgQuotaInfo[]> {
   const today = new Date();
@@ -79,9 +100,15 @@ export async function getOrgsExceedingThresholds(
 
   const clients = await prisma.client.findMany({
     where: { oxiboxId: { not: null }, deletedAt: null },
-    select: { oxiboxId: true, name: true },
+    select: {
+      id: true,
+      oxiboxId: true,
+      name: true,
+      email: true,
+      portalUsers: { where: { active: true }, select: { email: true } },
+    },
   });
-  const clientMap = new Map(clients.map(c => [c.oxiboxId!, c.name]));
+  const clientMap = new Map(clients.map(c => [c.oxiboxId!, c]));
 
   const results: OrgQuotaInfo[] = [];
 
@@ -95,126 +122,86 @@ export async function getOrgsExceedingThresholds(
 
     let alertLevel: AlertLevel | null = null;
     if (pct >= exceededPct) alertLevel = "exceeded";
-    else if (pct >= criticalPct) alertLevel = "critical";
     else if (pct >= warningPct) alertLevel = "warning";
 
-    if (alertLevel) {
-      results.push({
-        organizationId: snap.organizationId,
-        clientName: clientMap.get(snap.organizationId) || null,
-        allocatedQuota: snap.allocatedQuota,
-        currentUsage: snap.currentUsage,
-        usagePercent: Math.round(pct * 10) / 10,
-        alertLevel,
-      });
-    }
+    const client = clientMap.get(snap.organizationId);
+
+    results.push({
+      organizationId: snap.organizationId,
+      clientId: client?.id || null,
+      clientName: client?.name || null,
+      clientEmail: client?.email || null,
+      portalUserEmails: client?.portalUsers.map(u => u.email) || [],
+      allocatedQuota: snap.allocatedQuota,
+      currentUsage: snap.currentUsage,
+      usagePercent: Math.round(pct * 10) / 10,
+      alertLevel,
+    });
   }
 
   return results.sort((a, b) => b.usagePercent - a.usagePercent);
 }
 
-function formatBytes(bytes: bigint | number): string {
+export function formatBytes(bytes: bigint | number): string {
   const b = Number(bytes);
   if (b < 1024) return `${b} o`;
   if (b < 1048576) return `${(b / 1024).toFixed(1)} Ko`;
   if (b < 1073741824) return `${(b / 1048576).toFixed(1)} Mo`;
-  return `${(b / 1073741824).toFixed(1)} Go`;
+  if (b < 1099511627776) return `${(b / 1073741824).toFixed(1)} Go`;
+  return `${(b / 1099511627776).toFixed(1)} To`;
 }
 
-function alertLevelLabel(level: AlertLevel): string {
-  switch (level) {
-    case "warning": return "Avertissement";
-    case "critical": return "Critique";
-    case "exceeded": return "Dépassé";
-  }
+function replacePlaceholders(template: string, org: OrgQuotaInfo): string {
+  return template
+    .replace(/\{clientName\}/g, org.clientName || org.organizationId)
+    .replace(/\{usagePercent\}/g, String(org.usagePercent))
+    .replace(/\{currentUsage\}/g, formatBytes(org.currentUsage!))
+    .replace(/\{allocatedQuota\}/g, formatBytes(org.allocatedQuota!))
+    .replace(/\{organizationId\}/g, org.organizationId);
 }
 
-function alertLevelColor(level: AlertLevel): string {
-  switch (level) {
-    case "warning": return "#f59e0b";
-    case "critical": return "#f97316";
-    case "exceeded": return "#dc2626";
-  }
-}
+function buildClientEmailHtml(org: OrgQuotaInfo, config: QuotaAlertConfig): string {
+  const isExceeded = org.alertLevel === "exceeded";
+  const bodyTemplate = isExceeded ? config.bodyExceeded : config.bodyWarning;
+  const bodyText = replacePlaceholders(bodyTemplate, org);
+  const bodyHtml = bodyText.split("\n").map(line => line.trim() === "" ? "<br>" : `<p style="margin:0 0 10px;color:#334155;font-size:14px;line-height:1.6">${line}</p>`).join("");
 
-function alertLevelEmoji(level: AlertLevel): string {
-  switch (level) {
-    case "warning": return "⚠️";
-    case "critical": return "🔶";
-    case "exceeded": return "🔴";
-  }
-}
-
-function buildQuotaAlertHtml(orgs: OrgQuotaInfo[], config: QuotaAlertConfig): string {
-  const exceeded = orgs.filter(o => o.alertLevel === "exceeded");
-  const critical = orgs.filter(o => o.alertLevel === "critical");
-  const warning = orgs.filter(o => o.alertLevel === "warning");
-
-  const renderRow = (org: OrgQuotaInfo) => {
-    const color = alertLevelColor(org.alertLevel!);
-    const name = config.includeClientName && org.clientName
-      ? org.clientName
-      : org.organizationId;
-    const barWidth = Math.min(org.usagePercent, 100);
-    return `<tr>
-      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">${name}</td>
-      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">${formatBytes(org.currentUsage!)} / ${formatBytes(org.allocatedQuota!)}</td>
-      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="flex:1;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden">
-            <div style="width:${barWidth}%;height:100%;background:${color};border-radius:4px"></div>
-          </div>
-          <span style="color:${color};font-weight:600;white-space:nowrap">${org.usagePercent}%</span>
-        </div>
-      </td>
-      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">
-        <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:${color}20;color:${color}">${alertLevelLabel(org.alertLevel!)}</span>
-      </td>
-    </tr>`;
-  };
-
-  const sections: string[] = [];
-
-  if (exceeded.length > 0) {
-    sections.push(`
-      <h3 style="color:#dc2626;margin:20px 0 8px">🔴 Quota dépassé (${exceeded.length})</h3>
-      <table style="width:100%;border-collapse:collapse">${exceeded.map(renderRow).join("")}</table>
-    `);
-  }
-  if (critical.length > 0) {
-    sections.push(`
-      <h3 style="color:#f97316;margin:20px 0 8px">🔶 Niveau critique (${critical.length})</h3>
-      <table style="width:100%;border-collapse:collapse">${critical.map(renderRow).join("")}</table>
-    `);
-  }
-  if (warning.length > 0) {
-    sections.push(`
-      <h3 style="color:#f59e0b;margin:20px 0 8px">⚠️ Avertissement (${warning.length})</h3>
-      <table style="width:100%;border-collapse:collapse">${warning.map(renderRow).join("")}</table>
-    `);
-  }
+  const barColor = isExceeded ? "#dc2626" : "#f59e0b";
+  const barBg = isExceeded ? "#fef2f2" : "#fffbeb";
+  const barWidth = Math.min(org.usagePercent, 100);
+  const iconColor = isExceeded ? "#dc2626" : "#d97706";
 
   return `
-    <div style="font-family:Arial,sans-serif;max-width:750px;margin:0 auto">
-      <h2 style="color:#1e293b;margin-bottom:4px">Alerte Quota de Sauvegarde</h2>
-      <p style="color:#64748b;margin-top:4px">${orgs.length} organisation(s) avec un quota préoccupant</p>
-      <table style="width:100%;border-collapse:collapse;margin-top:12px">
-        <thead>
-          <tr style="background:#f1f5f9">
-            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #cbd5e1;font-size:13px">Organisation</th>
-            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #cbd5e1;font-size:13px">Utilisation</th>
-            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #cbd5e1;font-size:13px;min-width:180px">Progression</th>
-            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #cbd5e1;font-size:13px">Niveau</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${orgs.map(renderRow).join("")}
-        </tbody>
-      </table>
-      ${sections.length > 0 ? "" : ""}
-      <p style="color:#94a3b8;font-size:12px;margin-top:24px">
-        Email envoyé ${new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })} par COMET CEDELIA
-      </p>
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;background:#ffffff">
+      <!-- Header -->
+      <div style="background:${isExceeded ? "#dc2626" : "#f59e0b"};padding:24px 32px;text-align:center">
+        <h1 style="color:#ffffff;font-size:20px;margin:0;font-weight:600">${config.companyName}</h1>
+      </div>
+
+      <!-- Body -->
+      <div style="padding:32px">
+        ${bodyHtml}
+
+        <!-- Usage bar -->
+        <div style="margin:24px 0;padding:20px;background:${barBg};border-radius:8px;border:1px solid ${barColor}20">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:13px;color:#64748b">Espace utilisé</span>
+            <span style="font-size:13px;font-weight:700;color:${iconColor}">${org.usagePercent}%</span>
+          </div>
+          <div style="height:12px;background:#e2e8f0;border-radius:6px;overflow:hidden">
+            <div style="width:${barWidth}%;height:100%;background:${barColor};border-radius:6px"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px">
+            <span style="font-size:12px;color:#94a3b8">${formatBytes(org.currentUsage!)} utilisés</span>
+            <span style="font-size:12px;color:#94a3b8">${formatBytes(org.allocatedQuota!)} total</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:20px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center">
+        <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5">${config.emailFooter}</p>
+      </div>
     </div>
   `;
 }
@@ -223,7 +210,7 @@ export async function checkAndSendQuotaAlerts(manual = false): Promise<{
   sent: boolean;
   count: number;
   reason?: string;
-  details?: { organizationId: string; clientName: string | null; alertLevel: string; usagePercent: number }[];
+  details?: { organizationId: string; clientName: string | null; alertLevel: string; usagePercent: number; sentTo: string[] }[];
 }> {
   const config = await getQuotaAlertConfig();
 
@@ -231,22 +218,25 @@ export async function checkAndSendQuotaAlerts(manual = false): Promise<{
     return { sent: false, count: 0, reason: "Alertes quota désactivées" };
   }
 
-  if (config.recipients.length === 0) {
-    return { sent: false, count: 0, reason: "Aucun destinataire configuré" };
-  }
-
   const orgs = await getOrgsExceedingThresholds(
     config.warningThreshold,
-    config.criticalThreshold,
     config.exceededThreshold,
   );
 
-  if (orgs.length === 0) {
+  const alertableOrgs = orgs.filter(o => o.alertLevel !== null);
+
+  if (alertableOrgs.length === 0) {
     return { sent: false, count: 0, reason: "Aucune organisation ne dépasse les seuils configurés" };
   }
 
-  // Filter out orgs that were already alerted within cooldown (unless manual)
-  let orgsToAlert = orgs;
+  // Filter orgs that have a client email
+  const orgsWithEmail = alertableOrgs.filter(o => o.clientEmail);
+  if (orgsWithEmail.length === 0) {
+    return { sent: false, count: 0, reason: "Aucun client avec adresse email trouvé parmi les organisations concernées" };
+  }
+
+  // Filter out orgs already alerted within cooldown (unless manual)
+  let orgsToAlert = orgsWithEmail;
   if (!manual) {
     const cooldownCutoff = new Date(Date.now() - config.cooldownHours * 3600000);
     const recentAlerts = await prisma.quotaAlert.findMany({
@@ -254,53 +244,87 @@ export async function checkAndSendQuotaAlerts(manual = false): Promise<{
       select: { organizationId: true, alertType: true },
     });
     const recentSet = new Set(recentAlerts.map(a => `${a.organizationId}:${a.alertType}`));
-    orgsToAlert = orgs.filter(o => !recentSet.has(`${o.organizationId}:${o.alertLevel}`));
+    orgsToAlert = orgsWithEmail.filter(o => !recentSet.has(`${o.organizationId}:${o.alertLevel}`));
   }
 
   if (orgsToAlert.length === 0) {
     return { sent: false, count: 0, reason: "Alertes déjà envoyées récemment (cooldown)" };
   }
 
-  // Build and send email
-  const html = buildQuotaAlertHtml(orgsToAlert, config);
-  const levelCounts = {
-    exceeded: orgsToAlert.filter(o => o.alertLevel === "exceeded").length,
-    critical: orgsToAlert.filter(o => o.alertLevel === "critical").length,
-    warning: orgsToAlert.filter(o => o.alertLevel === "warning").length,
-  };
+  // Get SMTP config once
+  const smtpConfig = await getSmtpConfig();
+  if (!smtpConfig) {
+    return { sent: false, count: 0, reason: "SMTP non configuré" };
+  }
 
-  const subjectParts: string[] = [];
-  if (levelCounts.exceeded > 0) subjectParts.push(`${levelCounts.exceeded} dépassé(s)`);
-  if (levelCounts.critical > 0) subjectParts.push(`${levelCounts.critical} critique(s)`);
-  if (levelCounts.warning > 0) subjectParts.push(`${levelCounts.warning} avertissement(s)`);
+  const useSecure = smtpConfig.port === 465;
+  const transporter = nodemailer.createTransport({
+    host: smtpConfig.host,
+    port: smtpConfig.port,
+    secure: useSecure,
+    auth: { user: smtpConfig.user, pass: smtpConfig.pass },
+    tls: { rejectUnauthorized: false },
+  });
 
-  const subject = `${config.emailSubjectPrefix} Quota sauvegarde — ${subjectParts.join(", ")}`;
+  const details: { organizationId: string; clientName: string | null; alertLevel: string; usagePercent: number; sentTo: string[] }[] = [];
 
-  await sendEmail(config.recipients, subject, html);
+  for (const org of orgsToAlert) {
+    const recipients: string[] = [org.clientEmail!];
+    if (config.sendToPortalUsers && org.portalUserEmails.length > 0) {
+      for (const email of org.portalUserEmails) {
+        if (!recipients.includes(email)) recipients.push(email);
+      }
+    }
 
-  // Record in history
-  const alertRecords = orgsToAlert.map(org => ({
-    organizationId: org.organizationId,
-    clientName: org.clientName,
-    alertType: org.alertLevel!,
-    usagePercent: org.usagePercent,
-    allocatedQuota: org.allocatedQuota,
-    currentUsage: org.currentUsage,
-    recipients: JSON.stringify(config.recipients),
-    manual,
-  }));
+    const subject = replacePlaceholders(
+      org.alertLevel === "exceeded" ? config.subjectExceeded : config.subjectWarning,
+      org,
+    );
+    const html = buildClientEmailHtml(org, config);
 
-  await prisma.quotaAlert.createMany({ data: alertRecords }).catch(() => {});
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: smtpConfig.from,
+      to: recipients.join(", "),
+      subject,
+      html,
+    };
+
+    if (config.ccAdmins && config.adminEmails.length > 0) {
+      mailOptions.cc = config.adminEmails.join(", ");
+    }
+
+    try {
+      await transporter.sendMail(mailOptions);
+
+      await prisma.quotaAlert.create({
+        data: {
+          organizationId: org.organizationId,
+          clientName: org.clientName,
+          alertType: org.alertLevel!,
+          usagePercent: org.usagePercent,
+          allocatedQuota: org.allocatedQuota,
+          currentUsage: org.currentUsage,
+          recipients: JSON.stringify(recipients),
+          manual,
+        },
+      }).catch(() => {});
+
+      details.push({
+        organizationId: org.organizationId,
+        clientName: org.clientName,
+        alertLevel: org.alertLevel!,
+        usagePercent: org.usagePercent,
+        sentTo: recipients,
+      });
+    } catch (err) {
+      console.error(`[quota-alerts] Failed to send to ${org.clientEmail}:`, err);
+    }
+  }
 
   return {
-    sent: true,
-    count: orgsToAlert.length,
-    details: orgsToAlert.map(o => ({
-      organizationId: o.organizationId,
-      clientName: o.clientName,
-      alertLevel: o.alertLevel!,
-      usagePercent: o.usagePercent,
-    })),
+    sent: details.length > 0,
+    count: details.length,
+    details,
   };
 }
 
@@ -329,17 +353,4 @@ export async function getQuotaAlertHistory(limit = 50, offset = 0) {
     })),
     total,
   };
-}
-
-export async function getQuotaOverview() {
-  const orgs = await getOrgsExceedingThresholds(0, 0, 999);
-
-  return orgs.map(o => ({
-    organizationId: o.organizationId,
-    clientName: o.clientName,
-    allocatedQuota: o.allocatedQuota ? formatBytes(o.allocatedQuota) : null,
-    currentUsage: o.currentUsage ? formatBytes(o.currentUsage) : null,
-    usagePercent: o.usagePercent,
-    alertLevel: o.alertLevel,
-  }));
 }
