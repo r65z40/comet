@@ -438,7 +438,15 @@ export default function BoardScreenPage() {
       id: "kanban",
       title: `Kanban (${totalCards} carte${totalCards > 1 ? "s" : ""})`,
       icon: <Monitor className="h-3 w-3 text-blue-400" />,
-      content: <KanbanContent columns={columns} />,
+      content: (
+        <KanbanContent
+          columns={columns}
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          activeCard={activeCard}
+        />
+      ),
     },
     ...(visibility.showFeed
       ? [{
@@ -613,29 +621,15 @@ export default function BoardScreenPage() {
       </div>
 
       {/* Grid content */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div ref={gridContainerRef} className="flex-1 overflow-auto p-1 pb-6">
-          <DashboardGrid
-            widgets={widgets}
-            defaultLayout={SCREEN_DEFAULT_LAYOUT}
-            storageKey="comet_screen_grid"
-            dark
-            rowHeight={screenRowHeight}
-          />
-        </div>
-        <DragOverlay>
-          {activeCard ? (
-            <div className="rotate-3 opacity-90">
-              <ScreenCard card={activeCard} isDraggingOverlay />
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+      <div ref={gridContainerRef} className="flex-1 overflow-auto p-1 pb-6">
+        <DashboardGrid
+          widgets={widgets}
+          defaultLayout={SCREEN_DEFAULT_LAYOUT}
+          storageKey="comet_screen_grid"
+          dark
+          rowHeight={screenRowHeight}
+        />
+      </div>
 
       <CriticalAlertOverlay dark />
     </div>
@@ -757,7 +751,19 @@ function FeedContent({
 }
 
 /* Kanban content with horizontal scroll-snap and touch navigation arrows */
-function KanbanContent({ columns }: { columns: BoardColumn[] }) {
+function KanbanContent({
+  columns,
+  sensors,
+  onDragStart,
+  onDragEnd,
+  activeCard,
+}: {
+  columns: BoardColumn[];
+  sensors: ReturnType<typeof useSensors>;
+  onDragStart: (event: DragStartEvent) => void;
+  onDragEnd: (event: DragEndEvent) => void;
+  activeCard: BoardCard | null;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -787,65 +793,79 @@ function KanbanContent({ columns }: { columns: BoardColumn[] }) {
   }
 
   return (
-    <div className="relative h-full">
-      <div
-        ref={scrollRef}
-        className="flex gap-3 overflow-x-auto p-3 h-full snap-x snap-mandatory scroll-smooth"
-      >
-        {columns.map((column) => (
-          <ScreenColumn key={column.id} column={column} colCount={columns.length} />
-        ))}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
+      <div className="relative h-full">
+        <div
+          ref={scrollRef}
+          className="flex gap-3 overflow-x-auto p-3 h-full snap-x snap-mandatory scroll-smooth"
+        >
+          {columns.map((column) => (
+            <ScreenColumn key={column.id} column={column} colCount={columns.length} />
+          ))}
+        </div>
+
+        {/* Left edge fade */}
+        <div
+          className={cn(
+            "pointer-events-none absolute left-0 top-0 h-full w-12 bg-gradient-to-r from-slate-900/80 to-transparent transition-opacity",
+            canScrollLeft ? "opacity-100" : "opacity-0",
+          )}
+        />
+        {/* Right edge fade */}
+        <div
+          className={cn(
+            "pointer-events-none absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-slate-900/80 to-transparent transition-opacity",
+            canScrollRight ? "opacity-100" : "opacity-0",
+          )}
+        />
+
+        {/* Left arrow */}
+        {canScrollLeft && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              scrollByAmount(-300);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center h-11 w-11 rounded-full bg-slate-800/70 hover:bg-slate-700/90 text-white shadow-lg transition-colors"
+            aria-label="Faire défiler vers la gauche"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        )}
+
+        {/* Right arrow */}
+        {canScrollRight && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              scrollByAmount(300);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center h-11 w-11 rounded-full bg-slate-800/70 hover:bg-slate-700/90 text-white shadow-lg transition-colors"
+            aria-label="Faire défiler vers la droite"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        )}
       </div>
-
-      {/* Left edge fade */}
-      <div
-        className={cn(
-          "pointer-events-none absolute left-0 top-0 h-full w-12 bg-gradient-to-r from-slate-900/80 to-transparent transition-opacity",
-          canScrollLeft ? "opacity-100" : "opacity-0",
-        )}
-      />
-      {/* Right edge fade */}
-      <div
-        className={cn(
-          "pointer-events-none absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-slate-900/80 to-transparent transition-opacity",
-          canScrollRight ? "opacity-100" : "opacity-0",
-        )}
-      />
-
-      {/* Left arrow */}
-      {canScrollLeft && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            scrollByAmount(-300);
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center h-11 w-11 rounded-full bg-slate-800/70 hover:bg-slate-700/90 text-white shadow-lg transition-colors"
-          aria-label="Faire défiler vers la gauche"
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </button>
-      )}
-
-      {/* Right arrow */}
-      {canScrollRight && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            scrollByAmount(300);
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center h-11 w-11 rounded-full bg-slate-800/70 hover:bg-slate-700/90 text-white shadow-lg transition-colors"
-          aria-label="Faire défiler vers la droite"
-        >
-          <ChevronRight className="h-6 w-6" />
-        </button>
-      )}
-    </div>
+      <DragOverlay>
+        {activeCard ? (
+          <div className="rotate-3 opacity-90">
+            <ScreenCard card={activeCard} isDraggingOverlay />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 

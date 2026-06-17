@@ -154,6 +154,7 @@ export default function DashboardGrid({
               </div>
               <div
                 className="flex-1 overflow-auto min-h-0"
+                style={{ touchAction: "auto" }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}

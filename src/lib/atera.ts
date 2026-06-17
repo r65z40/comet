@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
 
 const ATERA_BASE_URL = "https://app.atera.com/api/v3";
 
@@ -8,13 +9,7 @@ interface AteraConfig {
 }
 
 export async function getAteraConfig(): Promise<AteraConfig | null> {
-  const settings = await prisma.setting.findMany({
-    where: { key: { in: ["atera_api_key", "atera_enabled"] } },
-  });
-
-  const map: Record<string, string> = {};
-  for (const s of settings) map[s.key] = s.value;
-
+  const map = await getSettings(["atera_api_key", "atera_enabled"]);
   if (!map.atera_api_key) return null;
 
   return {

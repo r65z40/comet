@@ -3,8 +3,9 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/db";
-import { sendEmail, getSmtpConfig } from "@/lib/email";
+import { sendEmail, getSmtpConfig, getNotificationConfig } from "@/lib/email";
 import { cloudUpload, cloudDelete, cloudList, getCloudConfig } from "@/lib/backup-cloud";
+import { getSettings } from "@/lib/settings";
 
 const execAsync = promisify(exec);
 
@@ -46,19 +47,14 @@ export async function ensureBackupDir(): Promise<void> {
 }
 
 export async function getBackupSettings(): Promise<BackupSettings> {
-  const keys = [
+  const map = await getSettings([
     "backup_enabled",
     "backup_frequency",
     "backup_time",
     "backup_day",
     "backup_retention",
     "backup_notify_failure",
-  ];
-  const settings = await prisma.setting.findMany({
-    where: { key: { in: keys } },
-  });
-  const map: Record<string, string> = {};
-  for (const s of settings) map[s.key] = s.value;
+  ]);
 
   return {
     enabled: map.backup_enabled === "true",
@@ -351,13 +347,7 @@ export async function sendBackupFailureNotification(error: string): Promise<void
   const smtpConfig = await getSmtpConfig();
   if (!smtpConfig) return;
 
-  // Get notification emails from settings
-  const setting = await prisma.setting.findUnique({
-    where: { key: "notification_emails" },
-  });
-  if (!setting?.value) return;
-
-  const emails = setting.value.split(",").map((e) => e.trim()).filter(Boolean);
+  const { emails } = await getNotificationConfig();
   if (emails.length === 0) return;
 
   const html = `

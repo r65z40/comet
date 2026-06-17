@@ -4,7 +4,7 @@ import fs from "fs/promises";
 import { createReadStream, createWriteStream, statSync } from "fs";
 import path from "path";
 import { Readable } from "stream";
-import { prisma } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
 
 export type CloudProvider = "s3" | "ftp" | "none";
 
@@ -45,11 +45,7 @@ const CLOUD_SETTING_KEYS = [
 export { CLOUD_SETTING_KEYS };
 
 export async function getCloudConfig(): Promise<CloudConfig> {
-  const settings = await prisma.setting.findMany({
-    where: { key: { in: CLOUD_SETTING_KEYS } },
-  });
-  const map: Record<string, string> = {};
-  for (const s of settings) map[s.key] = s.value;
+  const map = await getSettings(CLOUD_SETTING_KEYS);
 
   return {
     provider: (map.cloud_provider as CloudProvider) || "none",

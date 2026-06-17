@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { sendExpiryNotifications } from "@/lib/email";
 import { createBackup, getBackupSettings, rotateBackups, sendBackupFailureNotification } from "@/lib/backup";
 import { purgeOldNotifications } from "@/lib/notifications";
+import { getSettings, getSetting } from "@/lib/settings";
 
 // Paris timezone helpers
 function getParisComponents() {
@@ -61,15 +62,10 @@ export async function executeCronJob(): Promise<{
 
   // === Email Alerts ===
   try {
-    const settingKeys = [
+    const config = await getSettings([
       "alert_enabled", "alert_frequency", "alert_day",
       "alert_time", "alert_types", "alert_thresholds",
-    ];
-    const settings = await prisma.setting.findMany({
-      where: { key: { in: settingKeys } },
-    });
-    const config: Record<string, string> = {};
-    for (const s of settings) config[s.key] = s.value;
+    ]);
 
     if (config.alert_enabled === "true") {
       const frequency = config.alert_frequency || "weekly";
@@ -128,8 +124,8 @@ export async function executeCronJob(): Promise<{
 
   // === Oxibox daily snapshot + alerts (every run, de-duplicated internally) ===
   try {
-    const oxiboxKey = await prisma.setting.findUnique({ where: { key: "oxibox_api_key" } });
-    if (oxiboxKey?.value) {
+    const oxiboxKey = await getSetting("oxibox_api_key");
+    if (oxiboxKey) {
       await runOxiboxJobs(todayStr);
     }
   } catch (err) {

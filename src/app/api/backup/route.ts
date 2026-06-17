@@ -3,6 +3,10 @@ import { auth } from "@/lib/auth";
 import { createBackup, listBackups, getBackupSettings } from "@/lib/backup";
 import { getCloudConfig, cloudTestConnection, CLOUD_SETTING_KEYS } from "@/lib/backup-cloud";
 import { prisma } from "@/lib/db";
+import { encrypt } from "@/lib/crypto";
+import { invalidateSettingsCache } from "@/lib/settings";
+
+const ENCRYPTED_BACKUP_KEYS = new Set(["cloud_s3_secret_key", "cloud_ftp_password"]);
 
 // GET /api/backup — list all backups + settings + cloud config
 export async function GET() {
@@ -86,18 +90,19 @@ export async function PUT(req: NextRequest) {
     const operations = [];
     for (const [key, value] of Object.entries(body)) {
       if (!allowedKeys.includes(key)) continue;
-      // Skip masked values (don't overwrite secrets with mask)
       if (typeof value === "string" && value.startsWith("••••")) continue;
+      const val = ENCRYPTED_BACKUP_KEYS.has(key) ? encrypt(String(value)) : String(value);
       operations.push(
         prisma.setting.upsert({
           where: { key },
-          update: { value: String(value) },
-          create: { key, value: String(value) },
+          update: { value: val },
+          create: { key, value: val },
         })
       );
     }
 
     await prisma.$transaction(operations);
+    invalidateSettingsCache();
 
     return NextResponse.json({ success: true });
   } catch (err) {
