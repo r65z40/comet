@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { AlertTriangle, X, Volume2, VolumeX } from "lucide-react";
+import { AlertTriangle, X, Volume2, VolumeX, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CriticalAlert {
@@ -50,9 +50,11 @@ function playAlertSound() {
 export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
   const [alerts, setAlerts] = useState<CriticalAlert[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [minimized, setMinimized] = useState<Set<string>>(new Set());
   const [soundEnabled, setSoundEnabled] = useState(true);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const initialLoadRef = useRef(true);
+  const minimizeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     try {
@@ -68,6 +70,21 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
       return next;
     });
   }
+
+  const scheduleMinimize = useCallback((alertId: string) => {
+    if (minimizeTimersRef.current.has(alertId)) return;
+    const timer = setTimeout(() => {
+      setMinimized((prev) => new Set(prev).add(alertId));
+      minimizeTimersRef.current.delete(alertId);
+    }, 30_000);
+    minimizeTimersRef.current.set(alertId, timer);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      minimizeTimersRef.current.forEach((t) => clearTimeout(t));
+    };
+  }, []);
 
   const checkAlerts = useCallback(async () => {
     const newAlerts: CriticalAlert[] = [];
@@ -147,9 +164,10 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
 
     if (unseenAlerts.length > 0) {
       setAlerts((prev) => [...unseenAlerts, ...prev]);
+      for (const a of unseenAlerts) scheduleMinimize(a.id);
       if (soundEnabled) playAlertSound();
     }
-  }, [soundEnabled]);
+  }, [soundEnabled, scheduleMinimize]);
 
   useEffect(() => {
     checkAlerts();
@@ -157,34 +175,42 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
     return () => clearInterval(interval);
   }, [checkAlerts]);
 
-  // Auto-dismiss after 30s
-  useEffect(() => {
-    if (alerts.length === 0) return;
-    const timer = setTimeout(() => {
-      setAlerts((prev) => {
-        const cutoff = Date.now() - 30_000;
-        return prev.filter((a) => a.timestamp > cutoff);
-      });
-    }, 30_000);
-    return () => clearTimeout(timer);
-  }, [alerts]);
-
-  const visible = alerts.filter((a) => !dismissed.has(a.id));
-
-  if (visible.length === 0) {
-    return (
-      <button
-        onClick={toggleSound}
-        className={cn(
-          "fixed bottom-4 right-4 z-[9990] p-2 rounded-full transition-colors",
-          dark ? "bg-slate-800 hover:bg-slate-700 text-slate-400" : "bg-white border border-slate-200 hover:bg-slate-50 text-slate-400 shadow-sm",
-        )}
-        title={soundEnabled ? "Son activé" : "Son désactivé"}
-      >
-        {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-red-400" />}
-      </button>
-    );
+  function acknowledge(alertId: string) {
+    setDismissed((prev) => new Set(prev).add(alertId));
+    const timer = minimizeTimersRef.current.get(alertId);
+    if (timer) { clearTimeout(timer); minimizeTimersRef.current.delete(alertId); }
   }
+
+  function acknowledgeAll(ids: string[]) {
+    setDismissed((prev) => {
+      const n = new Set(prev);
+      ids.forEach((id) => n.add(id));
+      return n;
+    });
+    ids.forEach((id) => {
+      const timer = minimizeTimersRef.current.get(id);
+      if (timer) { clearTimeout(timer); minimizeTimersRef.current.delete(id); }
+    });
+  }
+
+  const freshAlerts = alerts.filter((a) => !dismissed.has(a.id) && !minimized.has(a.id));
+  const minimizedAlerts = alerts.filter((a) => !dismissed.has(a.id) && minimized.has(a.id));
+
+  const sourceBadge = (source: CriticalAlert["source"]) => (
+    <span className={cn(
+      "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
+      source === "atera"
+        ? (dark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700")
+        : source === "emsisoft"
+          ? (dark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700")
+          : (dark ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-700"),
+    )}>
+      {source === "atera" ? "Atera" : source === "emsisoft" ? "Emsisoft" : "Oxibox"}
+    </span>
+  );
+
+  const sourceLabel = (source: CriticalAlert["source"]) =>
+    source === "atera" ? "Atera" : source === "emsisoft" ? "Emsisoft" : "Oxibox";
 
   return (
     <>
@@ -192,7 +218,8 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
       <button
         onClick={toggleSound}
         className={cn(
-          "fixed bottom-4 right-4 z-[9998] p-2 rounded-full transition-colors",
+          "fixed z-[9998] p-2 rounded-full transition-colors",
+          minimizedAlerts.length > 0 ? "bottom-16 right-4" : "bottom-4 right-4",
           dark ? "bg-slate-800 hover:bg-slate-700 text-slate-400" : "bg-white border border-slate-200 hover:bg-slate-50 text-slate-400 shadow-sm",
         )}
         title={soundEnabled ? "Son activé" : "Son désactivé"}
@@ -200,77 +227,137 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
         {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-red-400" />}
       </button>
 
-      {/* Overlay backdrop */}
-      <div className="fixed inset-0 z-[9995] bg-black/30 backdrop-blur-sm flex items-center justify-center pointer-events-none">
-        <div className="pointer-events-auto w-full max-w-lg mx-4 animate-in fade-in zoom-in duration-300">
-          <div className={cn(
-            "rounded-2xl border-2 shadow-2xl overflow-hidden",
-            dark ? "bg-slate-900 border-red-500/50" : "bg-white border-red-200",
-          )}>
-            {/* Red pulsing header */}
-            <div className="bg-red-600 px-6 py-4 flex items-center gap-3 animate-pulse">
-              <AlertTriangle className="h-7 w-7 text-white shrink-0" />
-              <div className="flex-1">
-                <h2 className="text-lg font-bold text-white">Alerte Critique</h2>
-                <p className="text-red-200 text-sm">{visible.length} alerte{visible.length > 1 ? "s" : ""} critique{visible.length > 1 ? "s" : ""} détectée{visible.length > 1 ? "s" : ""}</p>
+      {/* Full overlay for fresh alerts (first 30s) */}
+      {freshAlerts.length > 0 && (
+        <div className="fixed inset-0 z-[9995] bg-black/30 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+          <div className="pointer-events-auto w-full max-w-lg mx-4 animate-in fade-in zoom-in duration-300">
+            <div className={cn(
+              "rounded-2xl border-2 shadow-2xl overflow-hidden",
+              dark ? "bg-slate-900 border-red-500/50" : "bg-white border-red-200",
+            )}>
+              {/* Red pulsing header */}
+              <div className="bg-red-600 px-6 py-4 flex items-center gap-3 animate-pulse">
+                <AlertTriangle className="h-7 w-7 text-white shrink-0" />
+                <div className="flex-1">
+                  <h2 className="text-lg font-bold text-white">Alerte Critique</h2>
+                  <p className="text-red-200 text-sm">{freshAlerts.length} alerte{freshAlerts.length > 1 ? "s" : ""} critique{freshAlerts.length > 1 ? "s" : ""}</p>
+                </div>
+                <button
+                  onClick={() => acknowledgeAll(freshAlerts.map((a) => a.id))}
+                  className="p-1.5 rounded-lg bg-red-700/50 hover:bg-red-700 text-white transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setDismissed((prev) => { const n = new Set(prev); visible.forEach((a) => n.add(a.id)); return n; })}
-                className="p-1.5 rounded-lg bg-red-700/50 hover:bg-red-700 text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
+
+              {/* Alert list */}
+              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
+                {freshAlerts.map((alert) => (
+                  <div key={alert.id} className={cn("px-6 py-3 flex items-start gap-3", dark ? "hover:bg-slate-800" : "hover:bg-red-50/50")}>
+                    <div className={cn(
+                      "mt-0.5 w-2 h-2 rounded-full shrink-0 animate-pulse",
+                      alert.source === "atera" ? "bg-red-500" : alert.source === "emsisoft" ? "bg-purple-500" : "bg-orange-500",
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        {sourceBadge(alert.source)}
+                      </div>
+                      <p className={cn("text-sm font-medium mt-1 truncate", dark ? "text-white" : "text-slate-900")}>{alert.title}</p>
+                      {alert.detail && <p className={cn("text-xs mt-0.5 truncate", dark ? "text-slate-400" : "text-slate-500")}>{alert.detail}</p>}
+                    </div>
+                    <button
+                      onClick={() => acknowledge(alert.id)}
+                      className={cn("p-1 rounded shrink-0", dark ? "text-slate-500 hover:text-slate-300" : "text-slate-300 hover:text-slate-500")}
+                      title="Acquitter"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer */}
+              <div className={cn("px-6 py-3 border-t flex items-center justify-between", dark ? "border-slate-700 bg-slate-800/50" : "border-slate-100 bg-slate-50")}>
+                <p className={cn("text-xs", dark ? "text-slate-500" : "text-slate-400")}>
+                  Se réduit en bas dans 30s
+                </p>
+                <button
+                  onClick={() => acknowledgeAll(freshAlerts.map((a) => a.id))}
+                  className="text-xs font-medium text-red-600 hover:text-red-700"
+                >
+                  Tout acquitter
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Minimized bottom bar for alerts past 30s — requires acknowledgment */}
+      {minimizedAlerts.length > 0 && (
+        <div className={cn(
+          "fixed bottom-0 left-0 right-0 z-[9994] border-t shadow-lg transition-all",
+          dark ? "bg-slate-800/95 border-red-500/30 backdrop-blur-sm" : "bg-white/95 border-red-200 backdrop-blur-sm",
+        )}>
+          <div className="max-w-screen-xl mx-auto px-4 py-2 flex items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
+              <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
+              <span className={cn("text-xs font-bold", dark ? "text-red-400" : "text-red-600")}>
+                {minimizedAlerts.length} alerte{minimizedAlerts.length > 1 ? "s" : ""}
+              </span>
             </div>
 
-            {/* Alert list */}
-            <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
-              {visible.map((alert) => (
-                <div key={alert.id} className={cn("px-6 py-3 flex items-start gap-3", dark ? "hover:bg-slate-800" : "hover:bg-red-50/50")}>
+            <div className="flex-1 overflow-x-auto flex items-center gap-2 min-w-0">
+              {minimizedAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className={cn(
+                    "flex items-center gap-2 px-2.5 py-1.5 rounded-lg shrink-0 max-w-xs",
+                    dark ? "bg-slate-700/60" : "bg-red-50 border border-red-100",
+                  )}
+                >
                   <div className={cn(
-                    "mt-0.5 w-2 h-2 rounded-full shrink-0 animate-pulse",
+                    "w-1.5 h-1.5 rounded-full shrink-0 animate-pulse",
                     alert.source === "atera" ? "bg-red-500" : alert.source === "emsisoft" ? "bg-purple-500" : "bg-orange-500",
                   )} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
-                        alert.source === "atera"
-                          ? (dark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700")
-                          : alert.source === "emsisoft"
-                            ? (dark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700")
-                            : (dark ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-700"),
-                      )}>
-                        {alert.source === "atera" ? "Atera" : alert.source === "emsisoft" ? "Emsisoft" : "Oxibox"}
-                      </span>
-                    </div>
-                    <p className={cn("text-sm font-medium mt-1 truncate", dark ? "text-white" : "text-slate-900")}>{alert.title}</p>
-                    {alert.detail && <p className={cn("text-xs mt-0.5 truncate", dark ? "text-slate-400" : "text-slate-500")}>{alert.detail}</p>}
-                  </div>
+                  <span className={cn("text-[10px] font-bold uppercase shrink-0", dark ? "text-slate-400" : "text-slate-500")}>
+                    {sourceLabel(alert.source)}
+                  </span>
+                  <span className={cn("text-xs truncate", dark ? "text-slate-300" : "text-slate-700")}>
+                    {alert.title}
+                  </span>
                   <button
-                    onClick={() => setDismissed((prev) => new Set(prev).add(alert.id))}
-                    className={cn("p-1 rounded shrink-0", dark ? "text-slate-500 hover:text-slate-300" : "text-slate-300 hover:text-slate-500")}
+                    onClick={() => acknowledge(alert.id)}
+                    className={cn(
+                      "shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-colors",
+                      dark
+                        ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                        : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
+                    )}
+                    title="Acquitter"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <CheckCircle2 className="h-3 w-3" />
+                    OK
                   </button>
                 </div>
               ))}
             </div>
 
-            {/* Footer */}
-            <div className={cn("px-6 py-3 border-t flex items-center justify-between", dark ? "border-slate-700 bg-slate-800/50" : "border-slate-100 bg-slate-50")}>
-              <p className={cn("text-xs", dark ? "text-slate-500" : "text-slate-400")}>
-                Disparition automatique dans 30s
-              </p>
-              <button
-                onClick={() => setDismissed((prev) => { const n = new Set(prev); visible.forEach((a) => n.add(a.id)); return n; })}
-                className="text-xs font-medium text-red-600 hover:text-red-700"
-              >
-                Tout fermer
-              </button>
-            </div>
+            <button
+              onClick={() => acknowledgeAll(minimizedAlerts.map((a) => a.id))}
+              className={cn(
+                "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                dark
+                  ? "bg-emerald-600/80 text-white hover:bg-emerald-600"
+                  : "bg-emerald-600 text-white hover:bg-emerald-700",
+              )}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Tout acquitter
+            </button>
           </div>
         </div>
-      </div>
+      )}
     </>
   );
 }
