@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   SkipBack,
   SkipForward,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,10 +33,14 @@ interface VideoPlayerWidgetProps {
   dark?: boolean;
 }
 
-function detectStreamType(url: string): "hls" | "youtube" | "native" {
+const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|ogv|avi|mkv|mov|flv|wmv)(\?|$)/i;
+
+function detectStreamType(url: string): "hls" | "youtube" | "native" | "iframe" {
   if (/youtu\.?be/i.test(url)) return "youtube";
   if (/\.m3u8/i.test(url)) return "hls";
   if (/\.ts$/i.test(url)) return "hls";
+  if (VIDEO_EXTENSIONS.test(url)) return "native";
+  if (/^https?:\/\//i.test(url) && /embed|\.html|\.php|\.asp|player|watch|stream|video/i.test(url)) return "iframe";
   return "native";
 }
 
@@ -75,7 +80,7 @@ function parseM3U(text: string): Channel[] {
 export default function VideoPlayerWidget({ dark = false }: VideoPlayerWidgetProps) {
   const [url, setUrl] = useState("");
   const [activeUrl, setActiveUrl] = useState("");
-  const [streamType, setStreamType] = useState<"hls" | "youtube" | "native">("native");
+  const [streamType, setStreamType] = useState<"hls" | "youtube" | "native" | "iframe">("native");
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(0.8);
@@ -122,7 +127,7 @@ export default function VideoPlayerWidget({ dark = false }: VideoPlayerWidgetPro
       setActiveUrl(sourceUrl);
       setShowUrlInput(false);
 
-      if (type === "youtube") {
+      if (type === "youtube" || type === "iframe") {
         setPlaying(true);
         return;
       }
@@ -268,6 +273,7 @@ export default function VideoPlayerWidget({ dark = false }: VideoPlayerWidgetPro
     return acc;
   }, {});
 
+  const iframeHostname = activeUrl ? (() => { try { return new URL(activeUrl).hostname; } catch { return "Embed"; } })() : "Embed";
   const bg = dark ? "bg-slate-900 text-white" : "bg-black text-white";
   const btnClass = "flex items-center justify-center h-8 w-8 rounded-lg transition-colors hover:bg-white/20";
 
@@ -365,6 +371,15 @@ export default function VideoPlayerWidget({ dark = false }: VideoPlayerWidgetPro
             allow="autoplay; encrypted-media; fullscreen"
             allowFullScreen
           />
+        ) : streamType === "iframe" && activeUrl ? (
+          <iframe
+            src={activeUrl}
+            className="absolute inset-0 w-full h-full"
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            referrerPolicy="no-referrer"
+          />
         ) : (
           <video
             ref={videoRef}
@@ -384,7 +399,7 @@ export default function VideoPlayerWidget({ dark = false }: VideoPlayerWidgetPro
                 type="text"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="URL vidéo, flux HLS, IPTV, YouTube..."
+                placeholder="URL vidéo, HLS, IPTV, YouTube, embed..."
                 className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               <button
@@ -394,12 +409,13 @@ export default function VideoPlayerWidget({ dark = false }: VideoPlayerWidgetPro
                 <Play className="h-4 w-4" />
               </button>
             </form>
-            <div className="flex gap-2 text-[10px] text-slate-600">
+            <div className="flex flex-wrap justify-center gap-2 text-[10px] text-slate-600">
               <span className="px-2 py-0.5 rounded bg-white/5">MP4</span>
               <span className="px-2 py-0.5 rounded bg-white/5">HLS/m3u8</span>
               <span className="px-2 py-0.5 rounded bg-white/5">IPTV</span>
               <span className="px-2 py-0.5 rounded bg-white/5">YouTube</span>
               <span className="px-2 py-0.5 rounded bg-white/5">WebM</span>
+              <span className="px-2 py-0.5 rounded bg-white/5">Embed/Web</span>
             </div>
             {favorites.length > 0 && (
               <button
@@ -421,7 +437,7 @@ export default function VideoPlayerWidget({ dark = false }: VideoPlayerWidgetPro
       </div>
 
       {/* Controls bar */}
-      {activeUrl && streamType !== "youtube" && (
+      {activeUrl && streamType !== "youtube" && streamType !== "iframe" && (
         <div className="flex items-center gap-1 px-2 py-1.5 bg-black/80 border-t border-white/10 shrink-0">
           <button onClick={togglePlay} className={btnClass}>
             {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -489,6 +505,7 @@ export default function VideoPlayerWidget({ dark = false }: VideoPlayerWidgetPro
             onClick={() => {
               destroyHls();
               setActiveUrl("");
+              setStreamType("native");
               setPlaying(false);
               setShowUrlInput(true);
               setCurrentChannel("");
@@ -511,6 +528,36 @@ export default function VideoPlayerWidget({ dark = false }: VideoPlayerWidgetPro
         <div className="flex items-center gap-1 px-2 py-1.5 bg-black/80 border-t border-white/10 shrink-0">
           <Youtube className="h-4 w-4 text-red-500" />
           <span className="text-[10px] text-slate-400 truncate flex-1 mx-1">YouTube</span>
+          <button onClick={addCurrentToFavorites} className={btnClass} title="Ajouter aux favoris">
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => setView("favorites")} className={btnClass} title="Favoris">
+            <List className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => {
+              setActiveUrl("");
+              setShowUrlInput(true);
+              setCurrentChannel("");
+            }}
+            className={btnClass}
+            title="Nouvelle URL"
+          >
+            <Link className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={toggleFullscreen} className={btnClass}>
+            {fullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      )}
+
+      {/* Iframe embed controls */}
+      {activeUrl && streamType === "iframe" && (
+        <div className="flex items-center gap-1 px-2 py-1.5 bg-black/80 border-t border-white/10 shrink-0">
+          <Globe className="h-4 w-4 text-blue-400" />
+          <span className="text-[10px] text-slate-400 truncate flex-1 mx-1">
+            {currentChannel || iframeHostname}
+          </span>
           <button onClick={addCurrentToFavorites} className={btnClass} title="Ajouter aux favoris">
             <Plus className="h-3.5 w-3.5" />
           </button>
