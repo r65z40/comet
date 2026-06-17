@@ -5,6 +5,7 @@ import { refreshClient, refreshProduct, refreshInvoice } from "@/lib/axonaut";
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
   const body = await req.json();
   const { type, axonautId } = body;

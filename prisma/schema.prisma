@@ -271,6 +271,7 @@ model InstallationHistory {
   createdAt       DateTime     @default(now())
 
   @@index([installationId])
+  @@index([field, createdAt])
   @@map("installation_history")
 }
 
@@ -356,9 +357,11 @@ model BoardCard {
   updatedAt       DateTime         @updatedAt
 
   @@index([columnId])
+  @@index([columnId, archived, position])
   @@index([clientId])
   @@index([contactId])
   @@index([assigneeId])
+  @@index([createdById])
   @@index([priority])
   @@index([archived])
   @@map("board_cards")
@@ -592,6 +595,7 @@ model Ticket {
   @@index([status])
   @@index([priority])
   @@index([ateraId])
+  @@index([createdAt])
   @@map("tickets")
 }
 

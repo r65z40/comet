@@ -94,11 +94,21 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
+
+  const column = await prisma.boardColumn.findUnique({
+    where: { id },
+    include: { _count: { select: { cards: true } } },
+  });
+  if (!column) return NextResponse.json({ error: "Colonne introuvable" }, { status: 404 });
+  if (column._count.cards > 0) {
+    return NextResponse.json({ error: "Impossible de supprimer une colonne contenant des cartes" }, { status: 400 });
+  }
 
   await prisma.boardColumn.delete({ where: { id } });
 

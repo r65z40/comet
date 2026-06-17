@@ -19,8 +19,9 @@ const SETTINGS_CACHE_TTL = 300_000; // 5 min
 export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
-  const isAdmin = session.user?.role === "ADMIN";
+  const isAdmin = true;
 
   let settings: { key: string; value: string }[];
   const cached = cacheGet<{ key: string; value: string }[]>(SETTINGS_CACHE_KEY);
