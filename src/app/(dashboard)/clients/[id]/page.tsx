@@ -9,6 +9,7 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { formatDate, formatCountdown, getCountdownColor, formatCurrency, getStatusLabel, isWarrantyExpired } from "@/lib/utils";
 import Link from "next/link";
 import ClientPortalSection from "./ClientPortalSection";
+import ClientTimelineSection from "./ClientTimelineSection";
 import { printReport as doPrintReport, downloadPdf as doDownloadPdf } from "./reportBuilder";
 
 interface Installation {
@@ -1014,6 +1015,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           </table>
         </div>
       )}
+
+      <ClientTimelineSection clientId={id} />
 
       <ClientPortalSection clientId={id} />
     </div>
