@@ -108,9 +108,9 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
     ? [card.contact.firstName, card.contact.lastName].filter(Boolean).join(" ") || null
     : null;
 
-  // Checklist progress
-  const checklistTotal = card.checklist?.length || card._count?.checklist || 0;
-  const checklistDone = card.checklist?.filter((c) => c.checked).length || 0;
+  // Checklist progress (API returns only checked items + total count)
+  const checklistTotal = card._count?.checklist || 0;
+  const checklistDone = card.checklist?.length || 0;
   const checklistPercent = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
 
   // Time in column

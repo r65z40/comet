@@ -41,6 +41,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Music,
+  Tv,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
@@ -53,6 +54,7 @@ import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
 import EmisoftWidget from "../EmisoftWidget";
 import EmisoftAlertsWidget from "../EmisoftAlertsWidget";
 import SpotifyWidget from "../SpotifyWidget";
+import VideoPlayerWidget from "../VideoPlayerWidget";
 
 interface CardTag {
   id: string;
@@ -143,6 +145,7 @@ interface ScreenVisibility {
   showEmsisoft: boolean;
   showEmsisoftAlerts: boolean;
   showSpotify: boolean;
+  showVideoPlayer: boolean;
 }
 
 const DEFAULT_VISIBILITY: ScreenVisibility = {
@@ -155,6 +158,7 @@ const DEFAULT_VISIBILITY: ScreenVisibility = {
   showEmsisoft: true,
   showEmsisoftAlerts: true,
   showSpotify: true,
+  showVideoPlayer: false,
 };
 
 const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
@@ -167,7 +171,8 @@ const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "emsisoft", x: 4, y: 12, w: 4, h: 4, minW: 2, minH: 2 },
   { i: "emsisoft_alerts", x: 8, y: 12, w: 4, h: 4, minW: 2, minH: 3 },
   { i: "spotify", x: 0, y: 16, w: 3, h: 4, minW: 2, minH: 3 },
-  { i: "calendar", x: 3, y: 16, w: 9, h: 3, minW: 3, minH: 2 },
+  { i: "video_player", x: 3, y: 16, w: 6, h: 5, minW: 3, minH: 3 },
+  { i: "calendar", x: 9, y: 16, w: 3, h: 3, minW: 3, minH: 2 },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -299,14 +304,31 @@ export default function BoardScreenPage() {
 
   useEffect(() => {
     Promise.all([fetchColumns(), fetchFeed(), fetchCyberNews()]).finally(() => setLoading(false));
-    refreshIntervalRef.current = setInterval(() => {
-      fetchColumns();
-      fetchFeed();
-    }, 30000);
-    const cyberInterval = setInterval(fetchCyberNews, 10 * 60 * 1000);
+
+    function startPolling() {
+      if (refreshIntervalRef.current) return;
+      refreshIntervalRef.current = setInterval(() => {
+        fetchColumns();
+        fetchFeed();
+      }, 30000);
+    }
+    function stopPolling() {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+    }
+    function handleVisibility() {
+      if (document.hidden) stopPolling(); else startPolling();
+    }
+
+    startPolling();
+    const cyberInterval = setInterval(fetchCyberNews, 30 * 60 * 1000);
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
-      if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
+      stopPolling();
       clearInterval(cyberInterval);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [fetchColumns, fetchFeed, fetchCyberNews]);
 
@@ -504,6 +526,14 @@ export default function BoardScreenPage() {
           content: <SpotifyWidget dark />,
         }]
       : []),
+    ...(visibility.showVideoPlayer
+      ? [{
+          id: "video_player",
+          title: "Lecteur vidéo",
+          icon: <Tv className="h-3 w-3 text-cyan-400" />,
+          content: <VideoPlayerWidget dark />,
+        }]
+      : []),
     ...(visibility.showCalendar
       ? [{
           id: "calendar",
@@ -605,6 +635,7 @@ export default function BoardScreenPage() {
             { key: "showEmsisoft" as const, label: "Sécurité Emsisoft" },
             { key: "showEmsisoftAlerts" as const, label: "Alertes Emsisoft (live)" },
             { key: "showSpotify" as const, label: "Spotify" },
+            { key: "showVideoPlayer" as const, label: "Lecteur vidéo" },
             { key: "showCalendar" as const, label: "Calendrier" },
           ].map(({ key, label }) => (
             <div key={key} className="flex items-center justify-between py-3 border-b border-slate-700/50 last:border-b-0">

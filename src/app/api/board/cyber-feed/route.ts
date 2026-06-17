@@ -10,7 +10,7 @@ interface CyberNewsItem {
 
 // Cache to avoid hammering feeds
 let cache: { items: CyberNewsItem[]; fetchedAt: number } | null = null;
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 const RSS_FEEDS = [
   { url: "https://www.cert.ssi.gouv.fr/feed/", source: "CERT-FR" },
@@ -57,7 +57,7 @@ async function fetchAllFeeds(): Promise<CyberNewsItem[]> {
     RSS_FEEDS.map(async (feed) => {
       try {
         const res = await fetch(feed.url, {
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(5000),
           headers: { "User-Agent": "Comet/1.0 RSS Reader" },
         });
         if (!res.ok) return;

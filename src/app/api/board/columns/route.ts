@@ -18,9 +18,15 @@ export async function GET(req: NextRequest) {
         include: {
           client: { select: { id: true, name: true, logoUrl: true } },
           contact: { select: { id: true, firstName: true, lastName: true } },
-          tags: { include: { tag: true } },
-          checklist: { select: { id: true, checked: true } },
-          _count: { select: { comments: true, attachments: true, checklist: true } },
+          tags: { select: { id: true, tag: { select: { id: true, name: true, color: true } } } },
+          _count: {
+            select: {
+              comments: true,
+              attachments: true,
+              checklist: true,
+            },
+          },
+          checklist: { where: { checked: true }, select: { id: true } },
         },
       },
     },

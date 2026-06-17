@@ -60,6 +60,7 @@ import {
   Eye,
   Shield,
   EyeOff,
+  Tv,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -71,6 +72,7 @@ import AteraAlertsWidget from "./AteraAlertsWidget";
 import CriticalAlertOverlay from "./CriticalAlertOverlay";
 import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
 import EmisoftWidget from "./EmisoftWidget";
+import VideoPlayerWidget from "./VideoPlayerWidget";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 
 interface CardTag {
@@ -148,6 +150,7 @@ const BOARD_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "atera", x: 10, y: 7, w: 2, h: 5, minW: 2, minH: 2 },
   { i: "activity_feed", x: 0, y: 12, w: 4, h: 5, minW: 2, minH: 2 },
   { i: "emsisoft", x: 4, y: 12, w: 4, h: 5, minW: 2, minH: 2 },
+  { i: "video_player", x: 8, y: 12, w: 4, h: 5, minW: 3, minH: 3 },
 ];
 
 const BOARD_WIDGET_REGISTRY: Record<string, { label: string; icon: typeof ClipboardList; description: string }> = {
@@ -158,6 +161,7 @@ const BOARD_WIDGET_REGISTRY: Record<string, { label: string; icon: typeof Clipbo
   atera: { label: "Alertes Atera", icon: Bell, description: "Alertes de supervision Atera" },
   activity_feed: { label: "Fil d'activité", icon: Activity, description: "Flux global d'activité en temps réel" },
   emsisoft: { label: "Sécurité Emsisoft", icon: Shield, description: "Protection des appareils et menaces" },
+  video_player: { label: "Lecteur vidéo", icon: Tv, description: "Vidéo, IPTV, YouTube, flux HLS" },
 };
 
 export default function BoardPage() {
@@ -803,6 +807,12 @@ export default function BoardPage() {
       title: "Sécurité Emsisoft",
       icon: <Shield className="h-3 w-3 text-purple-500" />,
       content: <EmisoftWidget />,
+    },
+    {
+      id: "video_player",
+      title: "Lecteur vidéo",
+      icon: <Tv className="h-3 w-3 text-cyan-500" />,
+      content: <VideoPlayerWidget />,
     },
   ];
 

@@ -60,19 +60,11 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
         take: 15,
       }),
-      // Quick stats
-      Promise.all([
-        prisma.installation.count({ where: { status: "EN_PARC", deletedAt: null } }),
-        prisma.installation.count({ where: { status: "HORS_PARC", deletedAt: null } }),
-        prisma.installation.count({
-          where: {
-            endDate: { gte: now, lte: thirtyDays },
-            status: { not: "RENOUVELE" },
-            alwaysInFleet: { not: true },
-            deletedAt: null,
-          },
-        }),
-      ]),
+      prisma.installation.groupBy({
+        by: ["status"],
+        where: { deletedAt: null },
+        _count: true,
+      }),
     ]);
 
     const expiring = expiringInstallations.map((i) => {
@@ -107,14 +99,17 @@ export async function GET() {
       date: a.createdAt.toISOString(),
     }));
 
+    const enGarantie = stats.find((s) => s.status === "EN_PARC")?._count ?? 0;
+    const horsGarantie = stats.find((s) => s.status === "HORS_PARC")?._count ?? 0;
+
     return NextResponse.json({
       expiring,
       statusChanges,
       activity,
       stats: {
-        enGarantie: stats[0],
-        horsGarantie: stats[1],
-        expiring30: stats[2],
+        enGarantie,
+        horsGarantie,
+        expiring30: expiring.filter((e) => e.daysLeft <= 30).length,
       },
       updatedAt: new Date().toISOString(),
     });
