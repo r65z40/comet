@@ -5,6 +5,10 @@
 
 $ErrorActionPreference = "Stop"
 
+# Navigate to project root (parent of scripts/)
+$projectRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+Set-Location $projectRoot
+
 Write-Host ""
 Write-Host "+==============================================+" -ForegroundColor Cyan
 Write-Host "|         COMET - Installation Windows         |" -ForegroundColor Cyan
