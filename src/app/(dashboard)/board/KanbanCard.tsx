@@ -168,35 +168,39 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
               <Archive className="h-3 w-3 text-slate-400" />
             )}
           </div>
-          {/* Assignee avatars */}
-          <div className="flex items-center gap-1">
-            {assigneeNames.length > 0 ? (
-              <div className="flex -space-x-1">
-                {assigneeNames.slice(0, 3).map((name, i) => (
+          {/* Assignees */}
+          {assigneeNames.length > 0 && (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex -space-x-1 flex-shrink-0">
+                {assigneeNames.slice(0, 2).map((name, i) => (
                   <div
                     key={i}
                     className={cn(
                       "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 border border-white",
                       i === 0 ? "bg-primary-100 text-primary-700" :
-                      i === 1 ? "bg-emerald-100 text-emerald-700" :
-                      "bg-amber-100 text-amber-700"
+                      "bg-emerald-100 text-emerald-700"
                     )}
                     title={name}
                   >
                     {name.charAt(0).toUpperCase()}
                   </div>
                 ))}
-                {assigneeNames.length > 3 && (
+                {assigneeNames.length > 2 && (
                   <div
                     className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-600 border border-white flex-shrink-0"
-                    title={assigneeNames.slice(3).join(", ")}
+                    title={assigneeNames.slice(2).join(", ")}
                   >
-                    +{assigneeNames.length - 3}
+                    +{assigneeNames.length - 2}
                   </div>
                 )}
               </div>
-            ) : null}
-          </div>
+              <span className="text-[10px] text-slate-500 truncate max-w-[100px]">
+                {assigneeNames.length === 1
+                  ? assigneeNames[0]
+                  : `${assigneeNames[0]} +${assigneeNames.length - 1}`}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Title */}

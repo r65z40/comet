@@ -22,6 +22,8 @@ import {
   Clock,
   Check,
   History,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MentionInput from "@/components/ui/MentionInput";
@@ -74,6 +76,7 @@ interface CardDetail {
   tags: CardTag[];
   comments: CardComment[];
   attachments: CardAttachment[];
+  archived?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -253,6 +256,17 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
     onClose();
   }
 
+  async function toggleArchive() {
+    const newArchived = !card?.archived;
+    await fetch("/api/board/cards/archive", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: cardId, archived: newArchived }),
+    });
+    fetchCard();
+    fetchHistory();
+  }
+
   async function addComment() {
     if (!commentText.trim()) return;
     setSendingComment(true);
@@ -393,12 +407,26 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                 <button
                   onClick={() => setEditing(true)}
                   className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+                  title="Modifier"
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
                 <button
+                  onClick={toggleArchive}
+                  className={cn(
+                    "p-2 rounded-lg",
+                    card.archived
+                      ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  )}
+                  title={card.archived ? "Désarchiver" : "Archiver"}
+                >
+                  {card.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                </button>
+                <button
                   onClick={deleteCard}
                   className="p-2 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                  title="Supprimer"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

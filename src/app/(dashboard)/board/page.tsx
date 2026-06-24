@@ -49,6 +49,7 @@ import {
   Strikethrough,
   Highlighter,
   Archive,
+  ArchiveRestore,
   Bookmark,
   Trash2,
   Monitor,
@@ -195,6 +196,11 @@ export default function BoardPage() {
   // Available clients for filter
   const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
 
+  // Archived cards section
+  const [archivedCards, setArchivedCards] = useState<BoardCard[]>([]);
+  const [showArchiveSection, setShowArchiveSection] = useState(false);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+
   // Widget visibility
   const [widgetVisibility, setWidgetVisibility] = useState<Record<string, boolean>>({});
   const [showWidgetPicker, setShowWidgetPicker] = useState(false);
@@ -284,6 +290,15 @@ export default function BoardPage() {
       const res = await fetch("/api/board/views");
       if (res.ok) setSavedViews(await res.json());
     } catch {}
+  }, []);
+
+  const fetchArchivedCards = useCallback(async () => {
+    setArchiveLoading(true);
+    try {
+      const res = await fetch("/api/board/cards/archive");
+      if (res.ok) setArchivedCards(await res.json());
+    } catch {}
+    setArchiveLoading(false);
   }, []);
 
   useEffect(() => {
@@ -540,6 +555,7 @@ export default function BoardPage() {
     setSelectedCardId(null);
     router.replace("/board", { scroll: false });
     fetchBoard();
+    if (showArchiveSection) fetchArchivedCards();
   }
 
   function execCommand(command: string, value?: string) {
@@ -603,6 +619,22 @@ export default function BoardPage() {
   async function deleteView(id: string) {
     await fetch(`/api/board/views?id=${id}`, { method: "DELETE" });
     fetchViews();
+  }
+
+  async function unarchiveCard(cardId: string) {
+    await fetch("/api/board/cards/archive", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: cardId, archived: false }),
+    });
+    fetchArchivedCards();
+    fetchBoard();
+  }
+
+  function toggleArchiveSection() {
+    const next = !showArchiveSection;
+    setShowArchiveSection(next);
+    if (next) fetchArchivedCards();
   }
 
   const hasActiveFilters = filters.search || filters.priority !== null || filters.clientId || filters.assigneeId || filters.tagIds.length > 0;
@@ -1089,6 +1121,82 @@ export default function BoardPage() {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Archive Section */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <button
+          onClick={toggleArchiveSection}
+          className="flex items-center justify-between w-full px-4 py-3 hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Archive className="h-4 w-4 text-slate-400" />
+            <span className="text-sm font-medium text-slate-700">
+              Archives
+            </span>
+            {archivedCards.length > 0 && (
+              <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">
+                {archivedCards.length}
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", showArchiveSection && "rotate-180")} />
+        </button>
+        {showArchiveSection && (
+          <div className="border-t border-slate-100 px-4 py-3">
+            {archiveLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600" />
+              </div>
+            ) : archivedCards.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-4">Aucune carte archivée</p>
+            ) : (
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                {archivedCards.map((card) => (
+                  <div
+                    key={card.id}
+                    className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors group cursor-pointer"
+                    onClick={() => openCard(card.id)}
+                  >
+                    {card.client?.logoUrl && (
+                      <img src={card.client.logoUrl} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{card.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {card.client && (
+                          <span className="text-[10px] text-slate-400 truncate">{card.client.name}</span>
+                        )}
+                        {(card as BoardCard & { column?: { name: string } }).column && (
+                          <span className="text-[10px] text-slate-400">
+                            • {(card as BoardCard & { column?: { name: string } }).column!.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {card.tags?.slice(0, 2).map((t) => (
+                      <span
+                        key={t.id}
+                        className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-medium rounded flex-shrink-0"
+                        style={{ backgroundColor: t.tag.color + "20", color: t.tag.color }}
+                      >
+                        {t.tag.name}
+                      </span>
+                    ))}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); unarchiveCard(card.id); }}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-amber-600 bg-amber-50 rounded hover:bg-amber-100 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                      title="Désarchiver"
+                    >
+                      <ArchiveRestore className="h-3 w-3" />
+                      Restaurer
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Card Detail Modal */}
       {selectedCardId && (
