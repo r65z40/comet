@@ -1,158 +1,71 @@
 # COMET - CEDELIA
 
-Plateforme de suivi des garanties et installations informatiques pour CEDELIA. Permet de gérer les clients, produits, factures et installations avec un suivi en temps réel des échéances de garantie.
-
-## Fonctionnalités
-
-- **Dashboard** — Vue d'ensemble avec statistiques, graphiques de répartition, échéances à venir
-- **Gestion des installations** — Suivi du statut avec compte à rebours, édition inline, historique des modifications
-- **Gestion des clients** — Fiches client avec logo, coordonnées, portail client dédié
-- **Gestion des produits** — Catalogue avec famille, fournisseur, durée de garantie
-- **Tableau de communication (Board)** — Kanban drag-and-drop avec colonnes personnalisables, cartes, tags, checklist, commentaires
-- **Factures** — Import et consultation des factures, création d'installations depuis les factures
-- **Rapports PDF** — 4 templates (classique, corporate, executive, personnalisé), éditeur visuel de page de garde
-- **Ticketing** — Système de tickets avec portail client, synchronisation Atera
-- **Base de connaissances** — Articles internes ou publiés vers le portail client
-- **Synchronisation Axonaut** — Import automatique (clients, produits, factures)
-- **Notifications** — Alertes email SMTP + notifications in-app
-- **Sauvegardes automatiques** — Backup programmable avec rotation et stockage cloud (S3/FTP)
-- **Import/Export** — CSV et Excel avec détection des doublons
-- **Gestion des rôles** — Admin / Utilisateur avec restrictions granulaires
-
-## Stack technique
-
-| Composant | Technologie |
-|-----------|-------------|
-| Framework | Next.js 16 (App Router) |
-| Frontend | React 19, Tailwind CSS 4 |
-| Base de données | PostgreSQL 16 |
-| ORM | Prisma 5 |
-| Authentification | NextAuth v5 (credentials) |
-| Graphiques | Recharts |
-| Drag & Drop | @dnd-kit |
-| Email | Nodemailer |
-| Déploiement | Docker (multi-stage build) |
+Plateforme de suivi des garanties et installations informatiques. Gestion des clients, produits, factures et installations avec suivi en temps réel des échéances.
 
 ---
 
-## Déploiement sur un serveur (Docker)
+## Installation rapide (Docker)
 
 ### Prérequis
 
-- Un serveur Linux (Ubuntu 22.04+, Debian 12+, ou similaire)
+- Serveur Linux (Ubuntu 22.04+, Debian 12+)
 - **Docker** (v24+) et **Docker Compose** (v2+)
-- 1 Go de RAM minimum, 2 Go recommandé
-- Un nom de domaine (optionnel, pour HTTPS)
+- 1 Go RAM minimum, 2 Go recommandé
+- Nom de domaine (optionnel, pour HTTPS)
 
-### Étape 1 — Installer Docker
+### 1. Installer Docker
 
 ```bash
-# Ubuntu / Debian
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker $USER
 # Se reconnecter pour que le groupe prenne effet
 ```
 
-### Étape 2 — Récupérer le projet
+### 2. Cloner et installer
 
 ```bash
 git clone <repo-url> comet
 cd comet
-```
-
-### Étape 3 — Installation rapide (recommandé)
-
-```bash
 bash scripts/setup.sh
 ```
 
-Le script génère automatiquement tous les secrets, crée le `.env`, et lance l'application. Les identifiants admin s'affichent dans les logs.
+Le script :
+- Genere tous les secrets automatiquement (`AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET`, mot de passe PostgreSQL)
+- Demande l'URL d'acces (ex: `https://comet.mondomaine.fr`)
+- Construit et lance les conteneurs Docker
+- Attend que l'application soit prete
 
-### Étape 3 (alternatif) — Configuration manuelle
+### 3. Premier acces
 
-```bash
-cp .env.example .env
-```
-
-Éditer le fichier `.env` avec vos valeurs :
-
-```bash
-# OBLIGATOIRE : Mot de passe PostgreSQL (choisir un mot de passe fort)
-POSTGRES_PASSWORD=mon-mot-de-passe-securise-2024
-
-# OBLIGATOIRE : Adapter le DATABASE_URL avec le même mot de passe
-DATABASE_URL="postgresql://comet:mon-mot-de-passe-securise-2024@db:5432/comet_cedelia?schema=public"
-
-# OBLIGATOIRE : Générer un secret unique
-AUTH_SECRET="$(openssl rand -base64 32)"
-
-# OBLIGATOIRE : URL publique de l'application
-AUTH_URL="https://comet.mondomaine.fr"
-# Ou si pas de domaine : AUTH_URL="http://IP_DU_SERVEUR:3000"
-
-# OBLIGATOIRE : Chiffrement des données sensibles en base
-ENCRYPTION_KEY="$(openssl rand -hex 32)"
-
-# OBLIGATOIRE : Secret pour les tâches cron
-CRON_SECRET="$(openssl rand -base64 16)"
-
-# OPTIONNEL : Clé API Axonaut
-AXONAUT_API_KEY=""
-
-# OPTIONNEL : Ports personnalisés
-APP_PORT=3000
-DB_PORT=5432
-```
-
-### Étape 4 — Lancer l'application
+Les identifiants admin s'affichent dans les logs :
 
 ```bash
-docker compose up -d
+docker compose logs app | grep -A3 "Admin"
 ```
 
-Le premier démarrage prend 2-3 minutes (build de l'image + migrations). Suivre les logs :
-
-```bash
-docker compose logs -f app
-```
-
-Attendre le message `=== Starting application ===` puis accéder à l'application.
-
-### Étape 5 — Premier accès
-
-L'application est accessible sur `http://IP_DU_SERVEUR:3000` (ou le port configuré dans `APP_PORT`).
-
-Au premier lancement, un compte admin est créé automatiquement :
 - **Email** : `admin@comet-cedelia.fr`
-- **Mot de passe** : affiché dans les logs (`docker compose logs app | grep "Password"`)
+- **Mot de passe** : genere aleatoirement (affiche dans les logs)
 
-**Changer le mot de passe immédiatement** après la première connexion (Paramètres > Utilisateurs).
+**Changer le mot de passe immediatement** : Parametres > Utilisateurs.
 
-### Étape 6 — Configurer le reverse proxy (recommandé)
+### 4. Reverse proxy HTTPS (recommande)
 
-Pour HTTPS avec un nom de domaine, ajouter un reverse proxy. Exemple avec **Caddy** (le plus simple) :
+**Caddy** (le plus simple, HTTPS automatique) :
 
 ```bash
-# Installer Caddy
 sudo apt install -y caddy
-
-# Éditer /etc/caddy/Caddyfile
 echo 'comet.mondomaine.fr {
     reverse_proxy localhost:3000
 }' | sudo tee /etc/caddy/Caddyfile
-
 sudo systemctl restart caddy
 ```
 
-Caddy gère automatiquement les certificats HTTPS via Let's Encrypt.
-
-Ou avec **nginx** :
+**Nginx** :
 
 ```nginx
 server {
     listen 80;
     server_name comet.mondomaine.fr;
-
     location / {
         proxy_pass http://localhost:3000;
         proxy_set_header Host $host;
@@ -166,132 +79,225 @@ server {
 
 ---
 
-## Commandes utiles
-
-### Gestion
+## Installation manuelle (sans setup.sh)
 
 ```bash
-# Démarrer
-docker compose up -d
-
-# Arrêter
-docker compose down
-
-# Voir les logs
-docker compose logs -f app
-
-# Voir le statut (santé des services)
-docker compose ps
-
-# Redémarrer l'application
-docker compose restart app
+cp .env.example .env
 ```
 
-### Mise à jour
+Editer `.env` :
+
+```bash
+POSTGRES_PASSWORD=<mot-de-passe-fort>
+DATABASE_URL="postgresql://comet:<mot-de-passe-fort>@db:5432/comet_cedelia?schema=public"
+AUTH_SECRET="<openssl rand -base64 32>"
+AUTH_URL="https://comet.mondomaine.fr"
+ENCRYPTION_KEY="<openssl rand -hex 32>"
+CRON_SECRET="<openssl rand -base64 16>"
+```
+
+Puis :
+
+```bash
+docker compose up -d
+docker compose logs -f app    # Attendre "Starting application"
+```
+
+---
+
+## Variables d'environnement
+
+| Variable | Description | Obligatoire | Defaut |
+|----------|-------------|:-----------:|--------|
+| `DATABASE_URL` | URL PostgreSQL | Oui | — |
+| `POSTGRES_USER` | Utilisateur PostgreSQL | Non | `comet` |
+| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL | Oui | — |
+| `POSTGRES_DB` | Nom de la base | Non | `comet_cedelia` |
+| `AUTH_SECRET` | Secret NextAuth (32+ chars) | Oui | — |
+| `AUTH_URL` | URL publique de l'app | Oui | `http://localhost:3000` |
+| `AUTH_TRUST_HOST` | Trust header Host (reverse proxy) | Non | `true` |
+| `ENCRYPTION_KEY` | Cle de chiffrement (hex 64 chars) pour SMTP/API | Oui | — |
+| `CRON_SECRET` | Secret pour `/api/cron` | Oui | — |
+| `AXONAUT_API_KEY` | Cle API Axonaut | Non | — |
+| `AXONAUT_API_URL` | URL API Axonaut | Non | `https://axonaut.com/api/v2` |
+| `NEXT_PUBLIC_APP_NAME` | Nom affiche dans les emails | Non | `Comet` |
+| `APP_PORT` | Port expose | Non | `3000` |
+| `DB_PORT` | Port PostgreSQL expose | Non | `5432` |
+| `TZ` | Fuseau horaire | Non | `Europe/Paris` |
+
+---
+
+## Configuration post-installation
+
+Dans **Parametres** :
+
+1. **Email SMTP** — Parametres > Alertes Email > SMTP (hote, port, identifiants). Necessaire pour les alertes d'expiration et les notifications.
+
+2. **Sauvegardes** — Parametres > Sauvegarde
+   - Frequence : quotidienne, hebdomadaire ou mensuelle
+   - Heure d'execution (ex: 02:00)
+   - Retention (nombre de backups conserves)
+   - Stockage cloud optionnel (S3/MinIO ou FTP)
+   - Notification par email en cas d'echec
+
+3. **Apparence** — Logo, favicon, couleurs de l'entreprise
+
+4. **Axonaut** (optionnel) — Synchronisation clients/produits/factures
+
+5. **Portail client** — Activer par client dans la fiche client > Portail
+
+---
+
+## Sauvegardes
+
+### Ce qui est sauvegarde
+
+- **Base de donnees complete** (PostgreSQL dump avec `--clean --if-exists`)
+- **Fichiers uploades** (`/public/uploads/` : logos clients, pieces jointes)
+- Format : archive `.tar.gz` contenant `database.sql.gz` + dossier `uploads/`
+
+### Fonctionnement
+
+| Mode | Declenchement | Rotation |
+|------|--------------|----------|
+| **Automatique** | Cron interne (configurable) | Oui : garde les N plus recents + supprime ceux > N*2 jours |
+| **Manuel** | Bouton dans Parametres > Sauvegarde | Non (jamais supprime automatiquement) |
+
+### Stockage
+
+- **Local** : `/app/backups/` (volume Docker `backup_data`, persiste entre redemarrages)
+- **Cloud** (optionnel) : S3 (AWS, MinIO, Scaleway) ou FTP
+- Les deux simultanément : le backup local est toujours cree, puis uploade vers le cloud
+
+### Restauration
+
+Depuis l'interface : Parametres > Sauvegarde > cliquer sur un backup > Restaurer.
+
+La restauration :
+1. Cree un backup de securite de l'etat actuel avant de restaurer
+2. Decompresse l'archive
+3. Restaure la base dans une transaction unique (`--single-transaction`)
+4. Restaure les fichiers uploades si presents dans l'archive
+
+### Backup/restauration en ligne de commande
+
+```bash
+# Backup manuel via Docker
+docker compose exec db pg_dump -U comet comet_cedelia | gzip > backup_$(date +%Y%m%d).sql.gz
+
+# Restaurer depuis un dump SQL
+gunzip -c backup_20240101.sql.gz | docker compose exec -T db psql -U comet comet_cedelia
+
+# Copier un backup hors du conteneur
+docker compose cp app:/app/backups/backup_auto_2024-01-01.tar.gz ./
+
+# Uploader un backup dans le conteneur
+docker compose cp ./backup.tar.gz app:/app/backups/
+```
+
+---
+
+## Commandes utiles
+
+```bash
+# Demarrer / arreter
+docker compose up -d
+docker compose down
+
+# Logs (temps reel)
+docker compose logs -f app
+
+# Statut des services
+docker compose ps
+
+# Redemarrer l'application
+docker compose restart app
+
+# Ouvrir un shell dans le conteneur
+docker compose exec app sh
+
+# Acceder a la base directement
+docker compose exec db psql -U comet comet_cedelia
+```
+
+### Mise a jour
 
 ```bash
 git pull
 docker compose up -d --build
 ```
 
-L'application applique automatiquement les nouvelles migrations au démarrage.
+Les migrations sont appliquees automatiquement au demarrage.
 
-### Sauvegardes
-
-Les sauvegardes automatiques sont configurables dans Paramètres > Sauvegarde. Elles incluent la base de données + les fichiers uploadés.
-
-Backup manuel :
+### Reset complet (supprime toutes les donnees)
 
 ```bash
-# Exporter la base
-docker compose exec db pg_dump -U comet comet_cedelia | gzip > backup_$(date +%Y%m%d).sql.gz
-
-# Restaurer
-gunzip -c backup_20240101.sql.gz | docker compose exec -T db psql -U comet comet_cedelia
-```
-
-### Reset complet
-
-```bash
-# Supprimer tout (données incluses !)
 docker compose down -v
 docker compose up -d
 ```
 
 ---
 
-## Configuration post-installation
+## Fonctionnalites
 
-Après le premier démarrage, configurer dans **Paramètres** :
+- **Dashboard** — Statistiques, graphiques, echeances a venir, widgets personnalisables
+- **Clients** — Fiches avec logo, coordonnees, contacts, timeline unifiee, portail client
+- **Installations** — Suivi des garanties avec compte a rebours, historique, edition inline
+- **Produits** — Catalogue avec famille, fournisseur, duree de garantie
+- **Board** — Kanban drag-and-drop avec colonnes, cartes, tags, checklist, commentaires, pieces jointes
+- **Factures** — Import, consultation, liaison aux installations
+- **Rapports PDF** — 4 templates (classique, corporate, executive, personnalise) + editeur de page de garde
+- **Tickets** — Systeme de tickets avec portail client, synchronisation Atera bidirectionnelle
+- **Base de connaissances** — Articles internes ou publies vers le portail
+- **Ecran d'affichage** — Systeme de widgets pour ecrans (alertes critiques, videos, Spotify, meteo)
+- **Synchronisation Axonaut** — Import automatique clients, produits, factures
+- **Notifications** — Alertes email SMTP + in-app avec preferences par utilisateur
+- **Sauvegardes** — Automatiques avec rotation, stockage local + cloud (S3/FTP)
+- **Import/Export** — CSV et Excel avec detection des doublons
+- **Securite** — Roles Admin/Utilisateur, headers securite (HSTS, CSP), chiffrement des secrets
 
-1. **Email (SMTP)** — Pour les alertes d'expiration de garantie
-   - Paramètres > Alertes Email > Configuration SMTP
-   - Hôte, port, identifiants de votre serveur mail
+## Stack technique
 
-2. **Logo et personnalisation** — Logo de l'entreprise, favicon, couleurs
-   - Paramètres > Apparence
-
-3. **Sauvegardes automatiques** — Fréquence, heure, rétention
-   - Paramètres > Sauvegarde
-
-4. **Axonaut** (optionnel) — Synchronisation des données
-   - Paramètres > Axonaut ou variable `AXONAUT_API_KEY`
-
-5. **Portail client** — Activer l'accès client sur les fiches clients
-
----
-
-## Variables d'environnement
-
-| Variable | Description | Obligatoire | Défaut |
-|----------|-------------|:-----------:|--------|
-| `DATABASE_URL` | URL de connexion PostgreSQL | Oui | — |
-| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL | Oui | — |
-| `AUTH_SECRET` | Secret NextAuth (32 chars min) | Oui | — |
-| `AUTH_URL` | URL publique de l'application | Oui | `http://localhost:3000` |
-| `AUTH_TRUST_HOST` | Faire confiance au header Host (reverse proxy) | Non | `true` |
-| `ENCRYPTION_KEY` | Clé de chiffrement (hex 64 chars) pour SMTP/API keys | Oui | — |
-| `CRON_SECRET` | Secret pour l'endpoint /api/cron | Non | `comet_cron_secret_2024` |
-| `AXONAUT_API_KEY` | Clé API Axonaut | Non | — |
-| `AXONAUT_API_URL` | URL de l'API Axonaut | Non | `https://axonaut.com/api/v2` |
-| `APP_PORT` | Port exposé pour l'application | Non | `3000` |
-| `DB_PORT` | Port exposé pour PostgreSQL | Non | `5432` |
-| `TZ` | Fuseau horaire | Non | `Europe/Paris` |
+| Composant | Technologie |
+|-----------|-------------|
+| Framework | Next.js 16 (App Router) |
+| Frontend | React 19, Tailwind CSS 4 |
+| Base de donnees | PostgreSQL 16 |
+| ORM | Prisma 5 |
+| Auth | NextAuth v5 (credentials) |
+| Graphiques | Recharts |
+| Drag & Drop | @dnd-kit |
+| Email | Nodemailer |
+| Deploiement | Docker (multi-stage, Alpine) |
 
 ---
 
-## Développement local
+## Developpement local
 
 ```bash
-# Prérequis : Node.js 20+, PostgreSQL 16+
+# Prerequisites : Node.js 20+, PostgreSQL 16+
 npm install --legacy-peer-deps
 
-# Configurer .env avec DATABASE_URL pointant vers localhost
 cp .env.example .env
-# Modifier DATABASE_URL : ...@localhost:5432/...
+# Modifier DATABASE_URL pour pointer vers localhost
 
-# Appliquer le schéma
-npm run db:push
-
-# Seed initial (créer l'admin)
-npm run db:seed
-
-# Lancer en dev
-npm run dev
+npm run db:push      # Appliquer le schema
+npm run db:seed      # Creer l'admin
+npm run dev          # Lancer en dev
 ```
 
 ### Scripts npm
 
-```bash
-npm run dev          # Serveur de développement (hot reload)
-npm run build        # Build production
-npm start            # Lancer en production
-npm run lint         # Linter ESLint
-npm run db:push      # Appliquer le schéma Prisma (dev)
-npm run db:migrate   # Déployer les migrations (production)
-npm run db:seed      # Créer l'utilisateur admin
-npm run db:studio    # Interface visuelle Prisma Studio
-```
+| Commande | Description |
+|----------|-------------|
+| `npm run dev` | Serveur de dev (hot reload) |
+| `npm run build` | Build production |
+| `npm start` | Lancer en production |
+| `npm run db:push` | Appliquer le schema Prisma (dev) |
+| `npm run db:migrate` | Deployer les migrations (prod) |
+| `npm run db:seed` | Creer l'utilisateur admin |
+| `npm run db:studio` | Interface visuelle Prisma Studio |
+| `npm test` | Lancer les tests (Vitest) |
 
 ---
 
@@ -299,44 +305,57 @@ npm run db:studio    # Interface visuelle Prisma Studio
 
 ```
 src/
-├── app/
-│   ├── (auth)/              # Pages publiques (login, reset password)
-│   ├── (dashboard)/         # Pages protégées
-│   │   ├── board/           # Tableau Kanban
-│   │   ├── clients/         # Gestion clients + rapports
-│   │   ├── dashboard/       # Vue d'ensemble
-│   │   ├── installations/   # Suivi des installations
-│   │   ├── invoices/        # Factures
-│   │   ├── knowledge/       # Base de connaissances
-│   │   ├── products/        # Catalogue produits
-│   │   ├── settings/        # Paramètres + éditeur de page de garde
-│   │   ├── sync/            # Synchronisation Axonaut
-│   │   └── tickets/         # Ticketing
-│   ├── api/                 # Routes API REST
-│   └── portal/              # Portail client (auth séparée)
-├── components/
-│   ├── layout/              # Sidebar, Header, Notifications
-│   └── ui/                  # DataTable, RichTextEditor, etc.
-├── lib/
-│   ├── auth.ts              # Configuration NextAuth
-│   ├── backup.ts            # Système de sauvegarde
-│   ├── cron-scheduler.ts    # Planificateur de tâches
-│   ├── db.ts                # Client Prisma
-│   ├── email.ts             # Envoi d'emails SMTP
-│   └── notifications.ts     # Notifications in-app
-└── middleware.ts             # Protection des routes + headers sécurité
+  app/
+    (dashboard)/         # Pages protegees (admin)
+      board/             # Kanban + ecran d'affichage
+      clients/           # Fiches clients + rapports + timeline
+      dashboard/         # Vue d'ensemble
+      installations/     # Suivi des installations
+      invoices/          # Factures
+      knowledge/         # Base de connaissances
+      products/          # Catalogue produits
+      settings/          # Parametres + editeur de couverture
+      sync/              # Synchronisation Axonaut
+      tickets/           # Ticketing
+    api/                 # Routes API REST
+    portal/              # Portail client (auth JWT separee)
+  components/
+    layout/              # Sidebar, Header, Notifications
+    ui/                  # DataTable, RichTextEditor, StatusBadge...
+  lib/
+    auth.ts              # Configuration NextAuth
+    backup.ts            # Systeme de sauvegarde
+    backup-cloud.ts      # Upload S3/FTP
+    cron-scheduler.ts    # Planificateur de taches
+    crypto.ts            # Chiffrement des secrets
+    db.ts                # Client Prisma
+    email.ts             # Envoi d'emails SMTP
+    notifications.ts     # Notifications in-app
+  middleware.ts          # Protection des routes + headers securite
+scripts/
+  setup.sh               # Installation automatique
+  entrypoint.sh          # Point d'entree Docker
+prisma/
+  schema.prisma          # Schema de la base de donnees
+  migrations/            # Historique des migrations
+  seed.ts                # Seed initial (admin)
 ```
 
-## Dépannage
+---
 
-| Problème | Solution |
+## Depannage
+
+| Probleme | Solution |
 |----------|----------|
-| L'app ne démarre pas | Vérifier les logs : `docker compose logs app` |
-| Erreur de connexion DB | Vérifier que `POSTGRES_PASSWORD` correspond dans `DATABASE_URL` |
-| Port 3000 occupé | Changer `APP_PORT` dans `.env` |
-| Migrations échouent | Vérifier que la DB est accessible et les migrations dans `prisma/migrations/` |
-| Email ne fonctionne pas | Vérifier la config SMTP dans Paramètres > Alertes Email |
-| Certificat HTTPS | Vérifier que le domaine pointe vers le serveur (DNS) |
+| L'app ne demarre pas | `docker compose logs app` — verifier les erreurs |
+| Erreur connexion DB | Verifier que `POSTGRES_PASSWORD` correspond dans `DATABASE_URL` |
+| Port 3000 occupe | Changer `APP_PORT` dans `.env` |
+| Migrations echouent | `docker compose logs app` — verifier l'acces DB |
+| Emails ne partent pas | Parametres > Alertes Email > tester la config SMTP |
+| HTTPS ne fonctionne pas | Verifier le DNS (A record) et le reverse proxy |
+| Backup echoue | Verifier les logs : `docker compose logs app \| grep backup` |
+| WARNING ENCRYPTION_KEY | Generer : `openssl rand -hex 32` et ajouter dans `.env` |
+| WARNING AUTH_SECRET | Generer : `openssl rand -base64 32` et ajouter dans `.env` |
 
 ---
 

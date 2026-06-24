@@ -193,12 +193,12 @@ async function runAutoBackup(
     if (getParisDayOfMonth() !== settings.day) return { done: false, reason: "Pas le bon jour du mois pour le backup" };
   }
 
-  const recentCutoff = new Date();
-  recentCutoff.setHours(recentCutoff.getHours() - 36);
-  const recentLogs = await prisma.syncLog.findMany({
-    where: { type: "BACKUP", status: "success", startedAt: { gte: recentCutoff } },
+  const todayStart = new Date(todayStr + "T00:00:00.000Z");
+  const todayEnd = new Date(todayStr + "T23:59:59.999Z");
+  const alreadyDone = await prisma.syncLog.findFirst({
+    where: { type: "BACKUP", status: "success", startedAt: { gte: todayStart, lte: todayEnd } },
   });
-  if (recentLogs.find(log => log.message?.includes(todayStr))) {
+  if (alreadyDone) {
     return { done: false, reason: "Backup déjà effectué aujourd'hui" };
   }
 

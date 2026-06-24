@@ -97,8 +97,8 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
     });
 
     const sqlStat = await fs.stat(sqlFile);
-    if (sqlStat.size < 100) {
-      throw new Error("Le fichier de backup SQL est vide ou corrompu");
+    if (sqlStat.size < 1024) {
+      throw new Error(`Le fichier de backup SQL est trop petit (${sqlStat.size} octets) — probablement vide ou corrompu`);
     }
 
     // 2. Check if uploads exist and copy them
@@ -290,12 +290,9 @@ export async function restoreBackup(filename: string): Promise<void> {
 
       // Restore database
       const sqlFile = path.join(tmpDir, "database.sql.gz");
-      try {
-        await fs.access(sqlFile);
+      const sqlExists = await fs.access(sqlFile).then(() => true).catch(() => false);
+      if (sqlExists) {
         await execAsync(`gunzip -c "${sqlFile}" | psql --single-transaction "${dbUrl}"`, { timeout: 600000 });
-      } catch (err) {
-        // Check if the file simply doesn't exist (older format) vs actual restore error
-        try { await fs.access(sqlFile); throw err; } catch { /* file missing, skip */ }
       }
 
       // Restore uploads if present
@@ -328,13 +325,25 @@ export async function restoreBackup(filename: string): Promise<void> {
 
 export async function rotateBackups(retention: number): Promise<number> {
   const backups = await listBackups();
-  // Only rotate auto backups
   const autoBackups = backups.filter((b) => b.type === "auto");
 
   let deleted = 0;
+
+  // Count-based: keep only the N most recent auto backups
   if (autoBackups.length > retention) {
     const toDelete = autoBackups.slice(retention);
     for (const backup of toDelete) {
+      await deleteBackup(backup.filename);
+      deleted++;
+    }
+  }
+
+  // Age-based: delete auto backups older than retention * 2 days (safety net)
+  const maxAgeMs = retention * 2 * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - maxAgeMs;
+  const remaining = (await listBackups()).filter((b) => b.type === "auto");
+  for (const backup of remaining) {
+    if (new Date(backup.createdAt).getTime() < cutoff) {
       await deleteBackup(backup.filename);
       deleted++;
     }
