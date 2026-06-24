@@ -94,7 +94,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès refusé — seuls les administrateurs peuvent supprimer des colonnes" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
@@ -106,11 +106,8 @@ export async function DELETE(req: NextRequest) {
     include: { _count: { select: { cards: true } } },
   });
   if (!column) return NextResponse.json({ error: "Colonne introuvable" }, { status: 404 });
-  if (column._count.cards > 0) {
-    return NextResponse.json({ error: "Impossible de supprimer une colonne contenant des cartes" }, { status: 400 });
-  }
 
   await prisma.boardColumn.delete({ where: { id } });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, deletedCards: column._count.cards });
 }

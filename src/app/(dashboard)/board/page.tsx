@@ -410,7 +410,12 @@ export default function BoardPage() {
 
   async function deleteColumn(id: string) {
     if (!confirm("Supprimer cette colonne et toutes ses cartes ?")) return;
-    await fetch(`/api/board/columns?id=${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/board/columns?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Erreur lors de la suppression");
+      return;
+    }
     fetchBoard();
   }
 
