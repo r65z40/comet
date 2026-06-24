@@ -21,6 +21,15 @@ if [ "$CRON_SECRET" = "comet_cron_secret_2024" ]; then
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   echo ""
 fi
+if [ -z "$ENCRYPTION_KEY" ]; then
+  echo ""
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "  WARNING: ENCRYPTION_KEY is not set!"
+  echo "  SMTP passwords and API keys will not be encrypted."
+  echo "  Generate with: openssl rand -hex 32"
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo ""
+fi
 
 # Strip Prisma-specific query params (?schema=public) that psql doesn't understand
 DB_URL=$(echo "$DATABASE_URL" | cut -d'?' -f1)

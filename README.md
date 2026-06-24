@@ -60,7 +60,15 @@ git clone <repo-url> comet
 cd comet
 ```
 
-### Étape 3 — Configurer l'environnement
+### Étape 3 — Installation rapide (recommandé)
+
+```bash
+bash scripts/setup.sh
+```
+
+Le script génère automatiquement tous les secrets, crée le `.env`, et lance l'application. Les identifiants admin s'affichent dans les logs.
+
+### Étape 3 (alternatif) — Configuration manuelle
 
 ```bash
 cp .env.example .env
@@ -81,6 +89,9 @@ AUTH_SECRET="$(openssl rand -base64 32)"
 # OBLIGATOIRE : URL publique de l'application
 AUTH_URL="https://comet.mondomaine.fr"
 # Ou si pas de domaine : AUTH_URL="http://IP_DU_SERVEUR:3000"
+
+# OBLIGATOIRE : Chiffrement des données sensibles en base
+ENCRYPTION_KEY="$(openssl rand -hex 32)"
 
 # OBLIGATOIRE : Secret pour les tâches cron
 CRON_SECRET="$(openssl rand -base64 16)"
@@ -239,6 +250,7 @@ Après le premier démarrage, configurer dans **Paramètres** :
 | `AUTH_SECRET` | Secret NextAuth (32 chars min) | Oui | — |
 | `AUTH_URL` | URL publique de l'application | Oui | `http://localhost:3000` |
 | `AUTH_TRUST_HOST` | Faire confiance au header Host (reverse proxy) | Non | `true` |
+| `ENCRYPTION_KEY` | Clé de chiffrement (hex 64 chars) pour SMTP/API keys | Oui | — |
 | `CRON_SECRET` | Secret pour l'endpoint /api/cron | Non | `comet_cron_secret_2024` |
 | `AXONAUT_API_KEY` | Clé API Axonaut | Non | — |
 | `AXONAUT_API_URL` | URL de l'API Axonaut | Non | `https://axonaut.com/api/v2` |

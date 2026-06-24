@@ -26,10 +26,12 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:-defaultsecret_changeme_in_production}
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
       AUTH_TRUST_HOST: "true"
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       AXONAUT_API_KEY: ${AXONAUT_API_KEY:-}
       AXONAUT_API_URL: ${AXONAUT_API_URL:-https://axonaut.com/api/v2}
       CRON_SECRET: ${CRON_SECRET:-comet_cron_secret_2024}
-      TZ: Europe/Paris
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Comet}
+      TZ: ${TZ:-Europe/Paris}
     volumes:
       - backup_data:/app/backups
       - uploads_data:/app/public/uploads
