@@ -81,40 +81,12 @@ server {
 
 ## Installation sur Windows (Docker Desktop)
 
-### Prerequis
+### Installation rapide
 
-- **Windows 10** (version 2004+) ou **Windows 11**
-- **Docker Desktop** (v4.20+) avec **WSL 2** active
-- 4 Go RAM minimum (Docker Desktop + app)
-- Git pour Windows (optionnel, pour cloner le repo)
-
-### 1. Installer Docker Desktop
-
-1. Telecharger Docker Desktop depuis [docker.com/desktop/windows](https://docs.docker.com/desktop/install/windows-install/)
-2. Lancer l'installeur, cocher **"Use WSL 2 instead of Hyper-V"**
-3. Redemarrer le PC si demande
-4. Lancer Docker Desktop et attendre que le moteur soit pret (icone verte dans la barre des taches)
-
-**Verifier l'installation** dans PowerShell :
-
-```powershell
-docker --version
-docker compose version
-```
-
-### 2. Activer WSL 2 (si pas deja fait)
-
-Dans PowerShell **en administrateur** :
-
-```powershell
-wsl --install
-```
-
-Redemarrer si demande. Docker Desktop utilise WSL 2 pour executer les conteneurs Linux.
-
-### 3. Cloner et installer
-
-**Option A — Script automatique (recommande) :**
+1. Installer **Docker Desktop** ([telecharger](https://docs.docker.com/desktop/install/windows-install/)) — cocher "Use WSL 2"
+2. Activer WSL 2 : PowerShell admin > `wsl --install` > redemarrer
+3. Installer **Git** ([telecharger](https://git-scm.com/download/win))
+4. Cloner et lancer :
 
 ```powershell
 git clone <repo-url> comet
@@ -124,69 +96,17 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 
 Ou double-cliquer sur `scripts\setup.bat` dans l'explorateur.
 
-Le script :
-- Verifie que Docker est installe et lance
-- Genere tous les secrets automatiquement
-- Demande l'URL d'acces
-- Construit et lance les conteneurs
-- Attend que l'application soit prete
-
-**Option B — Installation manuelle :**
-
-```powershell
-git clone <repo-url> comet
-cd comet
-copy .env.example .env
-```
-
-Editer `.env` dans un editeur de texte (Notepad++, VS Code) et remplir les secrets, puis :
-
-```powershell
-docker compose up -d --build
-```
-
-### 4. Premier acces
+5. Ouvrir **http://localhost:3000** et recuperer le mot de passe admin :
 
 ```powershell
 docker compose logs app | Select-String "Admin" -Context 0,3
 ```
 
-- **Email** : `admin@comet-cedelia.fr`
-- **Mot de passe** : affiche dans les logs (genere aleatoirement)
+### Guide complet
 
-Ouvrir `http://localhost:3000` dans le navigateur.
+Pour un tutoriel detaille etape par etape (verification du BIOS, WSL 2, Docker Desktop, pare-feu, reseau local, HTTPS, demarrage automatique, depannage) :
 
-### 5. Commandes utiles (PowerShell)
-
-```powershell
-# Demarrer / arreter
-docker compose up -d
-docker compose down
-
-# Logs en temps reel
-docker compose logs -f app
-
-# Redemarrer l'application
-docker compose restart app
-
-# Statut des services
-docker compose ps
-
-# Mise a jour
-git pull
-docker compose up -d --build
-```
-
-### Depannage Windows
-
-| Probleme | Solution |
-|----------|----------|
-| Docker Desktop ne demarre pas | Verifier que WSL 2 est active : `wsl --status` |
-| "WSL 2 is not installed" | PowerShell admin : `wsl --install` puis redemarrer |
-| Build tres lent | Docker Desktop > Settings > Resources > augmenter CPU/RAM |
-| Port 3000 deja utilise | Changer `APP_PORT=3001` dans `.env` |
-| Erreur "permission denied" | Lancer PowerShell en administrateur |
-| Volumes ne persistent pas | Verifier Docker Desktop > Settings > Resources > File sharing |
+**[docs/INSTALLATION-WINDOWS.md](docs/INSTALLATION-WINDOWS.md)**
 
 ---
 
@@ -444,8 +364,12 @@ src/
     notifications.ts     # Notifications in-app
   middleware.ts          # Protection des routes + headers securite
 scripts/
-  setup.sh               # Installation automatique
+  setup.sh               # Installation automatique (Linux/macOS)
+  setup.ps1              # Installation automatique (Windows PowerShell)
+  setup.bat              # Lanceur Windows (double-clic)
   entrypoint.sh          # Point d'entree Docker
+docs/
+  INSTALLATION-WINDOWS.md  # Guide complet Windows
 prisma/
   schema.prisma          # Schema de la base de donnees
   migrations/            # Historique des migrations
