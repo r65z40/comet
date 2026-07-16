@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, type ReactNode } from "react";
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-const RGL = require("react-grid-layout") as { default: React.ComponentType<Record<string, unknown>> };
+const RGL = require("react-grid-layout/legacy") as { default: React.ComponentType<Record<string, unknown>> };
 const GridLayout = RGL.default || RGL;
 import { GripHorizontal, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -156,9 +156,9 @@ export default function DashboardGrid({
               <div
                 className="widget-content flex-1 overflow-auto min-h-0"
                 style={{ touchAction: "auto" }}
-                onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                onMouseDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                onTouchStart={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
               >
                 {widget.content}
               </div>
