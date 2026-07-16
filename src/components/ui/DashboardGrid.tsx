@@ -113,6 +113,7 @@ export default function DashboardGrid({
           margin={[8, 8]}
           containerPadding={[0, 0]}
           draggableHandle=".widget-drag-handle"
+          draggableCancel=".widget-content"
           onLayoutChange={onLayoutChange}
           compactType="vertical"
           resizeHandles={["se"]}
@@ -153,11 +154,11 @@ export default function DashboardGrid({
                 </span>
               </div>
               <div
-                className="flex-1 overflow-auto min-h-0"
+                className="widget-content flex-1 overflow-auto min-h-0"
                 style={{ touchAction: "auto" }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
+                onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
+                onMouseDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
+                onTouchStart={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
               >
                 {widget.content}
               </div>
