@@ -202,6 +202,9 @@ export default function BoardPage() {
   const [showArchiveSection, setShowArchiveSection] = useState(false);
   const [archiveLoading, setArchiveLoading] = useState(false);
 
+  // Board view tab
+  const [boardTab, setBoardTab] = useState<"board" | "calendar">("board");
+
   // Widget visibility
   const [widgetVisibility, setWidgetVisibility] = useState<Record<string, boolean>>({});
   const [showWidgetPicker, setShowWidgetPicker] = useState(false);
@@ -953,8 +956,37 @@ export default function BoardPage() {
               {filters.showArchived && " (archivées)"}
             </p>
           </div>
+
+          {/* Tabs */}
+          <div className="flex items-center ml-4 bg-slate-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setBoardTab("board")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                boardTab === "board"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Board
+            </button>
+            <button
+              onClick={() => setBoardTab("calendar")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                boardTab === "calendar"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Calendrier
+            </button>
+          </div>
         </div>
 
+        {boardTab === "board" && (
         <div className="flex items-center gap-2 flex-wrap">
           {/* Search */}
           <div className="relative">
@@ -1152,8 +1184,18 @@ export default function BoardPage() {
             Colonne
           </button>
         </div>
+        )}
       </div>
 
+      {/* Calendar full-page view */}
+      {boardTab === "calendar" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm min-h-[calc(100vh-140px)]">
+          <CalendarPanel />
+        </div>
+      )}
+
+      {boardTab === "board" && (
+      <>
       {/* Add column form */}
       {showAddColumn && (
         <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-slate-200">
@@ -1211,6 +1253,8 @@ export default function BoardPage() {
       {/* Card Detail Modal */}
       {selectedCardId && (
         <CardDetailModal cardId={selectedCardId} users={users} onClose={closeCard} />
+      )}
+      </>
       )}
 
       <CriticalAlertOverlay />
