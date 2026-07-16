@@ -36,6 +36,35 @@ interface Props {
   className?: string;
 }
 
+function WidgetContentArea({ children }: { children: ReactNode }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    // Native touchstart listener — react-draggable adds a native touchstart
+    // listener on the parent grid-item wrapper, and React's synthetic
+    // stopPropagation cannot prevent native listeners from firing.
+    // Stopping propagation here blocks react-draggable while letting
+    // pointerdown (which fires first) reach dnd-kit normally.
+    const stop = (e: Event) => e.stopPropagation();
+    el.addEventListener("touchstart", stop, { passive: false });
+    return () => el.removeEventListener("touchstart", stop);
+  }, []);
+
+  return (
+    <div
+      ref={contentRef}
+      className="widget-content flex-1 overflow-auto min-h-0"
+      style={{ touchAction: "auto" }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function DashboardGrid({
   widgets,
   defaultLayout,
@@ -153,15 +182,7 @@ export default function DashboardGrid({
                   {widget.title}
                 </span>
               </div>
-              <div
-                className="widget-content flex-1 overflow-auto min-h-0"
-                style={{ touchAction: "auto" }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-              >
-                {widget.content}
-              </div>
+              <WidgetContentArea>{widget.content}</WidgetContentArea>
             </div>
           ))}
         </GridLayout>

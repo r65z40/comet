@@ -7,7 +7,6 @@ import {
   DragOverlay,
   closestCorners,
   PointerSensor,
-  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -232,8 +231,7 @@ export default function BoardScreenPage() {
   const [gridHeight, setGridHeight] = useState(0);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
     useSensor(KeyboardSensor),
   );
 
@@ -945,7 +943,7 @@ function ScreenCard({ card, isDraggingOverlay }: { card: BoardCard; isDraggingOv
       {...attributes}
       {...listeners}
       className={cn(
-        "bg-slate-700/40 rounded-lg border-l-2 hover:bg-slate-700/60 transition-colors cursor-grab active:cursor-grabbing touch-none select-none",
+        "bg-slate-700/40 rounded-lg border-l-2 hover:bg-slate-700/60 transition-colors cursor-grab active:cursor-grabbing select-none",
         priorityColors[card.priority] || "border-l-slate-600",
         isDragging && "opacity-30",
       )}
