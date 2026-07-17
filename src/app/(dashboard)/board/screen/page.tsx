@@ -223,6 +223,7 @@ export default function BoardScreenPage() {
   const [activeCard, setActiveCard] = useState<BoardCard | null>(null);
   const [visibility, setVisibility] = useState<ScreenVisibility>(DEFAULT_VISIBILITY);
   const [showSettings, setShowSettings] = useState(false);
+  const [screenTab, setScreenTab] = useState<"board" | "calendar">("board");
   const isDraggingRef = useRef(false);
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -552,6 +553,33 @@ export default function BoardScreenPage() {
           <Monitor className="h-5 w-5 text-blue-400" />
           <h1 className="text-lg font-bold">Board</h1>
           <span className="text-sm text-slate-400">{totalCards} carte{totalCards > 1 ? "s" : ""}</span>
+
+          <div className="flex items-center ml-2 bg-slate-700/60 rounded-lg p-0.5">
+            <button
+              onClick={() => setScreenTab("board")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-md transition-colors",
+                screenTab === "board"
+                  ? "bg-slate-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+            >
+              <Monitor className="h-3.5 w-3.5" />
+              Board
+            </button>
+            <button
+              onClick={() => setScreenTab("calendar")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-md transition-colors",
+                screenTab === "calendar"
+                  ? "bg-slate-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Calendrier
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -649,16 +677,22 @@ export default function BoardScreenPage() {
         </div>
       </div>
 
-      {/* Grid content */}
-      <div ref={gridContainerRef} className="flex-1 overflow-auto p-1 pb-6">
-        <DashboardGrid
-          widgets={widgets}
-          defaultLayout={SCREEN_DEFAULT_LAYOUT}
-          storageKey="comet_screen_grid"
-          dark
-          rowHeight={screenRowHeight}
-        />
-      </div>
+      {/* Content */}
+      {screenTab === "board" ? (
+        <div ref={gridContainerRef} className="flex-1 overflow-auto p-1 pb-6">
+          <DashboardGrid
+            widgets={widgets}
+            defaultLayout={SCREEN_DEFAULT_LAYOUT}
+            storageKey="comet_screen_grid"
+            dark
+            rowHeight={screenRowHeight}
+          />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto p-4">
+          <CalendarPanel dark />
+        </div>
+      )}
 
       <CriticalAlertOverlay dark />
     </div>
