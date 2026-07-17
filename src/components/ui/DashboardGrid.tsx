@@ -139,7 +139,7 @@ export default function DashboardGrid({
           cols={12}
           rowHeight={rowHeight}
           width={w}
-          margin={[8, 8]}
+          margin={dark ? [12, 12] : [8, 8]}
           containerPadding={[0, 0]}
           draggableHandle=".widget-drag-handle"
           draggableCancel=".widget-content"
@@ -160,23 +160,23 @@ export default function DashboardGrid({
             >
               <div
                 className={cn(
-                  "widget-drag-handle flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing shrink-0 select-none border-b",
+                  "widget-drag-handle flex items-center cursor-grab active:cursor-grabbing shrink-0 select-none border-b",
                   dark
-                    ? "bg-slate-700/50 border-slate-600"
-                    : "bg-slate-50/80 border-slate-100",
+                    ? "gap-2.5 px-4 py-3 bg-slate-700/50 border-slate-600"
+                    : "gap-2 px-3 py-2 bg-slate-50/80 border-slate-100",
                 )}
               >
                 <GripHorizontal
                   className={cn(
-                    "h-4 w-4 shrink-0",
-                    dark ? "text-slate-500" : "text-slate-300",
+                    "shrink-0",
+                    dark ? "h-5 w-5 text-slate-500" : "h-4 w-4 text-slate-300",
                   )}
                 />
                 {widget.icon}
                 <span
                   className={cn(
-                    "text-xs font-medium truncate",
-                    dark ? "text-slate-400" : "text-slate-500",
+                    "font-medium truncate",
+                    dark ? "text-sm text-slate-400" : "text-xs text-slate-500",
                   )}
                 >
                   {widget.title}
@@ -190,14 +190,14 @@ export default function DashboardGrid({
       <button
         onClick={reset}
         className={cn(
-          "absolute bottom-2 right-2 p-2.5 rounded-xl z-50 opacity-30 hover:opacity-100 transition-opacity",
+          "absolute bottom-2 right-2 rounded-xl z-50 opacity-30 hover:opacity-100 transition-opacity",
           dark
-            ? "bg-slate-700 text-slate-400"
-            : "bg-white border border-slate-200 text-slate-400",
+            ? "p-3.5 bg-slate-700 text-slate-400"
+            : "p-2.5 bg-white border border-slate-200 text-slate-400",
         )}
         title="Réinitialiser la disposition"
       >
-        <RotateCcw className="h-4 w-4" />
+        <RotateCcw className={dark ? "h-5 w-5" : "h-4 w-4"} />
       </button>
     </div>
   );

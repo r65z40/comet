@@ -428,23 +428,23 @@ export default function BoardScreenPage() {
       ? [{
           id: "cybernews",
           title: "Cyber News",
-          icon: <Zap className="h-3 w-3 text-red-400" />,
+          icon: <Zap className="h-4 w-4 text-red-400" />,
           content: (
             <div className="overflow-hidden flex items-center h-full bg-slate-950">
-              <div className="flex items-center gap-2 px-3 shrink-0 bg-red-600/90 h-full">
-                <Zap className="h-3.5 w-3.5 text-white" />
-                <span className="text-xs font-bold text-white whitespace-nowrap">CYBER</span>
+              <div className="flex items-center gap-2.5 px-4 shrink-0 bg-red-600/90 h-full">
+                <Zap className="h-4 w-4 text-white" />
+                <span className="text-sm font-bold text-white whitespace-nowrap">CYBER</span>
               </div>
               <div className="overflow-hidden flex-1 relative">
-                <div className="animate-ticker flex items-center gap-8 whitespace-nowrap">
+                <div className="animate-ticker flex items-center gap-10 whitespace-nowrap">
                   {cyberNews.map((item, i) => (
-                    <span key={i} className="inline-flex items-center gap-2 text-xs">
+                    <span key={i} className="inline-flex items-center gap-2.5 text-sm">
                       <span className="text-red-400 font-semibold">{item.source}</span>
                       <span className="text-slate-300">{item.title}</span>
                     </span>
                   ))}
                   {cyberNews.map((item, i) => (
-                    <span key={"dup-" + i} className="inline-flex items-center gap-2 text-xs">
+                    <span key={"dup-" + i} className="inline-flex items-center gap-2.5 text-sm">
                       <span className="text-red-400 font-semibold">{item.source}</span>
                       <span className="text-slate-300">{item.title}</span>
                     </span>
@@ -458,7 +458,7 @@ export default function BoardScreenPage() {
     {
       id: "kanban",
       title: `Kanban (${totalCards} carte${totalCards > 1 ? "s" : ""})`,
-      icon: <Monitor className="h-3 w-3 text-blue-400" />,
+      icon: <Monitor className="h-4 w-4 text-blue-400" />,
       content: (
         <KanbanContent
           columns={columns}
@@ -473,7 +473,7 @@ export default function BoardScreenPage() {
       ? [{
           id: "feed",
           title: "Flux en direct",
-          icon: <Rss className="h-3 w-3 text-amber-400" />,
+          icon: <Rss className="h-4 w-4 text-amber-400" />,
           content: <FeedContent feed={feed} feedTab={feedTab} setFeedTab={setFeedTab} />,
         }]
       : []),
@@ -481,7 +481,7 @@ export default function BoardScreenPage() {
       ? [{
           id: "backups",
           title: "Sauvegardes",
-          icon: <HardDrive className="h-3 w-3 text-emerald-400" />,
+          icon: <HardDrive className="h-4 w-4 text-emerald-400" />,
           content: <BackupsWidget dark />,
         }]
       : []),
@@ -489,7 +489,7 @@ export default function BoardScreenPage() {
       ? [{
           id: "atera",
           title: "Alertes Atera",
-          icon: <Bell className="h-3 w-3 text-red-400" />,
+          icon: <Bell className="h-4 w-4 text-red-400" />,
           content: <AteraAlertsWidget dark />,
         }]
       : []),
@@ -497,7 +497,7 @@ export default function BoardScreenPage() {
       ? [{
           id: "activity_feed",
           title: "Fil d'activité",
-          icon: <Activity className="h-3 w-3 text-blue-400" />,
+          icon: <Activity className="h-4 w-4 text-blue-400" />,
           content: <ActivityFeedWidget dark />,
         }]
       : []),
@@ -505,7 +505,7 @@ export default function BoardScreenPage() {
       ? [{
           id: "emsisoft",
           title: "Sécurité Emsisoft",
-          icon: <Shield className="h-3 w-3 text-purple-400" />,
+          icon: <Shield className="h-4 w-4 text-purple-400" />,
           content: <EmisoftWidget dark />,
         }]
       : []),
@@ -513,7 +513,7 @@ export default function BoardScreenPage() {
       ? [{
           id: "emsisoft_alerts",
           title: "Alertes Emsisoft",
-          icon: <ShieldAlert className="h-3 w-3 text-red-400" />,
+          icon: <ShieldAlert className="h-4 w-4 text-red-400" />,
           content: <EmisoftAlertsWidget dark />,
         }]
       : []),
@@ -521,7 +521,7 @@ export default function BoardScreenPage() {
       ? [{
           id: "spotify",
           title: "Spotify",
-          icon: <Music className="h-3 w-3 text-green-400" />,
+          icon: <Music className="h-4 w-4 text-green-400" />,
           content: <SpotifyWidget dark />,
         }]
       : []),
@@ -529,7 +529,7 @@ export default function BoardScreenPage() {
       ? [{
           id: "video_player",
           title: "Lecteur vidéo",
-          icon: <Tv className="h-3 w-3 text-cyan-400" />,
+          icon: <Tv className="h-4 w-4 text-cyan-400" />,
           content: <VideoPlayerWidget dark />,
         }]
       : []),
@@ -537,7 +537,7 @@ export default function BoardScreenPage() {
       ? [{
           id: "calendar",
           title: "Calendrier",
-          icon: <Calendar className="h-3 w-3 text-orange-400" />,
+          icon: <Calendar className="h-4 w-4 text-orange-400" />,
           content: <CalendarPanel dark />,
         }]
       : []),
@@ -548,63 +548,63 @@ export default function BoardScreenPage() {
       <TicketToast />
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-2 bg-slate-800/80 border-b border-slate-700 shrink-0">
-        <div className="flex items-center gap-3">
-          <Monitor className="h-5 w-5 text-blue-400" />
-          <h1 className="text-lg font-bold">Board</h1>
-          <span className="text-sm text-slate-400">{totalCards} carte{totalCards > 1 ? "s" : ""}</span>
+      <div className="flex items-center justify-between px-6 py-3 bg-slate-800/80 border-b border-slate-700 shrink-0">
+        <div className="flex items-center gap-4">
+          <Monitor className="h-6 w-6 text-blue-400" />
+          <h1 className="text-xl font-bold">Board</h1>
+          <span className="text-base text-slate-400">{totalCards} carte{totalCards > 1 ? "s" : ""}</span>
 
-          <div className="flex items-center ml-2 bg-slate-700/60 rounded-lg p-0.5">
+          <div className="flex items-center ml-3 bg-slate-700/60 rounded-xl p-1">
             <button
               onClick={() => setScreenTab("board")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-md transition-colors",
+                "flex items-center gap-2 px-5 py-2.5 min-h-[48px] text-base font-medium rounded-lg transition-colors",
                 screenTab === "board"
                   ? "bg-slate-600 text-white shadow-sm"
                   : "text-slate-400 hover:text-slate-200"
               )}
             >
-              <Monitor className="h-3.5 w-3.5" />
+              <Monitor className="h-5 w-5" />
               Board
             </button>
             <button
               onClick={() => setScreenTab("calendar")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-md transition-colors",
+                "flex items-center gap-2 px-5 py-2.5 min-h-[48px] text-base font-medium rounded-lg transition-colors",
                 screenTab === "calendar"
                   ? "bg-slate-600 text-white shadow-sm"
                   : "text-slate-400 hover:text-slate-200"
               )}
             >
-              <Calendar className="h-3.5 w-3.5" />
+              <Calendar className="h-5 w-5" />
               Calendrier
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-5">
           {feed && (
-            <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-6 text-base">
               <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-emerald-400" />
-                <span className="text-emerald-400 font-semibold">{feed.stats.enGarantie}</span>
+                <Shield className="h-5 w-5 text-emerald-400" />
+                <span className="text-emerald-400 font-bold text-lg">{feed.stats.enGarantie}</span>
                 <span className="text-slate-400">en parc</span>
               </div>
               <div className="flex items-center gap-2">
-                <ShieldOff className="h-4 w-4 text-red-400" />
-                <span className="text-red-400 font-semibold">{feed.stats.horsGarantie}</span>
+                <ShieldOff className="h-5 w-5 text-red-400" />
+                <span className="text-red-400 font-bold text-lg">{feed.stats.horsGarantie}</span>
                 <span className="text-slate-400">hors parc</span>
               </div>
               <div className="flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-amber-400" />
-                <span className="text-amber-400 font-semibold">{feed.stats.expiring30}</span>
+                <ShieldAlert className="h-5 w-5 text-amber-400" />
+                <span className="text-amber-400 font-bold text-lg">{feed.stats.expiring30}</span>
                 <span className="text-slate-400">expirent sous 30j</span>
               </div>
             </div>
           )}
 
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <RefreshCw className="h-3 w-3" />
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <RefreshCw className="h-4 w-4" />
             {lastRefresh.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </div>
 
@@ -613,14 +613,14 @@ export default function BoardScreenPage() {
             <button
               ref={settingsButtonRef}
               onClick={() => setShowSettings(!showSettings)}
-              className={cn("flex items-center justify-center gap-1.5 px-3 py-1.5 min-h-[44px] min-w-[44px] text-sm rounded-lg transition-colors", showSettings ? "bg-blue-600 text-white" : "bg-slate-700 hover:bg-slate-600 text-slate-300")}
+              className={cn("flex items-center justify-center gap-2 px-4 py-2.5 min-h-[52px] min-w-[52px] text-base rounded-xl transition-colors", showSettings ? "bg-blue-600 text-white" : "bg-slate-700 hover:bg-slate-600 text-slate-300")}
             >
-              <Settings className="h-5 w-5" />
+              <Settings className="h-6 w-6" />
             </button>
           </div>
 
-          <button onClick={exitScreen} className="flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] text-sm bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">
-            <X className="h-5 w-5" />
+          <button onClick={exitScreen} className="flex items-center gap-2 px-5 py-2.5 min-h-[52px] text-base bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors">
+            <X className="h-6 w-6" />
             Quitter
           </button>
         </div>
@@ -637,21 +637,21 @@ export default function BoardScreenPage() {
       <div
         ref={settingsRef}
         className={cn(
-          "fixed top-0 right-0 h-full w-80 z-[9998] bg-slate-800 border-l border-slate-600 shadow-2xl transition-transform duration-300 ease-out flex flex-col",
+          "fixed top-0 right-0 h-full w-96 z-[9998] bg-slate-800 border-l border-slate-600 shadow-2xl transition-transform duration-300 ease-out flex flex-col",
           showSettings ? "translate-x-0" : "translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
-          <h3 className="text-base font-semibold text-white">Widgets</h3>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700 shrink-0">
+          <h3 className="text-lg font-semibold text-white">Widgets</h3>
           <button
             onClick={() => setShowSettings(false)}
-            className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+            className="flex items-center justify-center min-h-[52px] min-w-[52px] rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
           >
-            <X className="h-5 w-5" />
+            <X className="h-6 w-6" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          <p className="text-xs text-slate-500 mb-4">Glissez les widgets pour les réorganiser. Redimensionnez avec le coin bas-droit.</p>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <p className="text-sm text-slate-500 mb-5">Glissez les widgets pour les réorganiser. Redimensionnez avec le coin bas-droit.</p>
           {[
             { key: "showCyberNews" as const, label: "Bandeau cyber" },
             { key: "showFeed" as const, label: "Flux en direct" },
@@ -664,13 +664,13 @@ export default function BoardScreenPage() {
             { key: "showVideoPlayer" as const, label: "Lecteur vidéo" },
             { key: "showCalendar" as const, label: "Calendrier" },
           ].map(({ key, label }) => (
-            <div key={key} className="flex items-center justify-between py-3 border-b border-slate-700/50 last:border-b-0">
-              <span className="text-sm text-slate-300">{label}</span>
+            <div key={key} className="flex items-center justify-between py-4 border-b border-slate-700/50 last:border-b-0">
+              <span className="text-base text-slate-300">{label}</span>
               <button
                 onClick={() => updateVisibility({ [key]: !visibility[key] })}
-                className={cn("relative w-12 h-7 rounded-full transition-colors shrink-0", visibility[key] ? "bg-blue-600" : "bg-slate-600")}
+                className={cn("relative w-16 h-9 rounded-full transition-colors shrink-0", visibility[key] ? "bg-blue-600" : "bg-slate-600")}
               >
-                <div className={cn("absolute top-0.5 w-6 h-6 rounded-full bg-white transition-transform", visibility[key] ? "translate-x-5" : "translate-x-0.5")} />
+                <div className={cn("absolute top-1 w-7 h-7 rounded-full bg-white transition-transform", visibility[key] ? "translate-x-8" : "translate-x-1")} />
               </button>
             </div>
           ))}
@@ -713,15 +713,15 @@ function FeedContent({
     <div className="flex flex-col h-full">
       <div className="flex border-b border-slate-700 shrink-0">
         {[
-          { key: "expiring" as const, label: "Expirations", icon: <AlertTriangle className="h-3.5 w-3.5" />, color: "amber" },
-          { key: "changes" as const, label: "Changements", icon: <ArrowRightLeft className="h-3.5 w-3.5" />, color: "blue" },
-          { key: "activity" as const, label: "Activité", icon: <Activity className="h-3.5 w-3.5" />, color: "emerald" },
+          { key: "expiring" as const, label: "Expirations", icon: <AlertTriangle className="h-4 w-4" />, color: "amber" },
+          { key: "changes" as const, label: "Changements", icon: <ArrowRightLeft className="h-4 w-4" />, color: "blue" },
+          { key: "activity" as const, label: "Activité", icon: <Activity className="h-4 w-4" />, color: "emerald" },
         ].map(({ key, label, icon, color }) => (
           <button
             key={key}
             onClick={() => setFeedTab(key)}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium transition-colors",
+              "flex-1 flex items-center justify-center gap-2 px-3 py-3.5 min-h-[48px] text-sm font-medium transition-colors",
               feedTab === key ? `text-${color}-400 border-b-2 border-${color}-400 bg-slate-700/30` : "text-slate-400 hover:text-slate-300"
             )}
           >
@@ -737,23 +737,23 @@ function FeedContent({
           </div>
         ) : feedTab === "expiring" ? (
           <div className="divide-y divide-slate-700/50">
-            {feed.expiring.length === 0 && <div className="p-6 text-center text-slate-500 text-sm">Aucune expiration prochaine</div>}
+            {feed.expiring.length === 0 && <div className="p-6 text-center text-slate-500 text-base">Aucune expiration prochaine</div>}
             {feed.expiring.map((item) => (
-              <div key={item.id} className="px-4 py-3 hover:bg-slate-700/20 transition-colors">
-                <div className="flex items-start justify-between gap-2">
+              <div key={item.id} className="px-5 py-4 hover:bg-slate-700/20 transition-colors">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{item.client}</p>
-                    <p className="text-xs text-slate-400 truncate">{item.product}</p>
+                    <p className="text-base font-medium text-white truncate">{item.client}</p>
+                    <p className="text-sm text-slate-400 truncate mt-0.5">{item.product}</p>
                   </div>
                   <div className={cn(
-                    "shrink-0 px-2 py-0.5 rounded-full text-xs font-bold",
+                    "shrink-0 px-3 py-1 rounded-full text-sm font-bold",
                     item.daysLeft <= 7 ? "bg-red-500/20 text-red-400" : item.daysLeft <= 30 ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"
                   )}>
                     {item.daysLeft}j
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 mt-1.5 text-xs text-slate-500">
-                  <Clock className="h-3 w-3" />
+                <div className="flex items-center gap-2 mt-2 text-sm text-slate-500">
+                  <Clock className="h-3.5 w-3.5" />
                   {formatDate(item.endDate)}
                 </div>
               </div>
@@ -761,51 +761,51 @@ function FeedContent({
           </div>
         ) : feedTab === "changes" ? (
           <div className="divide-y divide-slate-700/50">
-            {feed.statusChanges.length === 0 && <div className="p-6 text-center text-slate-500 text-sm">Aucun changement récent</div>}
+            {feed.statusChanges.length === 0 && <div className="p-6 text-center text-slate-500 text-base">Aucun changement récent</div>}
             {feed.statusChanges.map((item) => (
-              <div key={item.id} className="px-4 py-3 hover:bg-slate-700/20 transition-colors">
+              <div key={item.id} className="px-5 py-4 hover:bg-slate-700/20 transition-colors">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{item.client}</p>
-                  <p className="text-xs text-slate-400 truncate">{item.product}</p>
+                  <p className="text-base font-medium text-white truncate">{item.client}</p>
+                  <p className="text-sm text-slate-400 truncate mt-0.5">{item.product}</p>
                 </div>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">
+                <div className="flex items-center gap-2.5 mt-2">
+                  <span className="text-sm px-2 py-1 rounded bg-slate-700 text-slate-300">
                     {STATUS_LABELS[item.oldStatus || ""] || item.oldStatus || "—"}
                   </span>
-                  <ArrowRightLeft className="h-3 w-3 text-slate-500" />
+                  <ArrowRightLeft className="h-3.5 w-3.5 text-slate-500" />
                   <span className={cn(
-                    "text-xs px-1.5 py-0.5 rounded font-medium",
+                    "text-sm px-2 py-1 rounded font-medium",
                     item.newStatus === "HORS_PARC" ? "bg-red-500/20 text-red-400" : item.newStatus === "EN_PARC" ? "bg-emerald-500/20 text-emerald-400" : "bg-blue-500/20 text-blue-400"
                   )}>
                     {STATUS_LABELS[item.newStatus || ""] || item.newStatus || "—"}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">{timeAgo(item.date)}</p>
+                <p className="text-sm text-slate-500 mt-1.5">{timeAgo(item.date)}</p>
               </div>
             ))}
           </div>
         ) : (
           <div className="divide-y divide-slate-700/50">
-            {feed.activity.length === 0 && <div className="p-6 text-center text-slate-500 text-sm">Aucune activité récente</div>}
+            {feed.activity.length === 0 && <div className="p-6 text-center text-slate-500 text-base">Aucune activité récente</div>}
             {feed.activity.map((item) => (
-              <div key={item.id} className="px-4 py-3 hover:bg-slate-700/20 transition-colors">
-                <p className="text-sm text-white">
+              <div key={item.id} className="px-5 py-4 hover:bg-slate-700/20 transition-colors">
+                <p className="text-base text-white">
                   <span className="font-medium">{item.userName || "Système"}</span>
                   {" — "}
                   <span className="text-slate-400">{ACTION_LABELS[item.action] || item.action}</span>
                   {" "}
                   <span className="text-slate-500">{item.entity}</span>
                 </p>
-                {item.details && <p className="text-xs text-slate-500 truncate mt-0.5">{item.details}</p>}
-                <p className="text-xs text-slate-600 mt-1">{formatTime(item.date)} — {timeAgo(item.date)}</p>
+                {item.details && <p className="text-sm text-slate-500 truncate mt-1">{item.details}</p>}
+                <p className="text-sm text-slate-600 mt-1.5">{formatTime(item.date)} — {timeAgo(item.date)}</p>
               </div>
             ))}
           </div>
         )}
       </div>
-      <div className="shrink-0 px-4 py-2 border-t border-slate-700 bg-slate-800/50">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+      <div className="shrink-0 px-5 py-3 border-t border-slate-700 bg-slate-800/50">
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           Actualisation auto. toutes les 30s
         </div>
       </div>
@@ -865,7 +865,7 @@ function KanbanContent({
       <div className="relative h-full">
         <div
           ref={scrollRef}
-          className="flex gap-3 overflow-x-auto p-3 h-full snap-x snap-mandatory scroll-smooth"
+          className="flex gap-4 overflow-x-auto p-4 h-full snap-x snap-mandatory scroll-smooth"
         >
           {columns.map((column) => (
             <ScreenColumn key={column.id} column={column} colCount={columns.length} />
@@ -875,14 +875,14 @@ function KanbanContent({
         {/* Left edge fade */}
         <div
           className={cn(
-            "pointer-events-none absolute left-0 top-0 h-full w-12 bg-gradient-to-r from-slate-900/80 to-transparent transition-opacity",
+            "pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-slate-900/80 to-transparent transition-opacity",
             canScrollLeft ? "opacity-100" : "opacity-0",
           )}
         />
         {/* Right edge fade */}
         <div
           className={cn(
-            "pointer-events-none absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-slate-900/80 to-transparent transition-opacity",
+            "pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-slate-900/80 to-transparent transition-opacity",
             canScrollRight ? "opacity-100" : "opacity-0",
           )}
         />
@@ -892,15 +892,15 @@ function KanbanContent({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              scrollByAmount(-300);
+              scrollByAmount(-400);
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center h-11 w-11 rounded-full bg-slate-800/70 hover:bg-slate-700/90 text-white shadow-lg transition-colors"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center h-14 w-14 rounded-full bg-slate-800/80 hover:bg-slate-700/90 active:bg-slate-600 text-white shadow-xl transition-colors"
             aria-label="Faire défiler vers la gauche"
           >
-            <ChevronLeft className="h-6 w-6" />
+            <ChevronLeft className="h-8 w-8" />
           </button>
         )}
 
@@ -909,15 +909,15 @@ function KanbanContent({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              scrollByAmount(300);
+              scrollByAmount(400);
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center h-11 w-11 rounded-full bg-slate-800/70 hover:bg-slate-700/90 text-white shadow-lg transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center h-14 w-14 rounded-full bg-slate-800/80 hover:bg-slate-700/90 active:bg-slate-600 text-white shadow-xl transition-colors"
             aria-label="Faire défiler vers la droite"
           >
-            <ChevronRight className="h-6 w-6" />
+            <ChevronRight className="h-8 w-8" />
           </button>
         )}
       </div>
@@ -939,22 +939,22 @@ function ScreenColumn({ column, colCount }: { column: BoardColumn; colCount: num
   return (
     <div
       className="snap-start shrink-0 flex flex-col bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden"
-      style={{ width: `${Math.max(220, Math.floor(100 / colCount))}%`, minWidth: 220, maxWidth: 340 }}
+      style={{ width: `${Math.max(280, Math.floor(100 / colCount))}%`, minWidth: 280, maxWidth: 420 }}
     >
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-700/50">
-        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
-        <h2 className="font-semibold text-sm truncate">{column.name}</h2>
-        <span className="ml-auto text-xs text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">{column.cards.length}</span>
+      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-700/50">
+        <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
+        <h2 className="font-semibold text-base truncate">{column.name}</h2>
+        <span className="ml-auto text-sm text-slate-500 bg-slate-700/50 px-2.5 py-1 rounded-full font-medium">{column.cards.length}</span>
       </div>
       <div
         ref={setNodeRef}
-        className={cn("flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin min-h-[60px] transition-colors", isOver && "bg-slate-700/30")}
+        className={cn("flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin min-h-[80px] transition-colors", isOver && "bg-slate-700/30")}
       >
         <SortableContext items={column.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {column.cards.map((card) => <ScreenCard key={card.id} card={card} />)}
         </SortableContext>
         {column.cards.length === 0 && (
-          <div className={cn("flex items-center justify-center border-2 border-dashed rounded-lg py-4 text-xs transition-colors", isOver ? "border-blue-400 text-blue-300 bg-blue-500/10" : "border-slate-700 text-slate-600")}>
+          <div className={cn("flex items-center justify-center border-2 border-dashed rounded-xl py-6 text-sm transition-colors", isOver ? "border-blue-400 text-blue-300 bg-blue-500/10" : "border-slate-700 text-slate-600")}>
             Déposez ici
           </div>
         )}
@@ -977,29 +977,29 @@ function ScreenCard({ card, isDraggingOverlay }: { card: BoardCard; isDraggingOv
       {...attributes}
       {...listeners}
       className={cn(
-        "bg-slate-700/40 rounded-lg border-l-2 hover:bg-slate-700/60 transition-colors cursor-grab active:cursor-grabbing touch-none select-none",
+        "bg-slate-700/40 rounded-xl border-l-[3px] hover:bg-slate-700/60 active:bg-slate-700/80 transition-colors cursor-grab active:cursor-grabbing touch-none select-none min-h-[56px]",
         priorityColors[card.priority] || "border-l-slate-600",
         isDragging && "opacity-30",
       )}
     >
       {card.client && (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border-b border-blue-500/20 rounded-t-lg">
-          {card.client.logoUrl && <img src={card.client.logoUrl} alt="" className="h-4 w-4 rounded-full object-cover" />}
-          <span className="text-xs font-bold text-blue-300 truncate">{card.client.name}</span>
+        <div className="flex items-center gap-2.5 px-4 py-2 bg-blue-500/10 border-b border-blue-500/20 rounded-t-xl">
+          {card.client.logoUrl && <img src={card.client.logoUrl} alt="" className="h-5 w-5 rounded-full object-cover" />}
+          <span className="text-sm font-bold text-blue-300 truncate">{card.client.name}</span>
         </div>
       )}
-      <div className="px-3 py-2">
-        <p className="text-sm font-medium text-white line-clamp-2">{card.title}</p>
+      <div className="px-4 py-3">
+        <p className="text-base font-medium text-white line-clamp-2 leading-snug">{card.title}</p>
         {(card.tags.length > 0 || card.dueDate) && (
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+          <div className="flex items-center gap-2.5 mt-2 flex-wrap">
             {card.tags.slice(0, 3).map((t) => (
-              <span key={t.id} className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: t.tag.color + "30", color: t.tag.color }}>
+              <span key={t.id} className="text-xs px-2 py-1 rounded-md font-medium" style={{ backgroundColor: t.tag.color + "30", color: t.tag.color }}>
                 {t.tag.name}
               </span>
             ))}
             {card.dueDate && (
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1", isOverdue ? "bg-red-500/20 text-red-400" : "bg-slate-600/50 text-slate-400")}>
-                <Clock className="h-2.5 w-2.5" />
+              <span className={cn("text-xs px-2 py-1 rounded-md flex items-center gap-1.5 font-medium", isOverdue ? "bg-red-500/20 text-red-400" : "bg-slate-600/50 text-slate-400")}>
+                <Clock className="h-3.5 w-3.5" />
                 {formatDate(card.dueDate)}
               </span>
             )}
