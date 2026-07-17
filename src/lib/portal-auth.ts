@@ -64,7 +64,7 @@ export async function setPortalCookie(token: string) {
     httpOnly: true,
     secure: useSecureCookie,
     sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 60 * 60 * 24 * 15, // 15 days
     path: "/",
   });
 }

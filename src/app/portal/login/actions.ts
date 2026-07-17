@@ -19,7 +19,7 @@ export async function portalLoginAction(email: string, password: string) {
     httpOnly: true,
     secure: useSecureCookie,
     sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 24 * 15,
     path: "/",
   });
 
