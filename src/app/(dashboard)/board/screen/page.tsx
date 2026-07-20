@@ -212,6 +212,26 @@ function timeAgo(dateStr: string) {
   return `il y a ${days}j`;
 }
 
+// Compensates for nested scroll containers that cause the DragOverlay
+// to appear offset from the actual touch/pointer position.
+function snapToCursor({
+  activatorEvent,
+  draggingNodeRect,
+  transform,
+}: {
+  activatorEvent: Event | null;
+  draggingNodeRect: { left: number; top: number; width: number; height: number } | null;
+  transform: { x: number; y: number; scaleX: number; scaleY: number };
+}) {
+  if (draggingNodeRect && activatorEvent && "clientX" in activatorEvent) {
+    const e = activatorEvent as PointerEvent;
+    const offsetX = e.clientX - draggingNodeRect.left - draggingNodeRect.width / 2;
+    const offsetY = e.clientY - draggingNodeRect.top - draggingNodeRect.height / 2;
+    return { ...transform, x: transform.x + offsetX, y: transform.y + offsetY };
+  }
+  return transform;
+}
+
 export default function BoardScreenPage() {
   const router = useRouter();
   const [columns, setColumns] = useState<BoardColumn[]>([]);
@@ -921,7 +941,7 @@ function KanbanContent({
           </button>
         )}
       </div>
-      <DragOverlay>
+      <DragOverlay modifiers={[snapToCursor]}>
         {activeCard ? (
           <div className="rotate-3 opacity-90">
             <ScreenCard card={activeCard} isDraggingOverlay />
