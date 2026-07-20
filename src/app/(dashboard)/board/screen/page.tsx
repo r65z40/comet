@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
+import CardDetailModal from "../CardDetailModal";
 import CalendarPanel from "../CalendarPanel";
 import BackupsWidget from "../BackupsWidget";
 import AteraAlertsWidget from "../AteraAlertsWidget";
@@ -247,6 +248,9 @@ export default function BoardScreenPage() {
   const [visibility, setVisibility] = useState<ScreenVisibility>(DEFAULT_VISIBILITY);
   const [showSettings, setShowSettings] = useState(false);
   const [screenTab, setScreenTab] = useState<"board" | "calendar">("board");
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const isDraggingRef = useRef(false);
   const columnsSnapshotRef = useRef<BoardColumn[]>([]);
   const columnsRef = useRef(columns);
@@ -327,8 +331,21 @@ export default function BoardScreenPage() {
     } catch {}
   }, []);
 
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/board/users");
+      if (res.ok) setUsers(await res.json());
+    } catch {}
+  }, []);
+
+  async function handlePullRefresh() {
+    setRefreshing(true);
+    await Promise.all([fetchColumns(), fetchFeed()]);
+    setRefreshing(false);
+  }
+
   useEffect(() => {
-    Promise.all([fetchColumns(), fetchFeed(), fetchCyberNews()]).finally(() => setLoading(false));
+    Promise.all([fetchColumns(), fetchFeed(), fetchCyberNews(), fetchUsers()]).finally(() => setLoading(false));
 
     function startPolling() {
       if (refreshIntervalRef.current) return;
@@ -355,7 +372,7 @@ export default function BoardScreenPage() {
       clearInterval(cyberInterval);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [fetchColumns, fetchFeed, fetchCyberNews]);
+  }, [fetchColumns, fetchFeed, fetchCyberNews, fetchUsers]);
 
   useEffect(() => {
     const el = document.documentElement;
@@ -556,6 +573,7 @@ export default function BoardScreenPage() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
           activeCard={activeCard}
+          onCardOpen={setSelectedCardId}
         />
       ),
     },
@@ -769,22 +787,37 @@ export default function BoardScreenPage() {
 
       {/* Content */}
       {screenTab === "board" ? (
-        <div ref={gridContainerRef} className="flex-1 overflow-auto p-1 pb-6">
-          <DashboardGrid
-            widgets={widgets}
-            defaultLayout={SCREEN_DEFAULT_LAYOUT}
-            storageKey="comet_screen_grid"
-            dark
-            rowHeight={screenRowHeight}
-          />
-        </div>
+        <PullToRefresh onRefresh={handlePullRefresh} refreshing={refreshing}>
+          <div ref={gridContainerRef} className="flex-1 overflow-auto p-1 pb-6">
+            <DashboardGrid
+              widgets={widgets}
+              defaultLayout={SCREEN_DEFAULT_LAYOUT}
+              storageKey="comet_screen_grid"
+              dark
+              rowHeight={screenRowHeight}
+            />
+          </div>
+        </PullToRefresh>
       ) : (
-        <div className="flex-1 overflow-auto p-4">
-          <CalendarPanel dark />
-        </div>
+        <PullToRefresh onRefresh={handlePullRefresh} refreshing={refreshing}>
+          <div className="flex-1 overflow-auto p-4">
+            <CalendarPanel dark />
+          </div>
+        </PullToRefresh>
       )}
 
       <CriticalAlertOverlay dark />
+
+      {selectedCardId && (
+        <CardDetailModal
+          cardId={selectedCardId}
+          users={users}
+          onClose={() => {
+            setSelectedCardId(null);
+            fetchColumns();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -912,6 +945,7 @@ function KanbanContent({
   onDragOver,
   onDragEnd,
   activeCard,
+  onCardOpen,
 }: {
   columns: BoardColumn[];
   sensors: ReturnType<typeof useSensors>;
@@ -920,10 +954,12 @@ function KanbanContent({
   onDragOver: (event: DragOverEvent) => void;
   onDragEnd: (event: DragEndEvent) => void;
   activeCard: BoardCard | null;
+  onCardOpen: (cardId: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
@@ -945,6 +981,32 @@ function KanbanContent({
     };
   }, [updateScrollState, columns]);
 
+  useEffect(() => {
+    if (!activeCard) {
+      if (autoScrollRef.current) { clearInterval(autoScrollRef.current); autoScrollRef.current = null; }
+      return;
+    }
+    function onPointerMove(e: PointerEvent) {
+      const el = scrollRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const edgeZone = 80;
+      if (autoScrollRef.current) { clearInterval(autoScrollRef.current); autoScrollRef.current = null; }
+      if (e.clientX < rect.left + edgeZone && el.scrollLeft > 0) {
+        const speed = Math.max(2, Math.round((edgeZone - (e.clientX - rect.left)) / 4));
+        autoScrollRef.current = setInterval(() => { el.scrollLeft -= speed; }, 16);
+      } else if (e.clientX > rect.right - edgeZone && el.scrollLeft + el.clientWidth < el.scrollWidth) {
+        const speed = Math.max(2, Math.round((edgeZone - (rect.right - e.clientX)) / 4));
+        autoScrollRef.current = setInterval(() => { el.scrollLeft += speed; }, 16);
+      }
+    }
+    window.addEventListener("pointermove", onPointerMove);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      if (autoScrollRef.current) { clearInterval(autoScrollRef.current); autoScrollRef.current = null; }
+    };
+  }, [activeCard]);
+
   function scrollByAmount(amount: number) {
     scrollRef.current?.scrollBy({ left: amount, behavior: "smooth" });
   }
@@ -958,14 +1020,16 @@ function KanbanContent({
       onDragEnd={onDragEnd}
     >
       <div className="relative h-full">
-        <div
-          ref={scrollRef}
-          className="flex gap-4 overflow-x-auto p-4 h-full snap-x snap-mandatory scroll-smooth"
-        >
-          {columns.map((column) => (
-            <ScreenColumn key={column.id} column={column} colCount={columns.length} />
-          ))}
-        </div>
+        <SwipeContainer scrollRef={scrollRef}>
+          <div
+            ref={scrollRef}
+            className="flex gap-4 overflow-x-auto p-4 h-full snap-x snap-mandatory scroll-smooth"
+          >
+            {columns.map((column) => (
+              <ScreenColumn key={column.id} column={column} colCount={columns.length} onCardOpen={onCardOpen} />
+            ))}
+          </div>
+        </SwipeContainer>
 
         {/* Left edge fade */}
         <div
@@ -1018,7 +1082,7 @@ function KanbanContent({
       </div>
       <DragOverlay modifiers={[snapToCursor]}>
         {activeCard ? (
-          <div className="rotate-3 opacity-90">
+          <div className="rotate-3 scale-105 opacity-90 drop-shadow-2xl">
             <ScreenCard card={activeCard} isDraggingOverlay />
           </div>
         ) : null}
@@ -1027,8 +1091,89 @@ function KanbanContent({
   );
 }
 
+/* Swipe gesture container for horizontal column navigation */
+function SwipeContainer({ scrollRef, children }: { scrollRef: React.RefObject<HTMLDivElement | null>; children: React.ReactNode }) {
+  const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
+
+  return (
+    <div
+      className="h-full"
+      onTouchStart={(e) => {
+        const touch = e.touches[0];
+        touchStartRef.current = { x: touch.clientX, y: touch.clientY, t: Date.now() };
+      }}
+      onTouchEnd={(e) => {
+        if (!touchStartRef.current || !scrollRef.current) return;
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - touchStartRef.current.x;
+        const dy = touch.clientY - touchStartRef.current.y;
+        const dt = Date.now() - touchStartRef.current.t;
+        touchStartRef.current = null;
+        if (dt > 500 || Math.abs(dy) > Math.abs(dx)) return;
+        if (Math.abs(dx) > 60) {
+          const colWidth = scrollRef.current.querySelector(".snap-start")?.clientWidth ?? 300;
+          scrollRef.current.scrollBy({ left: dx < 0 ? colWidth + 16 : -(colWidth + 16), behavior: "smooth" });
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* Pull-to-refresh wrapper */
+function PullToRefresh({ onRefresh, refreshing, children }: { onRefresh: () => void; refreshing: boolean; children: React.ReactNode }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [pullDistance, setPullDistance] = useState(0);
+  const touchStartRef = useRef<number | null>(null);
+  const pullingRef = useRef(false);
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex-1 flex flex-col overflow-hidden relative"
+      onTouchStart={(e) => {
+        const el = containerRef.current;
+        if (el && el.scrollTop <= 0) {
+          touchStartRef.current = e.touches[0].clientY;
+        }
+      }}
+      onTouchMove={(e) => {
+        if (touchStartRef.current === null) return;
+        const dy = e.touches[0].clientY - touchStartRef.current;
+        if (dy > 0) {
+          pullingRef.current = true;
+          setPullDistance(Math.min(dy * 0.4, 80));
+        } else {
+          pullingRef.current = false;
+          setPullDistance(0);
+        }
+      }}
+      onTouchEnd={() => {
+        if (pullingRef.current && pullDistance > 50) {
+          onRefresh();
+        }
+        touchStartRef.current = null;
+        pullingRef.current = false;
+        setPullDistance(0);
+      }}
+    >
+      <div
+        className="flex items-center justify-center text-slate-400 overflow-hidden transition-all duration-200 shrink-0"
+        style={{ height: refreshing ? 48 : pullDistance }}
+      >
+        <RefreshCw className={cn("h-5 w-5 transition-transform", refreshing && "animate-spin", pullDistance > 50 && !refreshing && "text-blue-400")} />
+        <span className="ml-2 text-sm">
+          {refreshing ? "Actualisation…" : pullDistance > 50 ? "Relâchez pour actualiser" : "Tirez pour actualiser"}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 /* Screen column */
-function ScreenColumn({ column, colCount }: { column: BoardColumn; colCount: number }) {
+function ScreenColumn({ column, colCount, onCardOpen }: { column: BoardColumn; colCount: number; onCardOpen: (id: string) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
@@ -1046,7 +1191,7 @@ function ScreenColumn({ column, colCount }: { column: BoardColumn; colCount: num
         className={cn("flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin min-h-[80px] transition-colors", isOver && "bg-slate-700/30")}
       >
         <SortableContext items={column.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-          {column.cards.map((card) => <ScreenCard key={card.id} card={card} />)}
+          {column.cards.map((card) => <ScreenCard key={card.id} card={card} onLongPress={() => onCardOpen(card.id)} />)}
         </SortableContext>
         {column.cards.length === 0 && (
           <div className={cn("flex items-center justify-center border-2 border-dashed rounded-xl py-6 text-sm transition-colors", isOver ? "border-blue-400 text-blue-300 bg-blue-500/10" : "border-slate-700 text-slate-600")}>
@@ -1059,11 +1204,32 @@ function ScreenColumn({ column, colCount }: { column: BoardColumn; colCount: num
 }
 
 /* Screen card */
-function ScreenCard({ card, isDraggingOverlay }: { card: BoardCard; isDraggingOverlay?: boolean }) {
+function ScreenCard({ card, isDraggingOverlay, onLongPress }: { card: BoardCard; isDraggingOverlay?: boolean; onLongPress?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id, disabled: isDraggingOverlay });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const priorityColors: Record<number, string> = { 1: "border-l-red-500", 2: "border-l-orange-500", 3: "border-l-slate-600" };
   const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+
+  function handlePointerDown(e: React.PointerEvent) {
+    didLongPress.current = false;
+    listeners?.onPointerDown?.(e);
+    if (onLongPress) {
+      longPressTimer.current = setTimeout(() => {
+        didLongPress.current = true;
+        onLongPress();
+      }, 500);
+    }
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  }
+
+  function handlePointerUp() {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  }
 
   if (isDragging) {
     return (
@@ -1081,6 +1247,10 @@ function ScreenCard({ card, isDraggingOverlay }: { card: BoardCard; isDraggingOv
       style={style}
       {...attributes}
       {...listeners}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       className={cn(
         "bg-slate-700/40 rounded-xl border-l-[3px] hover:bg-slate-700/60 active:bg-slate-700/80 transition-colors cursor-grab active:cursor-grabbing touch-none select-none min-h-[56px]",
         priorityColors[card.priority] || "border-l-slate-600",
