@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  closestCenter,
+  pointerWithin,
   PointerSensor,
   KeyboardSensor,
   useSensor,
@@ -14,6 +15,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -379,6 +381,12 @@ export default function BoardScreenPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) return pointerCollisions;
+    return closestCenter(args);
+  }, []);
+
   function handleDragStart(event: DragStartEvent) {
     isDraggingRef.current = true;
     columnsSnapshotRef.current = columns;
@@ -403,22 +411,9 @@ export default function BoardScreenPage() {
         : prev.find((col) => col.cards.some((c) => c.id === overId));
       if (!overCol) return prev;
 
+      if (activeCol.id === overCol.id) return prev;
+
       const activeIdx = activeCol.cards.findIndex((c) => c.id === activeId);
-
-      if (activeCol.id === overCol.id) {
-        if (overIsColumn) return prev;
-        const overIdx = overCol.cards.findIndex((c) => c.id === overId);
-        if (overIdx === -1 || activeIdx === overIdx) return prev;
-
-        return prev.map((col) => {
-          if (col.id !== activeCol.id) return col;
-          const newCards = [...col.cards];
-          const [moved] = newCards.splice(activeIdx, 1);
-          newCards.splice(overIdx, 0, moved);
-          return { ...col, cards: newCards.map((c, i) => ({ ...c, position: i })) };
-        });
-      }
-
       const overIdx = overIsColumn
         ? overCol.cards.length
         : overCol.cards.findIndex((c) => c.id === overId);
@@ -450,24 +445,58 @@ export default function BoardScreenPage() {
     }
 
     const activeId = active.id as string;
+    const overId = over.id as string;
+    if (activeId === overId) return;
+
+    const snapshot = columnsSnapshotRef.current;
     const latest = columnsRef.current;
-    const targetCol = latest.find((col) => col.cards.some((c) => c.id === activeId));
-    if (!targetCol) {
-      setColumns(columnsSnapshotRef.current);
-      return;
+    const sourceCol = snapshot.find((col) => col.cards.some((c) => c.id === activeId));
+    if (!sourceCol) return;
+    const movedCard = sourceCol.cards.find((c) => c.id === activeId)!;
+
+    const overIsColumn = latest.some((col) => col.id === overId);
+    let targetColumnId: string;
+    let targetPosition: number;
+
+    if (overIsColumn) {
+      targetColumnId = overId;
+      const tc = latest.find((col) => col.id === overId)!;
+      targetPosition = tc.cards.filter((c) => c.id !== activeId).length;
+    } else {
+      const overCol = latest.find((col) => col.cards.some((c) => c.id === overId));
+      if (!overCol) {
+        setColumns(snapshot);
+        return;
+      }
+      targetColumnId = overCol.id;
+      const cardsWithout = overCol.cards.filter((c) => c.id !== activeId);
+      const overIdx = cardsWithout.findIndex((c) => c.id === overId);
+      targetPosition = overIdx >= 0 ? overIdx : cardsWithout.length;
     }
 
-    const targetPosition = targetCol.cards.findIndex((c) => c.id === activeId);
+    const finalColumns = snapshot.map((col) => ({
+      ...col,
+      cards: col.cards.filter((c) => c.id !== activeId),
+    }));
+    const target = finalColumns.find((c) => c.id === targetColumnId);
+    if (target) {
+      target.cards.splice(targetPosition, 0, { ...movedCard, columnId: targetColumnId });
+    }
+    const result = finalColumns.map((col) => ({
+      ...col,
+      cards: col.cards.map((c, i) => ({ ...c, position: i })),
+    }));
+    setColumns(result);
 
     try {
       const res = await fetch("/api/board/cards/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId: activeId, targetColumnId: targetCol.id, targetPosition }),
+        body: JSON.stringify({ cardId: activeId, targetColumnId, targetPosition }),
       });
       if (!res.ok) throw new Error("Move failed");
     } catch {
-      setColumns(columnsSnapshotRef.current);
+      setColumns(snapshot);
     }
   }
 
@@ -522,6 +551,7 @@ export default function BoardScreenPage() {
         <KanbanContent
           columns={columns}
           sensors={sensors}
+          collisionDetection={collisionDetection}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
@@ -877,6 +907,7 @@ function FeedContent({
 function KanbanContent({
   columns,
   sensors,
+  collisionDetection,
   onDragStart,
   onDragOver,
   onDragEnd,
@@ -884,6 +915,7 @@ function KanbanContent({
 }: {
   columns: BoardColumn[];
   sensors: ReturnType<typeof useSensors>;
+  collisionDetection: CollisionDetection;
   onDragStart: (event: DragStartEvent) => void;
   onDragOver: (event: DragOverEvent) => void;
   onDragEnd: (event: DragEndEvent) => void;
@@ -920,7 +952,7 @@ function KanbanContent({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
