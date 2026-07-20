@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Calendar,
   Plus,
@@ -81,8 +81,8 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
   const [newColor, setNewColor] = useState("#3b82f6");
   const [weekOffset, setWeekOffset] = useState(0);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const swipeRef = useRef<{ x: number; t: number } | null>(null);
 
-  // Load cached data on mount
   useEffect(() => {
     try {
       const cachedFeeds = localStorage.getItem("comet_calendar_feeds");
@@ -236,68 +236,86 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
 
   return (
     <div className={cn(
-      "rounded-xl border shadow-sm w-full",
+      "rounded-xl border shadow-sm w-full h-full flex flex-col",
       dark ? "bg-slate-800/60 border-slate-700" : "bg-white border-slate-200",
     )}>
       {/* Header */}
-      <div className={cn("flex items-center justify-between p-4 border-b", dark ? "border-slate-700" : "border-slate-200")}>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-blue-500" />
-          <h2 className={cn("text-base font-semibold", dark ? "text-slate-200" : "text-slate-800")}>Agendas</h2>
+      <div className={cn(
+        "flex items-center justify-between border-b shrink-0",
+        dark ? "px-5 py-3.5 border-slate-700" : "p-4 border-slate-200",
+      )}>
+        <div className="flex items-center gap-2.5">
+          <Calendar className={cn(dark ? "h-6 w-6" : "h-5 w-5", "text-blue-500")} />
+          <h2 className={cn("font-semibold", dark ? "text-lg text-slate-200" : "text-base text-slate-800")}>Agendas</h2>
           {feeds.length > 0 && (
-            <span className={cn("text-xs px-2 py-0.5 rounded-full", dark ? "text-slate-400 bg-slate-700" : "text-slate-400 bg-slate-100")}>
+            <span className={cn(
+              "rounded-full",
+              dark ? "text-sm px-2.5 py-1 text-slate-400 bg-slate-700" : "text-xs px-2 py-0.5 text-slate-400 bg-slate-100",
+            )}>
               {feeds.length} agenda{feeds.length > 1 ? "s" : ""} · {totalEvents} événement{totalEvents > 1 ? "s" : ""}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className={cn("flex items-center", dark ? "gap-2" : "gap-1.5")}>
           <button
             onClick={() => fetchEvents()}
             disabled={loading}
             className={cn(
-              "p-1.5 rounded-lg transition-colors",
-              dark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100",
+              "rounded-lg transition-colors",
+              dark
+                ? "p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700"
+                : "p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100",
               loading && "animate-spin",
             )}
             title="Rafraîchir"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={dark ? "h-5 w-5" : "h-4 w-4"} />
           </button>
           <button
             onClick={() => { setShowSettings(!showSettings); if (showSettings) resetForm(); }}
             className={cn(
-              "p-1.5 rounded-lg transition-colors",
-              showSettings ? "bg-blue-50 text-blue-600" : dark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100",
+              "rounded-lg transition-colors",
+              dark
+                ? cn("p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center", showSettings ? "bg-blue-600 text-white" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700")
+                : cn("p-1.5", showSettings ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"),
             )}
             title="Gérer les agendas"
           >
-            <Settings className="h-4 w-4" />
+            <Settings className={dark ? "h-5 w-5" : "h-4 w-4"} />
           </button>
         </div>
       </div>
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="border-b border-slate-200 bg-slate-50 p-4">
+        <div className={cn(
+          "border-b p-4 shrink-0",
+          dark ? "border-slate-700 bg-slate-800/80" : "border-slate-200 bg-slate-50",
+        )}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-700">
+            <h3 className={cn("font-semibold", dark ? "text-base text-slate-300" : "text-sm text-slate-700")}>
               {isAdmin ? "Gestion des agendas" : "Mes agendas"}
             </h3>
             {isAdmin && (
               <button
                 onClick={() => { setShowAddFeed(!showAddFeed); if (showAddFeed) resetForm(); }}
-                className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className={cn(
+                  "flex items-center gap-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors",
+                  dark ? "text-sm px-4 py-2.5 min-h-[44px]" : "text-xs px-2.5 py-1.5",
+                )}
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Plus className={dark ? "h-4 w-4" : "h-3.5 w-3.5"} />
                 Ajouter
               </button>
             )}
           </div>
 
-          {/* Admin: add/edit form */}
           {isAdmin && showAddFeed && (
-            <div className="bg-white rounded-lg border border-slate-200 p-3 mb-3 space-y-2">
-              <p className="text-xs text-slate-500 mb-2">
+            <div className={cn(
+              "rounded-lg border p-4 mb-3 space-y-3",
+              dark ? "bg-slate-700/50 border-slate-600" : "bg-white border-slate-200",
+            )}>
+              <p className={cn("mb-2", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
                 Pour obtenir l&apos;URL ICS : Outlook 365 → Paramètres → Calendrier → Calendriers partagés → Publier un calendrier → Copier le lien ICS.
               </p>
               <input
@@ -305,34 +323,46 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
                 placeholder="Nom (ex: Mon agenda, Équipe...)"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={cn(
+                  "w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500",
+                  dark ? "px-4 py-3 text-base bg-slate-800 border border-slate-600 text-white placeholder-slate-500" : "px-3 py-2 text-sm border border-slate-200",
+                )}
               />
               <input
                 type="url"
                 placeholder="URL du calendrier ICS"
                 value={newUrl}
                 onChange={e => setNewUrl(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+                className={cn(
+                  "w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono",
+                  dark ? "px-4 py-3 text-sm bg-slate-800 border border-slate-600 text-white placeholder-slate-500" : "px-3 py-2 text-xs border border-slate-200",
+                )}
               />
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-500">Couleur :</label>
+              <div className="flex items-center gap-3">
+                <label className={cn(dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>Couleur :</label>
                 <input
                   type="color"
                   value={newColor}
                   onChange={e => setNewColor(e.target.value)}
-                  className="w-8 h-8 rounded cursor-pointer border border-slate-200"
+                  className={cn("rounded cursor-pointer border", dark ? "w-10 h-10 border-slate-600" : "w-8 h-8 border-slate-200")}
                 />
                 <div className="flex-1" />
                 <button
                   onClick={resetForm}
-                  className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
+                  className={cn(
+                    "transition-colors",
+                    dark ? "px-4 py-2.5 text-sm text-slate-400 hover:text-slate-200" : "px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700",
+                  )}
                 >
                   Annuler
                 </button>
                 <button
                   onClick={editingFeed ? updateFeed : addFeed}
                   disabled={!newName.trim() || (!editingFeed && !newUrl.trim())}
-                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={cn(
+                    "bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors",
+                    dark ? "px-5 py-2.5 text-sm min-h-[44px]" : "px-3 py-1.5 text-xs",
+                  )}
                 >
                   {editingFeed ? "Modifier" : "Ajouter"}
                 </button>
@@ -341,46 +371,55 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
           )}
 
           {feeds.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-4">
+            <p className={cn("text-center py-4", dark ? "text-base text-slate-500" : "text-sm text-slate-400")}>
               {isAdmin
                 ? "Aucun agenda connecté. Ajoutez un calendrier ICS pour que l'équipe puisse voir les événements."
                 : "Aucun agenda disponible. Un administrateur doit d'abord ajouter des calendriers."}
             </p>
           ) : (
-            <div className="space-y-1.5">
+            <div className={cn(dark ? "space-y-2" : "space-y-1.5")}>
               {feeds.map(feed => (
-                <div key={feed.id} className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: feed.color }} />
-                  <span className="text-sm text-slate-700 flex-1 truncate">{feed.name}</span>
+                <div key={feed.id} className={cn(
+                  "flex items-center gap-2.5 rounded-lg border",
+                  dark ? "bg-slate-700/40 border-slate-600 px-4 py-3" : "bg-white border-slate-200 px-3 py-2",
+                )}>
+                  <div className={cn("rounded-full flex-shrink-0", dark ? "w-4 h-4" : "w-3 h-3")} style={{ backgroundColor: feed.color }} />
+                  <span className={cn("flex-1 truncate", dark ? "text-base text-slate-300" : "text-sm text-slate-700")}>{feed.name}</span>
 
-                  {/* User: toggle visibility */}
                   <button
                     onClick={() => toggleUserVisibility(feed.id, feed.hidden)}
                     className={cn(
-                      "p-1 rounded transition-colors",
-                      !feed.hidden ? "text-blue-500 hover:text-blue-700" : "text-slate-300 hover:text-slate-500"
+                      "rounded-lg transition-colors",
+                      dark
+                        ? cn("p-2 min-h-[40px] min-w-[40px] flex items-center justify-center", !feed.hidden ? "text-blue-400 hover:text-blue-300" : "text-slate-500 hover:text-slate-300")
+                        : cn("p-1", !feed.hidden ? "text-blue-500 hover:text-blue-700" : "text-slate-300 hover:text-slate-500"),
                     )}
                     title={feed.hidden ? "Afficher" : "Masquer"}
                   >
-                    {feed.hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {feed.hidden ? <EyeOff className={dark ? "h-5 w-5" : "h-3.5 w-3.5"} /> : <Eye className={dark ? "h-5 w-5" : "h-3.5 w-3.5"} />}
                   </button>
 
-                  {/* Admin: edit + delete */}
                   {isAdmin && (
                     <>
                       <button
                         onClick={() => startEdit(feed)}
-                        className="p-1 text-slate-300 hover:text-blue-500 rounded transition-colors"
+                        className={cn(
+                          "rounded-lg transition-colors",
+                          dark ? "p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-slate-400 hover:text-blue-400" : "p-1 text-slate-300 hover:text-blue-500",
+                        )}
                         title="Modifier"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className={dark ? "h-5 w-5" : "h-3.5 w-3.5"} />
                       </button>
                       <button
                         onClick={() => deleteFeed(feed.id)}
-                        className="p-1 text-slate-300 hover:text-red-500 rounded transition-colors"
+                        className={cn(
+                          "rounded-lg transition-colors",
+                          dark ? "p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-slate-400 hover:text-red-400" : "p-1 text-slate-300 hover:text-red-500",
+                        )}
                         title="Supprimer"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className={dark ? "h-5 w-5" : "h-3.5 w-3.5"} />
                       </button>
                     </>
                   )}
@@ -390,10 +429,13 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
           )}
 
           {errors.length > 0 && isAdmin && (
-            <div className="mt-3 space-y-1">
+            <div className="mt-3 space-y-1.5">
               {errors.map((err, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-1.5">
-                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                <div key={i} className={cn(
+                  "flex items-center gap-2 rounded-lg",
+                  dark ? "text-sm text-amber-400 bg-amber-900/20 px-4 py-2.5" : "text-xs text-amber-600 bg-amber-50 px-3 py-1.5",
+                )}>
+                  <AlertCircle className={cn("flex-shrink-0", dark ? "h-4 w-4" : "h-3.5 w-3.5")} />
                   <span className="truncate">{err.feedName} : {err.error}</span>
                 </div>
               ))}
@@ -405,21 +447,32 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
       {/* Week Navigation */}
       {feeds.length > 0 && (
         <>
-          <div className={cn("flex items-center justify-between px-4 py-2 border-b", dark ? "border-slate-700" : "border-slate-100")}>
+          <div className={cn(
+            "flex items-center justify-between border-b shrink-0",
+            dark ? "px-5 py-3 border-slate-700" : "px-4 py-2 border-slate-100",
+          )}>
             <button
               onClick={() => setWeekOffset(w => w - 1)}
-              className={cn("p-1 rounded transition-colors", dark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100")}
+              className={cn(
+                "rounded-lg transition-colors",
+                dark
+                  ? "p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700 active:bg-slate-600"
+                  : "p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100",
+              )}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className={dark ? "h-6 w-6" : "h-4 w-4"} />
             </button>
-            <div className="flex items-center gap-2">
-              <span className={cn("text-sm font-medium", dark ? "text-slate-300" : "text-slate-700")}>
+            <div className="flex items-center gap-3">
+              <span className={cn("font-medium", dark ? "text-base text-slate-300" : "text-sm text-slate-700")}>
                 {formatDateShort(days[0])} — {formatDateShort(days[6])}
               </span>
               {weekOffset !== 0 && (
                 <button
                   onClick={() => setWeekOffset(0)}
-                  className={cn("text-xs text-blue-500 hover:text-blue-700 px-1.5 py-0.5 rounded", dark ? "hover:bg-blue-900/30" : "hover:bg-blue-50")}
+                  className={cn(
+                    "text-blue-500 hover:text-blue-700 rounded-lg transition-colors",
+                    dark ? "text-sm px-3 py-1.5 hover:bg-blue-900/30 min-h-[36px]" : "text-xs px-1.5 py-0.5 hover:bg-blue-50",
+                  )}
                 >
                   Aujourd&apos;hui
                 </button>
@@ -427,31 +480,55 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
             </div>
             <button
               onClick={() => setWeekOffset(w => w + 1)}
-              className={cn("p-1 rounded transition-colors", dark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100")}
+              className={cn(
+                "rounded-lg transition-colors",
+                dark
+                  ? "p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700 active:bg-slate-600"
+                  : "p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100",
+              )}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className={dark ? "h-6 w-6" : "h-4 w-4"} />
             </button>
           </div>
 
-          {/* Day columns */}
-          <div className={cn("grid grid-cols-7 divide-x", dark ? "divide-slate-700" : "divide-slate-100")}>
+          {/* Day columns — swipeable on touch */}
+          <div
+            className={cn("grid grid-cols-7 divide-x flex-1 min-h-0 overflow-y-auto", dark ? "divide-slate-700" : "divide-slate-100")}
+            onTouchStart={(e) => { swipeRef.current = { x: e.touches[0].clientX, t: Date.now() }; }}
+            onTouchEnd={(e) => {
+              if (!swipeRef.current) return;
+              const dx = e.changedTouches[0].clientX - swipeRef.current.x;
+              const dt = Date.now() - swipeRef.current.t;
+              swipeRef.current = null;
+              if (dt < 400 && Math.abs(dx) > 80) {
+                setWeekOffset(w => dx < 0 ? w + 1 : w - 1);
+              }
+            }}
+          >
             {days.map((day) => {
               const dayEvents = getEventsForDay(day);
               const isToday = isSameDay(day, today);
 
               return (
-                <div key={day.toISOString()} className={cn("min-h-[120px]", isToday && (dark ? "bg-blue-900/20" : "bg-blue-50/40"))}>
+                <div key={day.toISOString()} className={cn(
+                  dark ? "min-h-[180px]" : "min-h-[120px]",
+                  isToday && (dark ? "bg-blue-900/20" : "bg-blue-50/40"),
+                )}>
                   {/* Day header */}
                   <div className={cn(
-                    "text-center py-2 border-b",
-                    dark ? "border-slate-700" : "border-slate-100",
+                    "text-center border-b",
+                    dark ? "py-3 border-slate-700" : "py-2 border-slate-100",
                     isToday && (dark ? "bg-blue-900/30" : "bg-blue-50"),
                   )}>
-                    <div className={cn("text-[10px] uppercase tracking-wider", dark ? "text-slate-500" : "text-slate-400")}>
+                    <div className={cn(
+                      "uppercase tracking-wider",
+                      dark ? "text-sm text-slate-500" : "text-[10px] text-slate-400",
+                    )}>
                       {day.toLocaleDateString("fr-FR", { weekday: "short" })}
                     </div>
                     <div className={cn(
-                      "text-lg font-bold",
+                      "font-bold",
+                      dark ? "text-2xl" : "text-lg",
                       isToday ? "text-blue-500" : dark ? "text-slate-300" : "text-slate-700",
                     )}>
                       {day.getDate()}
@@ -459,9 +536,9 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
                   </div>
 
                   {/* Events */}
-                  <div className="p-1 space-y-1">
+                  <div className={cn(dark ? "p-2 space-y-2" : "p-1 space-y-1")}>
                     {dayEvents.length === 0 && (
-                      <div className={cn("text-[10px] text-center py-3", dark ? "text-slate-600" : "text-slate-300")}>—</div>
+                      <div className={cn("text-center", dark ? "text-sm py-4 text-slate-600" : "text-[10px] py-3 text-slate-300")}>—</div>
                     )}
                     {dayEvents.map(event => {
                       const isExpanded = expandedEvent === `${event.uid}-${day.toISOString()}`;
@@ -469,11 +546,12 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
                         <button
                           key={`${event.uid}-${day.toISOString()}`}
                           onClick={() => setExpandedEvent(isExpanded ? null : `${event.uid}-${day.toISOString()}`)}
-                          className="w-full text-left group"
+                          className={cn("w-full text-left group", dark && "min-h-[40px]")}
                         >
                           <div
                             className={cn(
-                              "rounded-md px-1.5 py-1 text-[11px] leading-tight transition-all border-l-2",
+                              "rounded-lg leading-snug transition-all border-l-[3px]",
+                              dark ? "px-2.5 py-2 text-sm" : "px-1.5 py-1 text-[11px]",
                               isExpanded
                                 ? dark ? "bg-slate-700 shadow-sm border border-slate-600" : "bg-white shadow-sm border border-slate-200"
                                 : dark ? "hover:bg-slate-700/60" : "hover:bg-white/80",
@@ -481,7 +559,7 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
                             style={{ borderLeftColor: event.feedColor }}
                           >
                             {!event.allDay && (
-                              <span className="font-semibold" style={{ color: event.feedColor }}>
+                              <span className={cn("font-semibold", dark ? "text-sm" : "")} style={{ color: event.feedColor }}>
                                 {formatTime(event.start)}{" "}
                               </span>
                             )}
@@ -492,33 +570,33 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
                               {event.summary}
                             </span>
                             {!isExpanded && (
-                              <div className={cn("flex items-center gap-1 mt-0.5 text-[9px]", dark ? "text-slate-500" : "text-slate-400")}>
-                                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: event.feedColor }} />
+                              <div className={cn("flex items-center gap-1.5 mt-1", dark ? "text-xs text-slate-500" : "text-[9px] text-slate-400")}>
+                                <div className={cn("rounded-full shrink-0", dark ? "w-2 h-2" : "w-1.5 h-1.5")} style={{ backgroundColor: event.feedColor }} />
                                 <span className="truncate">{event.feedName}</span>
                               </div>
                             )}
 
                             {isExpanded && (
-                              <div className="mt-1.5 space-y-1">
+                              <div className={cn("space-y-1.5", dark ? "mt-2" : "mt-1.5")}>
                                 {!event.allDay && (
-                                  <div className={cn("flex items-center gap-1 text-[10px]", dark ? "text-slate-400" : "text-slate-400")}>
-                                    <Clock className="h-3 w-3" />
+                                  <div className={cn("flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-[10px] text-slate-400")}>
+                                    <Clock className={dark ? "h-4 w-4" : "h-3 w-3"} />
                                     {formatTime(event.start)} — {formatTime(event.end)}
                                   </div>
                                 )}
                                 {event.location && (
-                                  <div className={cn("flex items-center gap-1 text-[10px]", dark ? "text-slate-400" : "text-slate-400")}>
-                                    <MapPin className="h-3 w-3 flex-shrink-0" />
+                                  <div className={cn("flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-[10px] text-slate-400")}>
+                                    <MapPin className={cn("flex-shrink-0", dark ? "h-4 w-4" : "h-3 w-3")} />
                                     <span className="truncate">{event.location}</span>
                                   </div>
                                 )}
                                 {event.description && (
-                                  <p className={cn("text-[10px] line-clamp-3 whitespace-pre-line", dark ? "text-slate-400" : "text-slate-400")}>
+                                  <p className={cn("line-clamp-3 whitespace-pre-line", dark ? "text-sm text-slate-400" : "text-[10px] text-slate-400")}>
                                     {event.description}
                                   </p>
                                 )}
-                                <div className={cn("flex items-center gap-1 text-[10px]", dark ? "text-slate-500" : "text-slate-300")}>
-                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: event.feedColor }} />
+                                <div className={cn("flex items-center gap-1.5", dark ? "text-sm text-slate-500" : "text-[10px] text-slate-300")}>
+                                  <div className={cn("rounded-full", dark ? "w-2.5 h-2.5" : "w-2 h-2")} style={{ backgroundColor: event.feedColor }} />
                                   {event.feedName}
                                 </div>
                               </div>
@@ -537,10 +615,10 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
 
       {/* Empty state */}
       {feeds.length === 0 && !showSettings && (
-        <div className="flex flex-col items-center justify-center py-10 text-center">
-          <Calendar className={cn("h-10 w-10 mb-3", dark ? "text-slate-600" : "text-slate-200")} />
-          <p className={cn("text-sm mb-1", dark ? "text-slate-400" : "text-slate-400")}>Aucun agenda connecté</p>
-          <p className={cn("text-xs mb-4 max-w-xs", dark ? "text-slate-500" : "text-slate-300")}>
+        <div className="flex flex-col items-center justify-center py-10 text-center flex-1">
+          <Calendar className={cn(dark ? "h-12 w-12 mb-4 text-slate-600" : "h-10 w-10 mb-3 text-slate-200")} />
+          <p className={cn("mb-1", dark ? "text-base text-slate-400" : "text-sm text-slate-400")}>Aucun agenda connecté</p>
+          <p className={cn("max-w-xs mb-4", dark ? "text-sm text-slate-500" : "text-xs text-slate-300")}>
             {isAdmin
               ? "Ajoutez des calendriers ICS (Outlook 365, Google Calendar...) pour que l'équipe puisse voir les événements."
               : "Un administrateur doit d'abord ajouter des calendriers ICS."}
@@ -548,9 +626,12 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
           {isAdmin && (
             <button
               onClick={() => { setShowSettings(true); setShowAddFeed(true); }}
-              className="flex items-center gap-1.5 text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className={cn(
+                "flex items-center gap-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors",
+                dark ? "text-base px-5 py-3 min-h-[48px]" : "text-xs px-3 py-2",
+              )}
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className={dark ? "h-5 w-5" : "h-3.5 w-3.5"} />
               Connecter un agenda
             </button>
           )}
