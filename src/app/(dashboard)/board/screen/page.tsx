@@ -13,6 +13,7 @@ import {
   useDroppable,
   type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -245,6 +246,9 @@ export default function BoardScreenPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [screenTab, setScreenTab] = useState<"board" | "calendar">("board");
   const isDraggingRef = useRef(false);
+  const columnsSnapshotRef = useRef<BoardColumn[]>([]);
+  const columnsRef = useRef(columns);
+  columnsRef.current = columns;
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
@@ -377,58 +381,93 @@ export default function BoardScreenPage() {
 
   function handleDragStart(event: DragStartEvent) {
     isDraggingRef.current = true;
+    columnsSnapshotRef.current = columns;
     const card = columns.flatMap((c) => c.cards).find((c) => c.id === event.active.id);
     setActiveCard(card || null);
+  }
+
+  function handleDragOver(event: DragOverEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    setColumns((prev) => {
+      const activeCol = prev.find((col) => col.cards.some((c) => c.id === activeId));
+      if (!activeCol) return prev;
+
+      const overIsColumn = prev.some((col) => col.id === overId);
+      const overCol = overIsColumn
+        ? prev.find((col) => col.id === overId)!
+        : prev.find((col) => col.cards.some((c) => c.id === overId));
+      if (!overCol) return prev;
+
+      const activeIdx = activeCol.cards.findIndex((c) => c.id === activeId);
+
+      if (activeCol.id === overCol.id) {
+        if (overIsColumn) return prev;
+        const overIdx = overCol.cards.findIndex((c) => c.id === overId);
+        if (overIdx === -1 || activeIdx === overIdx) return prev;
+
+        return prev.map((col) => {
+          if (col.id !== activeCol.id) return col;
+          const newCards = [...col.cards];
+          const [moved] = newCards.splice(activeIdx, 1);
+          newCards.splice(overIdx, 0, moved);
+          return { ...col, cards: newCards.map((c, i) => ({ ...c, position: i })) };
+        });
+      }
+
+      const overIdx = overIsColumn
+        ? overCol.cards.length
+        : overCol.cards.findIndex((c) => c.id === overId);
+      const insertIdx = overIdx >= 0 ? overIdx : overCol.cards.length;
+
+      return prev.map((col) => {
+        if (col.id === activeCol.id) {
+          return { ...col, cards: col.cards.filter((c) => c.id !== activeId).map((c, i) => ({ ...c, position: i })) };
+        }
+        if (col.id === overCol.id) {
+          const card = activeCol.cards[activeIdx];
+          const newCards = [...col.cards];
+          newCards.splice(insertIdx, 0, { ...card, columnId: col.id });
+          return { ...col, cards: newCards.map((c, i) => ({ ...c, position: i })) };
+        }
+        return col;
+      });
+    });
   }
 
   async function handleDragEnd(event: DragEndEvent) {
     isDraggingRef.current = false;
     const { active, over } = event;
     setActiveCard(null);
-    if (!over) return;
 
-    const activeCardId = active.id as string;
-    const overId = over.id as string;
-    const sourceColumn = columns.find((col) => col.cards.some((c) => c.id === activeCardId));
-    if (!sourceColumn) return;
-
-    let targetColumnId: string;
-    let targetPosition: number;
-    const targetColumn = columns.find((col) => col.id === overId);
-    if (targetColumn) {
-      targetColumnId = targetColumn.id;
-      targetPosition = targetColumn.cards.length;
-    } else {
-      const overColumn = columns.find((col) => col.cards.some((c) => c.id === overId));
-      if (!overColumn) return;
-      targetColumnId = overColumn.id;
-      targetPosition = overColumn.cards.find((c) => c.id === overId)?.position ?? 0;
+    if (!over) {
+      setColumns(columnsSnapshotRef.current);
+      return;
     }
-    if (activeCardId === overId) return;
 
-    const snapshot = columns;
-    setColumns((prev) => {
-      const next = prev.map((col) => ({ ...col, cards: col.cards.filter((c) => c.id !== activeCardId) }));
-      const card = sourceColumn.cards.find((c) => c.id === activeCardId);
-      if (card) {
-        const targetCol = next.find((c) => c.id === targetColumnId);
-        if (targetCol) {
-          targetCol.cards.splice(targetPosition, 0, { ...card, columnId: targetColumnId });
-          targetCol.cards = targetCol.cards.map((c, i) => ({ ...c, position: i }));
-        }
-      }
-      return next;
-    });
+    const activeId = active.id as string;
+    const latest = columnsRef.current;
+    const targetCol = latest.find((col) => col.cards.some((c) => c.id === activeId));
+    if (!targetCol) {
+      setColumns(columnsSnapshotRef.current);
+      return;
+    }
+
+    const targetPosition = targetCol.cards.findIndex((c) => c.id === activeId);
 
     try {
       const res = await fetch("/api/board/cards/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId: activeCardId, targetColumnId, targetPosition }),
+        body: JSON.stringify({ cardId: activeId, targetColumnId: targetCol.id, targetPosition }),
       });
       if (!res.ok) throw new Error("Move failed");
     } catch {
-      setColumns(snapshot);
+      setColumns(columnsSnapshotRef.current);
     }
   }
 
@@ -484,6 +523,7 @@ export default function BoardScreenPage() {
           columns={columns}
           sensors={sensors}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
           activeCard={activeCard}
         />
@@ -838,12 +878,14 @@ function KanbanContent({
   columns,
   sensors,
   onDragStart,
+  onDragOver,
   onDragEnd,
   activeCard,
 }: {
   columns: BoardColumn[];
   sensors: ReturnType<typeof useSensors>;
   onDragStart: (event: DragStartEvent) => void;
+  onDragOver: (event: DragOverEvent) => void;
   onDragEnd: (event: DragEndEvent) => void;
   activeCard: BoardCard | null;
 }) {
@@ -880,6 +922,7 @@ function KanbanContent({
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={onDragStart}
+      onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
       <div className="relative h-full">
@@ -990,6 +1033,16 @@ function ScreenCard({ card, isDraggingOverlay }: { card: BoardCard; isDraggingOv
   const priorityColors: Record<number, string> = { 1: "border-l-red-500", 2: "border-l-orange-500", 3: "border-l-slate-600" };
   const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
 
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="rounded-xl border-2 border-dashed border-blue-400/40 bg-blue-500/5 min-h-[56px] transition-colors"
+      />
+    );
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -999,7 +1052,6 @@ function ScreenCard({ card, isDraggingOverlay }: { card: BoardCard; isDraggingOv
       className={cn(
         "bg-slate-700/40 rounded-xl border-l-[3px] hover:bg-slate-700/60 active:bg-slate-700/80 transition-colors cursor-grab active:cursor-grabbing touch-none select-none min-h-[56px]",
         priorityColors[card.priority] || "border-l-slate-600",
-        isDragging && "opacity-30",
       )}
     >
       {card.client && (
