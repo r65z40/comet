@@ -46,6 +46,7 @@ import {
   Tv,
   Plus,
   Send,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
@@ -1229,7 +1230,7 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated }: { column:
         className={cn("flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin min-h-[80px] transition-colors", isOver && "bg-slate-700/30")}
       >
         <SortableContext items={column.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-          {column.cards.map((card) => <ScreenCard key={card.id} card={card} onLongPress={() => onCardOpen(card.id)} />)}
+          {column.cards.map((card) => <ScreenCard key={card.id} card={card} onOpen={() => onCardOpen(card.id)} />)}
         </SortableContext>
         {column.cards.length === 0 && !showForm && (
           <div className={cn("flex items-center justify-center border-2 border-dashed rounded-xl py-6 text-sm transition-colors", isOver ? "border-blue-400 text-blue-300 bg-blue-500/10" : "border-slate-700 text-slate-600")}>
@@ -1305,45 +1306,11 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated }: { column:
 }
 
 /* Screen card */
-function ScreenCard({ card, isDraggingOverlay, onLongPress }: { card: BoardCard; isDraggingOverlay?: boolean; onLongPress?: () => void }) {
+function ScreenCard({ card, isDraggingOverlay, onOpen }: { card: BoardCard; isDraggingOverlay?: boolean; onOpen?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id, disabled: isDraggingOverlay });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const priorityColors: Record<number, string> = { 1: "border-l-red-500", 2: "border-l-orange-500", 3: "border-l-slate-600" };
   const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const didLongPress = useRef(false);
-  const lastTapRef = useRef(0);
-  const didMoveRef = useRef(false);
-
-  function handlePointerDown(e: React.PointerEvent) {
-    didLongPress.current = false;
-    didMoveRef.current = false;
-    listeners?.onPointerDown?.(e);
-    if (onLongPress) {
-      longPressTimer.current = setTimeout(() => {
-        didLongPress.current = true;
-        onLongPress();
-      }, 500);
-    }
-  }
-
-  function handlePointerMove() {
-    didMoveRef.current = true;
-    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-  }
-
-  function handlePointerUp() {
-    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-    if (!didMoveRef.current && !didLongPress.current && onLongPress) {
-      const now = Date.now();
-      if (now - lastTapRef.current < 300) {
-        lastTapRef.current = 0;
-        onLongPress();
-      } else {
-        lastTapRef.current = now;
-      }
-    }
-  }
 
   if (isDragging) {
     return (
@@ -1361,22 +1328,31 @@ function ScreenCard({ card, isDraggingOverlay, onLongPress }: { card: BoardCard;
       style={style}
       {...attributes}
       {...listeners}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
       className={cn(
-        "bg-slate-700/40 rounded-xl border-l-[3px] hover:bg-slate-700/60 active:bg-slate-700/80 transition-colors cursor-grab active:cursor-grabbing touch-none select-none min-h-[56px]",
+        "group relative bg-slate-700/40 rounded-xl border-l-[3px] hover:bg-slate-700/60 active:bg-slate-700/80 transition-colors cursor-grab active:cursor-grabbing touch-none select-none min-h-[56px]",
         priorityColors[card.priority] || "border-l-slate-600",
       )}
     >
+      {/* Open button */}
+      {onOpen && (
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={onOpen}
+          className="absolute top-2 right-2 z-10 p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg bg-slate-600/80 hover:bg-blue-600 text-slate-300 hover:text-white transition-colors shadow-lg"
+          title="Ouvrir la carte"
+        >
+          <Eye className="h-5 w-5" />
+        </button>
+      )}
       {card.client && (
-        <div className="flex items-center gap-2.5 px-4 py-2 bg-blue-500/10 border-b border-blue-500/20 rounded-t-xl">
+        <div className="flex items-center gap-2.5 px-4 py-2 pr-14 bg-blue-500/10 border-b border-blue-500/20 rounded-t-xl">
           {card.client.logoUrl && <img src={card.client.logoUrl} alt="" className="h-5 w-5 rounded-full object-cover" />}
           <span className="text-sm font-bold text-blue-300 truncate">{card.client.name}</span>
         </div>
       )}
-      <div className="px-4 py-3">
+      <div className={cn("px-4 py-3", !card.client && "pr-14")}>
         <p className="text-base font-medium text-white line-clamp-2 leading-snug">{card.title}</p>
         {(card.tags.length > 0 || card.dueDate) && (
           <div className="flex items-center gap-2.5 mt-2 flex-wrap">
