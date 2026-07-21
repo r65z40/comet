@@ -483,23 +483,29 @@ export default function BoardScreenPage() {
   }
 
   async function handleDragEnd(event: DragEndEvent) {
-    isDraggingRef.current = false;
     const { active, over } = event;
     setActiveCard(null);
 
     if (!over) {
+      isDraggingRef.current = false;
       setColumns(columnsSnapshotRef.current);
       return;
     }
 
     const activeId = active.id as string;
     const overId = over.id as string;
-    if (activeId === overId) return;
+    if (activeId === overId) {
+      isDraggingRef.current = false;
+      return;
+    }
 
     const snapshot = columnsSnapshotRef.current;
     const latest = columnsRef.current;
     const sourceCol = snapshot.find((col) => col.cards.some((c) => c.id === activeId));
-    if (!sourceCol) return;
+    if (!sourceCol) {
+      isDraggingRef.current = false;
+      return;
+    }
     const movedCard = sourceCol.cards.find((c) => c.id === activeId)!;
 
     const overIsColumn = latest.some((col) => col.id === overId);
@@ -513,6 +519,7 @@ export default function BoardScreenPage() {
     } else {
       const overCol = latest.find((col) => col.cards.some((c) => c.id === overId));
       if (!overCol) {
+        isDraggingRef.current = false;
         setColumns(snapshot);
         return;
       }
@@ -536,6 +543,8 @@ export default function BoardScreenPage() {
     }));
     setColumns(result);
 
+    // isDraggingRef stays true until API completes — blocks fetchColumns
+    // from overwriting the optimistic update with stale DB data
     try {
       const res = await fetch("/api/board/cards/move", {
         method: "POST",
@@ -545,6 +554,8 @@ export default function BoardScreenPage() {
       if (!res.ok) throw new Error("Move failed");
     } catch {
       setColumns(snapshot);
+    } finally {
+      isDraggingRef.current = false;
     }
   }
 
