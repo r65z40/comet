@@ -47,6 +47,9 @@ import {
   Plus,
   Send,
   Eye,
+  Maximize,
+  Minimize,
+  ZoomIn,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
@@ -255,6 +258,8 @@ export default function BoardScreenPage() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [uiZoom, setUiZoom] = useState(100);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const isDraggingRef = useRef(false);
   const columnsSnapshotRef = useRef<BoardColumn[]>([]);
   const columnsRef = useRef(columns);
@@ -381,18 +386,38 @@ export default function BoardScreenPage() {
   useBoardSync(fetchColumns);
 
   useEffect(() => {
+    try {
+      const savedZoom = localStorage.getItem("comet_screen_zoom");
+      if (savedZoom) setUiZoom(Number(savedZoom));
+    } catch {}
     const el = document.documentElement;
     if (el.requestFullscreen && !document.fullscreenElement) {
       el.requestFullscreen().catch(() => {});
     }
-    function handleEsc() {}
-    document.addEventListener("fullscreenchange", handleEsc);
-    return () => document.removeEventListener("fullscreenchange", handleEsc);
+    function syncFullscreen() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+    syncFullscreen();
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
   }, []);
 
   function exitScreen() {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     router.push("/board");
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }
+
+  function handleZoomChange(value: number) {
+    setUiZoom(value);
+    try { localStorage.setItem("comet_screen_zoom", String(value)); } catch {}
   }
 
   useEffect(() => {
@@ -659,7 +684,10 @@ export default function BoardScreenPage() {
   ];
 
   return (
-    <div className="fixed inset-0 bg-slate-900 text-white z-[9999] flex flex-col overflow-hidden">
+    <div
+      className="fixed inset-0 bg-slate-900 text-white z-[9999] flex flex-col overflow-hidden"
+      style={{ fontSize: `${uiZoom}%` }}
+    >
       <TicketToast dark />
 
       {/* Top bar */}
@@ -757,7 +785,7 @@ export default function BoardScreenPage() {
         )}
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700 shrink-0">
-          <h3 className="text-lg font-semibold text-white">Widgets</h3>
+          <h3 className="text-lg font-semibold text-white">Paramètres</h3>
           <button
             onClick={() => setShowSettings(false)}
             className="flex items-center justify-center min-h-[52px] min-w-[52px] rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
@@ -766,6 +794,56 @@ export default function BoardScreenPage() {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5">
+          {/* Affichage section */}
+          <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Affichage</h4>
+
+          {/* Zoom slider */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-base text-slate-300">
+                <ZoomIn className="h-5 w-5 text-slate-400" />
+                Zoom interface
+              </div>
+              <span className="text-base font-bold text-blue-400">{uiZoom}%</span>
+            </div>
+            <input
+              type="range"
+              min={70}
+              max={150}
+              step={5}
+              value={uiZoom}
+              onChange={(e) => handleZoomChange(Number(e.target.value))}
+              className="w-full h-3 rounded-full appearance-none cursor-pointer bg-slate-700 accent-blue-500"
+              style={{ touchAction: "none" }}
+            />
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-xs text-slate-600">70%</span>
+              <button
+                onClick={() => handleZoomChange(100)}
+                className="text-xs text-slate-500 hover:text-blue-400 transition-colors"
+              >
+                Réinitialiser
+              </button>
+              <span className="text-xs text-slate-600">150%</span>
+            </div>
+          </div>
+
+          {/* Fullscreen toggle */}
+          <div className="flex items-center justify-between py-4 border-b border-slate-700/50 mb-5">
+            <div className="flex items-center gap-2 text-base text-slate-300">
+              {isFullscreen ? <Minimize className="h-5 w-5 text-slate-400" /> : <Maximize className="h-5 w-5 text-slate-400" />}
+              Plein écran
+            </div>
+            <button
+              onClick={toggleFullscreen}
+              className={cn("relative w-16 h-9 rounded-full transition-colors shrink-0", isFullscreen ? "bg-blue-600" : "bg-slate-600")}
+            >
+              <div className={cn("absolute top-1 w-7 h-7 rounded-full bg-white transition-transform", isFullscreen ? "translate-x-8" : "translate-x-1")} />
+            </button>
+          </div>
+
+          {/* Widgets section */}
+          <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Widgets</h4>
           <p className="text-sm text-slate-500 mb-5">Glissez les widgets pour les réorganiser. Redimensionnez avec le coin bas-droit.</p>
           {[
             { key: "showCyberNews" as const, label: "Bandeau cyber" },

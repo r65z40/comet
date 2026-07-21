@@ -50,23 +50,35 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
 
   const fetchAlerts = useCallback(async () => {
     try {
-      // Get workspaces first
-      const wsRes = await fetch("/api/emsisoft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "workspaces" }),
-      });
-      if (!wsRes.ok) { setError("api"); return; }
-      const wsData = await wsRes.json();
-      if (wsData.error || !wsData.workspaces?.length) { setError("no_data"); return; }
+      // Try GET first (works for all authenticated users)
+      let workspaces: Finding[] = [];
+      const getRes = await fetch("/api/emsisoft");
+      if (getRes.ok) {
+        const getData = await getRes.json();
+        if (!getData.enabled) { setError("no_data"); return; }
+        workspaces = getData.workspaces || [];
+      }
 
-      // Fetch findings from first workspace (most active)
-      const sorted = [...wsData.workspaces].sort(
+      // Fallback to POST if GET didn't return workspaces
+      if (workspaces.length === 0) {
+        const postRes = await fetch("/api/emsisoft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "workspaces" }),
+        });
+        if (postRes.ok) {
+          const postData = await postRes.json();
+          workspaces = postData.workspaces || [];
+        }
+      }
+
+      if (workspaces.length === 0) { setError("no_data"); return; }
+
+      const sorted = [...workspaces].sort(
         (a: Finding, b: Finding) => (b.findingsLastMonth || 0) - (a.findingsLastMonth || 0),
       );
 
       const allFindings: Finding[] = [];
-      // Fetch from top 3 workspaces max to stay fast
       for (const ws of sorted.slice(0, 3)) {
         try {
           const res = await fetch(`/api/emsisoft/status?workspaceId=${ws.guid || ws.id}`);
@@ -78,7 +90,6 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
         } catch {}
       }
 
-      // Sort by date desc
       allFindings.sort((a, b) => {
         const dA = new Date(findDate(a)).getTime() || 0;
         const dB = new Date(findDate(b)).getTime() || 0;
@@ -116,10 +127,20 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
     );
   }
 
-  if (error) {
+  if (error && error !== "no_data") {
     return (
-      <div className={cn("flex items-center justify-center h-full p-4", dark ? "text-sm text-red-400" : "text-xs text-red-500")}>
+      <div className={cn("flex flex-col items-center justify-center h-full p-4 gap-3", dark ? "text-sm text-red-400" : "text-xs text-red-500")}>
         Erreur Emsisoft
+        <button
+          onClick={() => { setLoading(true); setError(null); fetchAlerts(); }}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors",
+            dark ? "bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm min-h-[44px]" : "bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs",
+          )}
+        >
+          <RefreshCw className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
+          Réessayer
+        </button>
       </div>
     );
   }
