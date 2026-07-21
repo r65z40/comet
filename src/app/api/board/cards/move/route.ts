@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { notifyUsers } from "@/lib/notifications";
+import { boardEvents } from "@/lib/board-events";
 
 // Move a card to a different column (and/or reorder within column)
 export async function POST(req: NextRequest) {
@@ -114,6 +115,8 @@ export async function POST(req: NextRequest) {
       });
     }
   }
+
+  boardEvents.emit({ type: "card:move", cardId, columnId: targetColumnId, userId: session.user?.id });
 
   return NextResponse.json({ success: true });
 }

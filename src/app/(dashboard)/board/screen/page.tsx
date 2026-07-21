@@ -60,6 +60,7 @@ import EmisoftWidget from "../EmisoftWidget";
 import EmisoftAlertsWidget from "../EmisoftAlertsWidget";
 import SpotifyWidget from "../SpotifyWidget";
 import VideoPlayerWidget from "../VideoPlayerWidget";
+import { useBoardSync } from "@/lib/hooks/useBoardSync";
 
 interface CardTag {
   id: string;
@@ -375,6 +376,8 @@ export default function BoardScreenPage() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [fetchColumns, fetchFeed, fetchCyberNews, fetchUsers]);
+
+  useBoardSync(fetchColumns);
 
   useEffect(() => {
     const el = document.documentElement;

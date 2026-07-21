@@ -75,6 +75,7 @@ import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
 import EmisoftWidget from "./EmisoftWidget";
 import VideoPlayerWidget from "./VideoPlayerWidget";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
+import { useBoardSync } from "@/lib/hooks/useBoardSync";
 
 interface CardTag {
   id: string;
@@ -316,6 +317,8 @@ export default function BoardPage() {
   useEffect(() => {
     fetchBoard();
   }, [filters.showArchived, fetchBoard]);
+
+  useBoardSync(fetchBoard);
 
   useEffect(() => {
     const clientMap = new Map<string, string>();

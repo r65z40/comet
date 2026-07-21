@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { notifyUsers } from "@/lib/notifications";
+import { boardEvents } from "@/lib/board-events";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -102,6 +103,8 @@ export async function POST(req: NextRequest) {
     message: `${session.user?.name || "Un collaborateur"} vous a assigné la carte "${title.trim()}"`,
     link: `/board?card=${card.id}`,
   });
+
+  boardEvents.emit({ type: "card:create", cardId: card.id, columnId, userId: session.user?.id });
 
   return NextResponse.json(card, { status: 201 });
 }
@@ -244,6 +247,8 @@ export async function PUT(req: NextRequest) {
     });
   }
 
+  boardEvents.emit({ type: "card:update", cardId: id, userId: session.user?.id });
+
   return NextResponse.json(card);
 }
 
@@ -257,6 +262,8 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
   await prisma.boardCard.delete({ where: { id } });
+
+  boardEvents.emit({ type: "card:delete", cardId: id, userId: session.user?.id });
 
   return NextResponse.json({ success: true });
 }

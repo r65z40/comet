@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { boardEvents } from "@/lib/board-events";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -53,6 +54,8 @@ export async function POST(req: NextRequest) {
     data: { name: name.trim(), color: color || "#3b82f6", position },
   });
 
+  boardEvents.emit({ type: "column:create", columnId: column.id, userId: session.user?.id });
+
   return NextResponse.json(column, { status: 201 });
 }
 
@@ -72,6 +75,7 @@ export async function PUT(req: NextRequest) {
         })
       )
     );
+    boardEvents.emit({ type: "column:update", userId: session.user?.id });
     return NextResponse.json({ success: true });
   }
 
@@ -87,6 +91,8 @@ export async function PUT(req: NextRequest) {
       ...(position !== undefined && { position }),
     },
   });
+
+  boardEvents.emit({ type: "column:update", columnId: id, userId: session.user?.id });
 
   return NextResponse.json(column);
 }
@@ -108,6 +114,8 @@ export async function DELETE(req: NextRequest) {
   if (!column) return NextResponse.json({ error: "Colonne introuvable" }, { status: 404 });
 
   await prisma.boardColumn.delete({ where: { id } });
+
+  boardEvents.emit({ type: "column:delete", columnId: id, userId: session.user?.id });
 
   return NextResponse.json({ success: true, deletedCards: column._count.cards });
 }

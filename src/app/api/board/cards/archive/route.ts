@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { notifyUsers } from "@/lib/notifications";
+import { boardEvents } from "@/lib/board-events";
 
 export async function PUT(req: NextRequest) {
   const session = await auth();
@@ -54,6 +55,8 @@ export async function PUT(req: NextRequest) {
       link: `/board?card=${id}`,
     });
   }
+
+  boardEvents.emit({ type: "card:archive", cardId: id, userId: session.user?.id });
 
   return NextResponse.json(card);
 }

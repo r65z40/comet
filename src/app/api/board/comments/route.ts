@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createNotification } from "@/lib/notifications";
+import { boardEvents } from "@/lib/board-events";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -85,6 +86,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  boardEvents.emit({ type: "comment:create", cardId, userId: session.user?.id });
+
   return NextResponse.json(comment, { status: 201 });
 }
 
@@ -98,6 +101,8 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
   await prisma.cardComment.delete({ where: { id } });
+
+  boardEvents.emit({ type: "comment:delete", userId: session.user?.id });
 
   return NextResponse.json({ success: true });
 }

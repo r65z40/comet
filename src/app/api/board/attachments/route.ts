@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
+import { boardEvents } from "@/lib/board-events";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "board");
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -59,6 +60,8 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  boardEvents.emit({ type: "attachment:update", cardId, userId: session.user?.id });
+
   return NextResponse.json(attachment, { status: 201 });
 }
 
@@ -83,6 +86,8 @@ export async function DELETE(req: NextRequest) {
   }
 
   await prisma.cardAttachment.delete({ where: { id } });
+
+  boardEvents.emit({ type: "attachment:update", userId: session.user?.id });
 
   return NextResponse.json({ success: true });
 }

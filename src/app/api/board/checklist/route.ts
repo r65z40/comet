@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { boardEvents } from "@/lib/board-events";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -40,6 +41,8 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  boardEvents.emit({ type: "checklist:update", cardId, userId: session.user?.id });
+
   return NextResponse.json(item, { status: 201 });
 }
 
@@ -58,6 +61,8 @@ export async function PUT(req: NextRequest) {
     },
   });
 
+  boardEvents.emit({ type: "checklist:update", userId: session.user?.id });
+
   return NextResponse.json(item);
 }
 
@@ -70,5 +75,8 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
 
   await prisma.cardChecklistItem.delete({ where: { id } });
+
+  boardEvents.emit({ type: "checklist:update", userId: session.user?.id });
+
   return NextResponse.json({ success: true });
 }

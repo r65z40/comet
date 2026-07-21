@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { boardEvents } from "@/lib/board-events";
 
 export async function GET() {
   const session = await auth();
@@ -32,6 +33,8 @@ export async function POST(req: NextRequest) {
     data: { name: name.trim(), color: color || "#6b7280" },
   });
 
+  boardEvents.emit({ type: "tag:update", userId: session.user?.id });
+
   return NextResponse.json(tag, { status: 201 });
 }
 
@@ -45,6 +48,8 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
   await prisma.cardTag.delete({ where: { id } });
+
+  boardEvents.emit({ type: "tag:update", userId: session.user?.id });
 
   return NextResponse.json({ success: true });
 }
