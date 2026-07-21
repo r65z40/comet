@@ -96,15 +96,16 @@ interface Props {
   cardId: string;
   users: { id: string; name: string }[];
   onClose: () => void;
+  dark?: boolean;
 }
 
-const PRIORITY_CONFIG: Record<number, { label: string; color: string }> = {
-  1: { label: "Urgente", color: "bg-red-50 text-red-700 border-red-200" },
-  2: { label: "Normale", color: "bg-orange-50 text-orange-700 border-orange-200" },
-  3: { label: "Basse", color: "bg-slate-50 text-slate-600 border-slate-200" },
+const PRIORITY_CONFIG: Record<number, { label: string; color: string; darkColor: string }> = {
+  1: { label: "Urgente", color: "bg-red-50 text-red-700 border-red-200", darkColor: "bg-red-900/40 text-red-300 border-red-700" },
+  2: { label: "Normale", color: "bg-orange-50 text-orange-700 border-orange-200", darkColor: "bg-orange-900/40 text-orange-300 border-orange-700" },
+  3: { label: "Basse", color: "bg-slate-50 text-slate-600 border-slate-200", darkColor: "bg-slate-700 text-slate-300 border-slate-600" },
 };
 
-export default function CardDetailModal({ cardId, users, onClose }: Props) {
+export default function CardDetailModal({ cardId, users, onClose, dark = false }: Props) {
   const [card, setCard] = useState<CardDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -356,7 +357,7 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+        <div className={cn("animate-spin rounded-full border-b-2", dark ? "h-10 w-10 border-white" : "h-8 w-8 border-white")} />
       </div>
     );
   }
@@ -364,23 +365,31 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
   if (!card) return null;
 
   const priority = PRIORITY_CONFIG[card.priority] || PRIORITY_CONFIG[3];
-  const assignee = users.find((u) => u.id === card.assigneeId);
   const creator = users.find((u) => u.id === card.createdById);
   const links: string[] = card.links ? JSON.parse(card.links) : [];
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-sm overflow-y-auto py-8"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm overflow-y-auto py-8"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4">
+      <div className={cn(
+        "rounded-2xl shadow-2xl w-full mx-4",
+        dark ? "bg-slate-800 max-w-4xl" : "bg-white max-w-2xl",
+      )}>
         {/* Header */}
-        <div className="flex items-start justify-between p-4 border-b border-slate-200">
+        <div className={cn(
+          "flex items-start justify-between border-b",
+          dark ? "p-6 border-slate-700" : "p-4 border-slate-200",
+        )}>
           {card.client?.logoUrl && (
             <img
               src={card.client.logoUrl}
               alt={card.client.name}
-              className="h-8 w-8 object-contain rounded border border-slate-200 mr-3 flex-shrink-0"
+              className={cn(
+                "object-contain rounded border flex-shrink-0",
+                dark ? "h-12 w-12 border-slate-600 mr-4" : "h-8 w-8 border-slate-200 mr-3",
+              )}
             />
           )}
           <div className="flex-1 min-w-0">
@@ -389,59 +398,77 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full text-lg font-bold text-slate-900 border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className={cn(
+                  "w-full font-bold border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500",
+                  dark ? "text-xl text-white bg-slate-700 border-slate-600 px-4 py-3" : "text-lg text-slate-900 border-slate-300 px-3 py-1.5",
+                )}
               />
             ) : (
-              <h2 className="text-lg font-bold text-slate-900">{card.title}</h2>
+              <h2 className={cn("font-bold", dark ? "text-xl text-white" : "text-lg text-slate-900")}>{card.title}</h2>
             )}
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-slate-400">dans {card.column.name}</span>
-              <span className={cn("px-1.5 py-0.5 text-[10px] font-medium rounded border", priority.color)}>
+            <div className={cn("flex items-center gap-2", dark ? "mt-2" : "mt-1")}>
+              <span className={cn(dark ? "text-sm text-slate-400" : "text-xs text-slate-400")}>dans {card.column.name}</span>
+              <span className={cn(
+                "font-medium rounded border",
+                dark ? "px-2.5 py-1 text-xs" : "px-1.5 py-0.5 text-[10px]",
+                dark ? priority.darkColor : priority.color,
+              )}>
                 {priority.label}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1 ml-3">
+          <div className={cn("flex items-center ml-3", dark ? "gap-2" : "gap-1")}>
             {!editing ? (
               <>
                 <button
                   onClick={() => setEditing(true)}
-                  className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+                  className={cn(
+                    "rounded-lg",
+                    dark ? "p-3 min-h-[48px] min-w-[48px] flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700" : "p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100",
+                  )}
                   title="Modifier"
                 >
-                  <Pencil className="h-4 w-4" />
+                  <Pencil className={cn(dark ? "h-5 w-5" : "h-4 w-4")} />
                 </button>
                 <button
                   onClick={toggleArchive}
                   className={cn(
-                    "p-2 rounded-lg",
-                    card.archived
-                      ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
-                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                    "rounded-lg",
+                    dark
+                      ? cn("p-3 min-h-[48px] min-w-[48px] flex items-center justify-center", card.archived ? "text-amber-400 hover:text-amber-300 hover:bg-amber-900/30" : "text-slate-400 hover:text-white hover:bg-slate-700")
+                      : cn("p-2", card.archived ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"),
                   )}
                   title={card.archived ? "Désarchiver" : "Archiver"}
                 >
-                  {card.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                  {card.archived ? <ArchiveRestore className={cn(dark ? "h-5 w-5" : "h-4 w-4")} /> : <Archive className={cn(dark ? "h-5 w-5" : "h-4 w-4")} />}
                 </button>
                 <button
                   onClick={deleteCard}
-                  className="p-2 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                  className={cn(
+                    "rounded-lg",
+                    dark ? "p-3 min-h-[48px] min-w-[48px] flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-red-900/30" : "p-2 text-slate-400 hover:text-red-600 hover:bg-red-50",
+                  )}
                   title="Supprimer"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className={cn(dark ? "h-5 w-5" : "h-4 w-4")} />
                 </button>
               </>
             ) : (
               <>
                 <button
                   onClick={saveCard}
-                  className="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  className={cn(
+                    "bg-primary-600 text-white rounded-lg hover:bg-primary-700",
+                    dark ? "px-5 py-3 text-base font-medium min-h-[48px]" : "px-3 py-1.5 text-sm",
+                  )}
                 >
                   Enregistrer
                 </button>
                 <button
                   onClick={() => setEditing(false)}
-                  className="px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700"
+                  className={cn(
+                    dark ? "px-5 py-3 text-base text-slate-400 hover:text-white min-h-[48px]" : "px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700",
+                  )}
                 >
                   Annuler
                 </button>
@@ -449,30 +476,34 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
             )}
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+              className={cn(
+                "rounded-lg",
+                dark ? "p-3 min-h-[48px] min-w-[48px] flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700" : "p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100",
+              )}
             >
-              <X className="h-4 w-4" />
+              <X className={cn(dark ? "h-6 w-6" : "h-4 w-4")} />
             </button>
           </div>
         </div>
 
-        <div className="p-4 space-y-5">
+        <div className={cn(dark ? "p-6 space-y-6" : "p-4 space-y-5")}>
           {/* Meta info */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className={cn("grid grid-cols-2", dark ? "gap-5" : "gap-3")}>
             {/* Priority */}
             {editing && (
               <div>
-                <label className="text-xs font-medium text-slate-500 mb-1 block">Priorité</label>
-                <div className="flex gap-1">
+                <label className={cn("font-medium mb-1.5 block", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>Priorité</label>
+                <div className={cn("flex", dark ? "gap-2" : "gap-1")}>
                   {[1, 2, 3].map((p) => (
                     <button
                       key={p}
                       onClick={() => setEditPriority(p)}
                       className={cn(
-                        "flex-1 px-2 py-1.5 text-xs rounded border",
+                        "flex-1 rounded border font-medium",
+                        dark ? "px-3 py-3 text-sm min-h-[48px]" : "px-2 py-1.5 text-xs",
                         editPriority === p
-                          ? PRIORITY_CONFIG[p].color
-                          : "bg-white text-slate-400 border-slate-200"
+                          ? (dark ? PRIORITY_CONFIG[p].darkColor : PRIORITY_CONFIG[p].color)
+                          : (dark ? "bg-slate-700 text-slate-400 border-slate-600" : "bg-white text-slate-400 border-slate-200"),
                       )}
                     >
                       {PRIORITY_CONFIG[p].label}
@@ -484,8 +515,8 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
 
             {/* Assignees (multi-select) */}
             <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
-                <Users className="h-3 w-3" />
+              <label className={cn("font-medium mb-1.5 flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
+                <Users className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                 Assigné à
               </label>
               {(() => {
@@ -509,16 +540,25 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                 };
 
                 return (
-                  <div className="max-h-32 overflow-y-auto border border-slate-200 rounded-lg p-1.5 space-y-0.5">
+                  <div className={cn(
+                    "overflow-y-auto border rounded-lg",
+                    dark ? "max-h-48 border-slate-600 p-2 space-y-1" : "max-h-32 border-slate-200 p-1.5 space-y-0.5",
+                  )}>
                     {users.map((u) => (
-                      <label key={u.id} className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                      <label key={u.id} className={cn(
+                        "flex items-center rounded cursor-pointer",
+                        dark ? "gap-3 px-3 py-2.5 hover:bg-slate-700 min-h-[44px]" : "gap-2 px-1.5 py-1 hover:bg-slate-50",
+                      )}>
                         <input
                           type="checkbox"
                           checked={currentIds.includes(u.id)}
                           onChange={(e) => toggleAssignee(u.id, e.target.checked)}
-                          className="h-3.5 w-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                          className={cn(
+                            "rounded border-slate-300 text-primary-600 focus:ring-primary-500",
+                            dark ? "h-5 w-5" : "h-3.5 w-3.5",
+                          )}
                         />
-                        <span className="text-sm text-slate-700">{u.name}</span>
+                        <span className={cn(dark ? "text-base text-slate-200" : "text-sm text-slate-700")}>{u.name}</span>
                       </label>
                     ))}
                   </div>
@@ -528,8 +568,8 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
 
             {/* Due date */}
             <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
+              <label className={cn("font-medium mb-1.5 flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
+                <Calendar className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                 Date limite
               </label>
               {editing ? (
@@ -537,10 +577,16 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                   type="date"
                   value={editDueDate}
                   onChange={(e) => setEditDueDate(e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  className={cn(
+                    "w-full border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500",
+                    dark ? "px-4 py-3 text-base bg-slate-700 border-slate-600 text-white min-h-[48px]" : "px-2 py-1.5 text-sm border-slate-200",
+                  )}
                 />
               ) : (
-                <p className={cn("text-sm", card.dueDate && new Date(card.dueDate) < new Date() ? "text-red-600" : "text-slate-700")}>
+                <p className={cn(
+                  dark ? "text-base" : "text-sm",
+                  card.dueDate && new Date(card.dueDate) < new Date() ? "text-red-400" : (dark ? "text-slate-200" : "text-slate-700"),
+                )}>
                   {card.dueDate
                     ? new Date(card.dueDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })
                     : "Aucune"}
@@ -550,8 +596,8 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
 
             {/* Client */}
             <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
-                <Users className="h-3 w-3" />
+              <label className={cn("font-medium mb-1.5 flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
+                <Users className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                 Client
               </label>
               {editing ? (
@@ -565,18 +611,27 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                       setShowClientSearch(true);
                     }}
                     onFocus={() => setShowClientSearch(true)}
-                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className={cn(
+                      "w-full border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500",
+                      dark ? "px-4 py-3 text-base bg-slate-700 border-slate-600 text-white placeholder-slate-500 min-h-[48px]" : "px-2 py-1.5 text-sm border-slate-200",
+                    )}
                   />
                   {editClientId && (
                     <button
                       onClick={() => { setEditClientId(""); setClientSearch(""); setEditContactId(""); setClientContacts([]); }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className={cn(
+                        "absolute right-3 top-1/2 -translate-y-1/2",
+                        dark ? "text-slate-400 hover:text-white p-1" : "text-slate-400 hover:text-slate-600",
+                      )}
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className={cn(dark ? "h-5 w-5" : "h-3.5 w-3.5")} />
                     </button>
                   )}
                   {showClientSearch && clients.length > 0 && (
-                    <div className="absolute z-10 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                    <div className={cn(
+                      "absolute z-10 top-full mt-1 w-full border rounded-lg shadow-lg max-h-48 overflow-y-auto",
+                      dark ? "bg-slate-700 border-slate-600" : "bg-white border-slate-200",
+                    )}>
                       {clients.map((c) => (
                         <button
                           key={c.id}
@@ -587,7 +642,10 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                             setEditContactId("");
                             fetchClientContacts(c.id);
                           }}
-                          className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50"
+                          className={cn(
+                            "w-full text-left",
+                            dark ? "px-4 py-3 text-base text-slate-200 hover:bg-slate-600 min-h-[44px]" : "px-3 py-1.5 text-sm hover:bg-slate-50",
+                          )}
                         >
                           {c.name}
                         </button>
@@ -598,19 +656,19 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
               ) : card.client ? (
                 <Link
                   href={`/clients/${card.client.id}`}
-                  className="text-sm text-primary-600 hover:text-primary-700 hover:underline"
+                  className={cn(dark ? "text-base text-primary-400 hover:text-primary-300" : "text-sm text-primary-600 hover:text-primary-700 hover:underline")}
                 >
                   {card.client.name}
                 </Link>
               ) : (
-                <p className="text-sm text-slate-400">Aucun</p>
+                <p className={cn(dark ? "text-base text-slate-500" : "text-sm text-slate-400")}>Aucun</p>
               )}
             </div>
 
             {/* Contact / Personne */}
             <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
-                <Users className="h-3 w-3" />
+              <label className={cn("font-medium mb-1.5 flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
+                <Users className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                 Personne
               </label>
               {editing ? (
@@ -618,7 +676,10 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                   <select
                     value={editContactId}
                     onChange={(e) => setEditContactId(e.target.value)}
-                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className={cn(
+                      "w-full border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500",
+                      dark ? "px-4 py-3 text-base bg-slate-700 border-slate-600 text-white min-h-[48px]" : "px-2 py-1.5 text-sm border-slate-200",
+                    )}
                   >
                     <option value="">Aucune</option>
                     {clientContacts.map((c) => (
@@ -628,58 +689,64 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                     ))}
                   </select>
                 ) : (
-                  <p className="text-sm text-slate-400 italic">
+                  <p className={cn("italic", dark ? "text-base text-slate-500" : "text-sm text-slate-400")}>
                     {editClientId ? "Aucun contact" : "Sélectionnez un client"}
                   </p>
                 )
               ) : card.contact ? (
-                <p className="text-sm text-slate-700">
+                <p className={cn(dark ? "text-base text-slate-200" : "text-sm text-slate-700")}>
                   {[card.contact.firstName, card.contact.lastName].filter(Boolean).join(" ") || "Sans nom"}
                 </p>
               ) : (
-                <p className="text-sm text-slate-400">Aucune</p>
+                <p className={cn(dark ? "text-base text-slate-500" : "text-sm text-slate-400")}>Aucune</p>
               )}
             </div>
           </div>
 
           {/* Description */}
           <div>
-            <label className="text-xs font-medium text-slate-500 mb-1 block">Description</label>
+            <label className={cn("font-medium mb-1.5 block", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>Description</label>
             {editing ? (
               <textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 placeholder="Ajouter une description..."
-                rows={3}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                rows={dark ? 4 : 3}
+                className={cn(
+                  "w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none",
+                  dark ? "px-4 py-3 text-base bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "px-3 py-2 text-sm border-slate-200",
+                )}
               />
             ) : (
-              <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                {card.description || <span className="text-slate-400 italic">Aucune description</span>}
+              <p className={cn("whitespace-pre-wrap", dark ? "text-base text-slate-200" : "text-sm text-slate-700")}>
+                {card.description || <span className={cn("italic", dark ? "text-slate-500" : "text-slate-400")}>Aucune description</span>}
               </p>
             )}
           </div>
 
           {/* Tags */}
           <div>
-            <label className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1">
-              <Tag className="h-3 w-3" />
+            <label className={cn("font-medium mb-2 flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
+              <Tag className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
               Tags
             </label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
+            <div className={cn("flex flex-wrap mb-2", dark ? "gap-2" : "gap-1.5")}>
               {(editing ? allTags.filter((t) => selectedTagIds.includes(t.id)) : card.tags.map((t) => t.tag)).map((tag) => (
                 <span
                   key={tag.id}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded"
+                  className={cn(
+                    "inline-flex items-center font-medium rounded",
+                    dark ? "gap-2 px-3 py-1.5 text-sm" : "gap-1 px-2 py-0.5 text-xs",
+                  )}
                   style={{ backgroundColor: tag.color + "20", color: tag.color }}
                 >
                   {tag.name}
                   {editing && (
                     <button
                       onClick={() => setSelectedTagIds((prev) => prev.filter((id) => id !== tag.id))}
-                      className="hover:opacity-70"
+                      className={cn("hover:opacity-70", dark ? "p-1" : "")}
                     >
-                      <X className="h-3 w-3" />
+                      <X className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                     </button>
                   )}
                 </span>
@@ -687,35 +754,44 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
               {editing && (
                 <button
                   onClick={() => setShowTagPicker(!showTagPicker)}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-slate-500 border border-dashed border-slate-300 rounded hover:border-slate-400"
+                  className={cn(
+                    "inline-flex items-center border border-dashed rounded",
+                    dark ? "gap-2 px-3 py-1.5 text-sm text-slate-400 border-slate-600 hover:border-slate-400 min-h-[40px]" : "gap-1 px-2 py-0.5 text-xs text-slate-500 border-slate-300 hover:border-slate-400",
+                  )}
                 >
-                  <Plus className="h-3 w-3" />
+                  <Plus className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                   Tag
                 </button>
               )}
             </div>
             {editing && showTagPicker && (
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
-                <div className="flex flex-wrap gap-1">
+              <div className={cn(
+                "border rounded-lg space-y-3",
+                dark ? "bg-slate-700/50 border-slate-600 p-4" : "bg-slate-50 border-slate-200 p-3",
+              )}>
+                <div className={cn("flex flex-wrap", dark ? "gap-2" : "gap-1")}>
                   {allTags
                     .filter((t) => !selectedTagIds.includes(t.id))
                     .map((tag) => (
                       <button
                         key={tag.id}
                         onClick={() => setSelectedTagIds((prev) => [...prev, tag.id])}
-                        className="px-2 py-0.5 text-xs rounded border border-slate-200 hover:border-slate-400"
+                        className={cn(
+                          "rounded border",
+                          dark ? "px-3 py-2 text-sm border-slate-600 hover:border-slate-400 min-h-[40px]" : "px-2 py-0.5 text-xs border-slate-200 hover:border-slate-400",
+                        )}
                         style={{ color: tag.color }}
                       >
                         + {tag.name}
                       </button>
                     ))}
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className={cn("flex items-center", dark ? "gap-2" : "gap-1.5")}>
                   <input
                     type="color"
                     value={newTagColor}
                     onChange={(e) => setNewTagColor(e.target.value)}
-                    className="w-7 h-7 rounded cursor-pointer border-0"
+                    className={cn("rounded cursor-pointer border-0", dark ? "w-10 h-10" : "w-7 h-7")}
                   />
                   <input
                     type="text"
@@ -723,9 +799,15 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                     value={newTagName}
                     onChange={(e) => setNewTagName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && createTag()}
-                    className="flex-1 px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className={cn(
+                      "flex-1 border rounded focus:outline-none focus:ring-1 focus:ring-primary-500",
+                      dark ? "px-4 py-2.5 text-sm bg-slate-700 border-slate-600 text-white placeholder-slate-500 min-h-[44px]" : "px-2 py-1 text-xs border-slate-200",
+                    )}
                   />
-                  <button onClick={createTag} className="px-2 py-1 text-xs bg-primary-600 text-white rounded hover:bg-primary-700">
+                  <button onClick={createTag} className={cn(
+                    "bg-primary-600 text-white rounded hover:bg-primary-700 font-medium",
+                    dark ? "px-4 py-2.5 text-sm min-h-[44px]" : "px-2 py-1 text-xs",
+                  )}>
                     Créer
                   </button>
                 </div>
@@ -735,44 +817,55 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
 
           {/* Links */}
           <div>
-            <label className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1">
-              <LinkIcon className="h-3 w-3" />
+            <label className={cn("font-medium mb-2 flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
+              <LinkIcon className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
               Liens
             </label>
-            <div className="space-y-1 mb-2">
+            <div className={cn("mb-2", dark ? "space-y-2" : "space-y-1")}>
               {(editing ? editLinks : links).map((link, i) => (
                 <div key={i} className="flex items-center gap-2 group">
                   <a
                     href={link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-primary-600 hover:text-primary-700 hover:underline truncate flex items-center gap-1"
+                    className={cn(
+                      "hover:underline truncate flex items-center gap-1.5",
+                      dark ? "text-base text-primary-400 hover:text-primary-300" : "text-sm text-primary-600 hover:text-primary-700",
+                    )}
                   >
-                    <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                    <ExternalLink className={cn("flex-shrink-0", dark ? "h-4 w-4" : "h-3 w-3")} />
                     {link}
                   </a>
                   {editing && (
                     <button
                       onClick={() => removeLink(i)}
-                      className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                      className={cn(
+                        dark ? "text-slate-500 hover:text-red-400 p-2 min-h-[44px]" : "text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100",
+                      )}
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className={cn(dark ? "h-5 w-5" : "h-3.5 w-3.5")} />
                     </button>
                   )}
                 </div>
               ))}
             </div>
             {editing && (
-              <div className="flex gap-1.5">
+              <div className={cn("flex", dark ? "gap-2" : "gap-1.5")}>
                 <input
                   type="text"
                   placeholder="https://..."
                   value={newLink}
                   onChange={(e) => setNewLink(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addLink()}
-                  className="flex-1 px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  className={cn(
+                    "flex-1 border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500",
+                    dark ? "px-4 py-3 text-base bg-slate-700 border-slate-600 text-white placeholder-slate-500 min-h-[48px]" : "px-2 py-1.5 text-sm border-slate-200",
+                  )}
                 />
-                <button onClick={addLink} className="px-3 py-1.5 text-sm text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50">
+                <button onClick={addLink} className={cn(
+                  "border rounded-lg font-medium",
+                  dark ? "px-5 py-3 text-base text-primary-400 border-primary-700 hover:bg-primary-900/30 min-h-[48px]" : "px-3 py-1.5 text-sm text-primary-600 border-primary-200 hover:bg-primary-50",
+                )}>
                   Ajouter
                 </button>
               </div>
@@ -781,17 +874,20 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
 
           {/* Attachments */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                <Paperclip className="h-3 w-3" />
+            <div className={cn("flex items-center justify-between", dark ? "mb-3" : "mb-2")}>
+              <label className={cn("font-medium flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
+                <Paperclip className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                 Pièces jointes ({card.attachments.length})
               </label>
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 border border-primary-200 rounded hover:bg-primary-50 disabled:opacity-50"
+                className={cn(
+                  "flex items-center gap-1.5 text-primary-600 border border-primary-200 rounded disabled:opacity-50",
+                  dark ? "px-4 py-2.5 text-sm hover:bg-primary-900/30 border-primary-700 text-primary-400 min-h-[44px]" : "px-2 py-1 text-xs hover:bg-primary-50",
+                )}
               >
-                <Upload className="h-3 w-3" />
+                <Upload className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                 {uploading ? "Envoi..." : "Ajouter"}
               </button>
               <input
@@ -805,18 +901,27 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                 }}
               />
             </div>
-            <div className="space-y-2">
+            <div className={cn(dark ? "space-y-3" : "space-y-2")}>
               {card.attachments.map((att) => (
-                <div key={att.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg group">
+                <div key={att.id} className={cn(
+                  "flex items-center rounded-lg group",
+                  dark ? "gap-4 p-3 bg-slate-700/50" : "gap-3 p-2 bg-slate-50",
+                )}>
                   {isImageType(att.fileType) ? (
                     <img
                       src={att.fileUrl}
                       alt={att.fileName}
-                      className="w-12 h-12 object-cover rounded border border-slate-200"
+                      className={cn(
+                        "object-cover rounded border",
+                        dark ? "w-16 h-16 border-slate-600" : "w-12 h-12 border-slate-200",
+                      )}
                     />
                   ) : (
-                    <div className="w-12 h-12 flex items-center justify-center bg-slate-200 rounded">
-                      <FileText className="h-5 w-5 text-slate-500" />
+                    <div className={cn(
+                      "flex items-center justify-center rounded",
+                      dark ? "w-16 h-16 bg-slate-600" : "w-12 h-12 bg-slate-200",
+                    )}>
+                      <FileText className={cn(dark ? "h-7 w-7 text-slate-400" : "h-5 w-5 text-slate-500")} />
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
@@ -824,25 +929,34 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                       href={att.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-slate-700 hover:text-primary-600 truncate block"
+                      className={cn(
+                        "hover:text-primary-600 truncate block",
+                        dark ? "text-base text-slate-200" : "text-sm text-slate-700",
+                      )}
                     >
                       {att.fileName}
                     </a>
-                    <p className="text-xs text-slate-400">{formatFileSize(att.fileSize)}</p>
+                    <p className={cn(dark ? "text-sm text-slate-500" : "text-xs text-slate-400")}>{formatFileSize(att.fileSize)}</p>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                  <div className={cn("flex items-center", dark ? "gap-2" : "gap-1 opacity-0 group-hover:opacity-100")}>
                     <a
                       href={att.fileUrl}
                       download
-                      className="p-1.5 text-slate-400 hover:text-slate-600 rounded"
+                      className={cn(
+                        "rounded",
+                        dark ? "p-3 text-slate-400 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center" : "p-1.5 text-slate-400 hover:text-slate-600",
+                      )}
                     >
-                      <Download className="h-3.5 w-3.5" />
+                      <Download className={cn(dark ? "h-5 w-5" : "h-3.5 w-3.5")} />
                     </a>
                     <button
                       onClick={() => deleteAttachment(att.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 rounded"
+                      className={cn(
+                        "rounded",
+                        dark ? "p-3 text-slate-400 hover:text-red-400 min-h-[44px] min-w-[44px] flex items-center justify-center" : "p-1.5 text-slate-400 hover:text-red-600",
+                      )}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className={cn(dark ? "h-5 w-5" : "h-3.5 w-3.5")} />
                     </button>
                   </div>
                 </div>
@@ -852,49 +966,61 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
 
           {/* Comments */}
           <div>
-            <label className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1">
-              <MessageSquare className="h-3 w-3" />
+            <label className={cn("font-medium mb-2 flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
+              <MessageSquare className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
               Commentaires ({card.comments.length})
             </label>
 
             {/* Add comment */}
-            <div className="flex gap-2 mb-3">
+            <div className={cn("flex mb-3", dark ? "gap-3" : "gap-2")}>
               <MentionInput
                 value={commentText}
                 onChange={setCommentText}
                 onSubmit={addComment}
                 placeholder="Écrire un commentaire... (@mention)"
-                rows={2}
+                rows={dark ? 3 : 2}
                 users={users}
-                className="flex-1 px-3 py-2 text-sm border-slate-200 focus:ring-primary-500"
+                className={cn(
+                  "flex-1",
+                  dark ? "px-4 py-3 text-base border-slate-600 bg-slate-700 text-white focus:ring-primary-500" : "px-3 py-2 text-sm border-slate-200 focus:ring-primary-500",
+                )}
               />
               <button
                 onClick={addComment}
                 disabled={!commentText.trim() || sendingComment}
-                className="self-end px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                className={cn(
+                  "self-end bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50",
+                  dark ? "px-5 py-3 min-h-[48px]" : "px-3 py-2 text-sm",
+                )}
               >
-                <Send className="h-4 w-4" />
+                <Send className={cn(dark ? "h-5 w-5" : "h-4 w-4")} />
               </button>
             </div>
 
             {/* Comment list */}
-            <div className="space-y-3">
+            <div className={cn(dark ? "space-y-4" : "space-y-3")}>
               {card.comments.map((comment) => (
                 <div key={comment.id} className="group">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-[10px] font-bold text-primary-700">
+                  <div className={cn("flex items-center mb-1", dark ? "gap-3" : "gap-2")}>
+                    <div className={cn(
+                      "rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-700",
+                      dark ? "w-8 h-8 text-sm" : "w-6 h-6 text-[10px]",
+                    )}>
                       {comment.userName.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-sm font-medium text-slate-700">{comment.userName}</span>
-                    <span className="text-xs text-slate-400">{formatRelativeTime(comment.createdAt)}</span>
+                    <span className={cn("font-medium", dark ? "text-base text-slate-200" : "text-sm text-slate-700")}>{comment.userName}</span>
+                    <span className={cn(dark ? "text-sm text-slate-500" : "text-xs text-slate-400")}>{formatRelativeTime(comment.createdAt)}</span>
                     <button
                       onClick={() => deleteComment(comment.id)}
-                      className="ml-auto text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                      className={cn(
+                        "ml-auto",
+                        dark ? "text-slate-600 hover:text-red-400 p-2 min-h-[44px]" : "text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100",
+                      )}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                     </button>
                   </div>
-                  <p className="text-sm text-slate-600 ml-8 whitespace-pre-wrap">
+                  <p className={cn("whitespace-pre-wrap", dark ? "text-base text-slate-300 ml-11" : "text-sm text-slate-600 ml-8")}>
                     {comment.content.split(/(@[\w\s]+?(?:​|$))/).map((part, i) =>
                       part.startsWith("@") ? (
                         <span key={i} className="bg-primary-100 text-primary-700 rounded px-0.5 font-medium">{part.replace("​", "")}</span>
@@ -911,16 +1037,16 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
           {/* History */}
           {history.length > 0 && (
             <div>
-              <label className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1">
-                <History className="h-3 w-3" />
+              <label className={cn("font-medium mb-2 flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
+                <History className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                 Historique ({history.length})
               </label>
-              <div className="max-h-48 overflow-y-auto space-y-1.5">
+              <div className={cn("overflow-y-auto", dark ? "max-h-64 space-y-2" : "max-h-48 space-y-1.5")}>
                 {history.map((entry) => (
-                  <div key={entry.id} className="flex items-start gap-2 text-xs text-slate-500">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1.5 flex-shrink-0" />
+                  <div key={entry.id} className={cn("flex items-start gap-2", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
+                    <div className={cn("rounded-full flex-shrink-0", dark ? "w-2 h-2 bg-slate-600 mt-2" : "w-1.5 h-1.5 bg-slate-300 mt-1.5")} />
                     <div className="flex-1 min-w-0">
-                      <span className="font-medium text-slate-600">{entry.userName || "Système"}</span>
+                      <span className={cn("font-medium", dark ? "text-slate-300" : "text-slate-600")}>{entry.userName || "Système"}</span>
                       {" "}
                       {entry.action === "CREATE" && "a créé la carte"}
                       {entry.action === "UPDATE" && entry.field === "title" && (
@@ -948,7 +1074,7 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
                       {entry.action === "ASSIGN" && (
                         <>a assigné la carte à &quot;{entry.newValue}&quot;</>
                       )}
-                      <span className="text-slate-400 ml-1">
+                      <span className={cn("ml-1", dark ? "text-slate-600" : "text-slate-400")}>
                         · {formatRelativeTime(entry.createdAt)}
                       </span>
                     </div>
@@ -959,9 +1085,12 @@ export default function CardDetailModal({ cardId, users, onClose }: Props) {
           )}
 
           {/* Footer info */}
-          <div className="flex items-center gap-4 text-xs text-slate-400 pt-2 border-t border-slate-100">
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
+          <div className={cn(
+            "flex items-center gap-4 pt-3 border-t",
+            dark ? "text-sm text-slate-500 border-slate-700" : "text-xs text-slate-400 border-slate-100",
+          )}>
+            <span className={cn("flex items-center gap-1.5")}>
+              <Clock className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
               Créée {formatRelativeTime(card.createdAt)}
             </span>
             {creator && (

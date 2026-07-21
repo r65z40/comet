@@ -908,6 +908,7 @@ export default function BoardScreenPage() {
         <CardDetailModal
           cardId={selectedCardId}
           users={users}
+          dark
           onClose={() => {
             setSelectedCardId(null);
             fetchColumns();
