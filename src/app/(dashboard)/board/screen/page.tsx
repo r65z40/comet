@@ -1211,9 +1211,12 @@ function ScreenCard({ card, isDraggingOverlay, onLongPress }: { card: BoardCard;
   const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPress = useRef(false);
+  const lastTapRef = useRef(0);
+  const didMoveRef = useRef(false);
 
   function handlePointerDown(e: React.PointerEvent) {
     didLongPress.current = false;
+    didMoveRef.current = false;
     listeners?.onPointerDown?.(e);
     if (onLongPress) {
       longPressTimer.current = setTimeout(() => {
@@ -1223,12 +1226,22 @@ function ScreenCard({ card, isDraggingOverlay, onLongPress }: { card: BoardCard;
     }
   }
 
-  function handlePointerMove(e: React.PointerEvent) {
+  function handlePointerMove() {
+    didMoveRef.current = true;
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
   }
 
   function handlePointerUp() {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    if (!didMoveRef.current && !didLongPress.current && onLongPress) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        lastTapRef.current = 0;
+        onLongPress();
+      } else {
+        lastTapRef.current = now;
+      }
+    }
   }
 
   if (isDragging) {
