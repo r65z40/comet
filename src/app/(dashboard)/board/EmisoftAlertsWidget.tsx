@@ -96,39 +96,39 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
 
   useEffect(() => {
     fetchAlerts();
-    const interval = setInterval(fetchAlerts, 90_000); // refresh every 90s
+    const interval = setInterval(fetchAlerts, 90_000);
     return () => clearInterval(interval);
   }, [fetchAlerts]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[100px]">
-        <RefreshCw className={cn("h-5 w-5 animate-spin", dark ? "text-slate-500" : "text-slate-300")} />
+        <RefreshCw className={cn("animate-spin", dark ? "h-6 w-6 text-slate-500" : "h-5 w-5 text-slate-300")} />
       </div>
     );
   }
 
   if (error === "no_data") {
     return (
-      <div className={cn("flex items-center justify-center h-full p-4", dark ? "text-slate-500" : "text-slate-400")}>
-        <p className="text-xs text-center">Emsisoft non configuré</p>
+      <div className={cn("flex items-center justify-center h-full p-4", dark ? "text-sm text-slate-500" : "text-xs text-slate-400")}>
+        Emsisoft non configuré
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={cn("flex items-center justify-center h-full p-4", dark ? "text-red-400" : "text-red-500")}>
-        <p className="text-xs">Erreur Emsisoft</p>
+      <div className={cn("flex items-center justify-center h-full p-4", dark ? "text-sm text-red-400" : "text-xs text-red-500")}>
+        Erreur Emsisoft
       </div>
     );
   }
 
   if (findings.length === 0) {
     return (
-      <div className={cn("flex flex-col items-center justify-center h-full py-6 gap-2", dark ? "text-slate-500" : "text-slate-400")}>
-        <ShieldCheck className="h-8 w-8 opacity-30" />
-        <p className="text-xs">Aucune alerte récente</p>
+      <div className={cn("flex flex-col items-center justify-center h-full py-6 gap-2", dark ? "text-sm text-slate-500" : "text-xs text-slate-400")}>
+        <ShieldCheck className={cn("opacity-30", dark ? "h-10 w-10" : "h-8 w-8")} />
+        Aucune alerte récente
       </div>
     );
   }
@@ -161,27 +161,33 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
 
           return (
             <div key={f.guid || f.id || i} className={cn(
-              "px-3 py-2",
-              dark ? "hover:bg-slate-700/30" : "hover:bg-slate-50",
+              dark ? "px-4 py-3 hover:bg-slate-700/30" : "px-3 py-2 hover:bg-slate-50",
               isCritical && (dark ? "bg-red-500/5" : "bg-red-50/50"),
             )}>
-              <div className="flex items-start gap-2">
+              <div className={cn("flex items-start", dark ? "gap-3" : "gap-2")}>
                 <div className={cn(
-                  "h-5 w-5 rounded flex items-center justify-center shrink-0 mt-0.5",
+                  "rounded flex items-center justify-center shrink-0 mt-0.5",
+                  dark ? "h-7 w-7" : "h-5 w-5",
                   isMalware || isCritical ? (dark ? "bg-red-900/50" : "bg-red-100") : (dark ? "bg-amber-900/40" : "bg-amber-100"),
                 )}>
                   {isMalware || isCritical ? (
-                    <Bug className={cn("h-3 w-3", dark ? "text-red-400" : "text-red-500")} />
+                    <Bug className={cn(dark ? "h-4 w-4 text-red-400" : "h-3 w-3 text-red-500")} />
                   ) : (
-                    <ShieldAlert className={cn("h-3 w-3", dark ? "text-amber-400" : "text-amber-500")} />
+                    <ShieldAlert className={cn(dark ? "h-4 w-4 text-amber-400" : "h-3 w-3 text-amber-500")} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={cn("text-xs font-medium truncate", dark ? (isMalware || isCritical ? "text-red-300" : "text-white") : (isMalware || isCritical ? "text-red-800" : "text-slate-800"))}>{title}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <p className={cn(
+                    "font-medium truncate",
+                    dark
+                      ? (isMalware || isCritical ? "text-sm text-red-300" : "text-sm text-white")
+                      : (isMalware || isCritical ? "text-xs text-red-800" : "text-xs text-slate-800"),
+                  )}>{title}</p>
+                  <div className={cn("flex items-center mt-0.5 flex-wrap", dark ? "gap-2" : "gap-1.5")}>
                     {severity && (
                       <span className={cn(
-                        "text-[9px] font-bold uppercase rounded px-1 py-0.5",
+                        "font-bold uppercase rounded",
+                        dark ? "text-[10px] px-1.5 py-0.5" : "text-[9px] px-1 py-0.5",
                         isCritical
                           ? (dark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700")
                           : isMedium
@@ -191,46 +197,54 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
                     )}
                     {findingType && (
                       <span className={cn(
-                        "text-[9px] font-medium rounded px-1 py-0.5",
-                        dark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-500",
+                        "font-medium rounded",
+                        dark ? "text-[10px] px-1.5 py-0.5 bg-slate-700 text-slate-300" : "text-[9px] px-1 py-0.5 bg-slate-100 text-slate-500",
                       )}>{findingType}</span>
                     )}
                     {status && (
                       <span className={cn(
-                        "text-[9px] rounded px-1 py-0.5",
-                        dark ? "bg-slate-700/60 text-slate-400" : "bg-slate-50 text-slate-500",
+                        "rounded",
+                        dark ? "text-[10px] px-1.5 py-0.5 bg-slate-700/60 text-slate-400" : "text-[9px] px-1 py-0.5 bg-slate-50 text-slate-500",
                       )}>{status}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <div className={cn("flex items-center mt-0.5 flex-wrap", dark ? "gap-2" : "gap-1.5")}>
                     {computer && (
-                      <span className={cn("inline-flex items-center gap-0.5 text-[10px]", dark ? "text-slate-400" : "text-slate-500")}>
-                        <Monitor className="h-2.5 w-2.5" /> {computer}
+                      <span className={cn(
+                        "inline-flex items-center",
+                        dark ? "gap-1 text-xs text-slate-400" : "gap-0.5 text-[10px] text-slate-500",
+                      )}>
+                        <Monitor className={cn(dark ? "h-3.5 w-3.5" : "h-2.5 w-2.5")} /> {computer}
                       </span>
                     )}
                     {wsName && (
-                      <span className={cn("text-[9px]", dark ? "text-slate-600" : "text-slate-400")}>
+                      <span className={cn(dark ? "text-[10px] text-slate-600" : "text-[9px] text-slate-400")}>
                         {wsName}
                       </span>
                     )}
                   </div>
                   {path && (
-                    <p className={cn("text-[9px] mt-0.5 truncate font-mono", dark ? "text-slate-600" : "text-slate-400")} title={path}>
+                    <p className={cn(
+                      "mt-0.5 truncate font-mono",
+                      dark ? "text-[10px] text-slate-600" : "text-[9px] text-slate-400",
+                    )} title={path}>
                       {path}
                     </p>
                   )}
                   {involvedDevices.length > 0 && (
-                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    <div className={cn("flex items-center mt-1 flex-wrap", dark ? "gap-1.5" : "gap-1")}>
                       {involvedDevices.slice(0, 3).map((name, j) => (
                         <span key={j} className={cn(
-                          "inline-flex items-center gap-0.5 text-[9px] rounded px-1 py-0.5",
-                          dark ? "bg-slate-700/60 text-slate-400" : "bg-slate-100 text-slate-500",
+                          "inline-flex items-center rounded",
+                          dark
+                            ? "gap-1 text-[10px] px-1.5 py-0.5 bg-slate-700/60 text-slate-400"
+                            : "gap-0.5 text-[9px] px-1 py-0.5 bg-slate-100 text-slate-500",
                         )}>
-                          <Server className="h-2 w-2" /> {name}
+                          <Server className={cn(dark ? "h-3 w-3" : "h-2 w-2")} /> {name}
                         </span>
                       ))}
                       {involvedDevices.length > 3 && (
-                        <span className={cn("text-[9px]", dark ? "text-slate-600" : "text-slate-400")}>
+                        <span className={cn(dark ? "text-[10px] text-slate-600" : "text-[9px] text-slate-400")}>
                           +{involvedDevices.length - 3}
                         </span>
                       )}
@@ -240,8 +254,8 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
                 <div className="text-right shrink-0">
                   {dateStr && (
                     <>
-                      <p className={cn("text-[10px] font-medium", dark ? "text-slate-400" : "text-slate-500")}>{timeAgo(dateStr)}</p>
-                      <p className={cn("text-[9px]", dark ? "text-slate-600" : "text-slate-400")}>{formatShortDate(dateStr)} {formatTime(dateStr)}</p>
+                      <p className={cn("font-medium", dark ? "text-xs text-slate-400" : "text-[10px] text-slate-500")}>{timeAgo(dateStr)}</p>
+                      <p className={cn(dark ? "text-[10px] text-slate-600" : "text-[9px] text-slate-400")}>{formatShortDate(dateStr)} {formatTime(dateStr)}</p>
                     </>
                   )}
                 </div>

@@ -659,7 +659,7 @@ export default function BoardScreenPage() {
 
   return (
     <div className="fixed inset-0 bg-slate-900 text-white z-[9999] flex flex-col overflow-hidden">
-      <TicketToast />
+      <TicketToast dark />
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-3 bg-slate-800/80 border-b border-slate-700 shrink-0">

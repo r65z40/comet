@@ -198,7 +198,8 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
 
   const sourceBadge = (source: CriticalAlert["source"]) => (
     <span className={cn(
-      "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
+      "font-bold uppercase rounded",
+      dark ? "text-xs px-2 py-1" : "text-[10px] px-1.5 py-0.5",
       source === "atera"
         ? (dark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700")
         : source === "emsisoft"
@@ -218,72 +219,109 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
       <button
         onClick={toggleSound}
         className={cn(
-          "fixed z-[9998] p-2 rounded-full transition-colors",
+          "fixed z-[9998] rounded-full transition-colors",
           minimizedAlerts.length > 0 ? "bottom-16 right-4" : "bottom-4 right-4",
-          dark ? "bg-slate-800 hover:bg-slate-700 text-slate-400" : "bg-white border border-slate-200 hover:bg-slate-50 text-slate-400 shadow-sm",
+          dark
+            ? "p-3.5 min-h-[48px] min-w-[48px] flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-400"
+            : "p-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-400 shadow-sm",
         )}
         title={soundEnabled ? "Son activé" : "Son désactivé"}
       >
-        {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-red-400" />}
+        {soundEnabled
+          ? <Volume2 className={cn(dark ? "h-6 w-6" : "h-4 w-4")} />
+          : <VolumeX className={cn("text-red-400", dark ? "h-6 w-6" : "h-4 w-4")} />}
       </button>
 
       {/* Full overlay for fresh alerts (first 30s) */}
       {freshAlerts.length > 0 && (
         <div className="fixed inset-0 z-[9995] bg-black/30 backdrop-blur-sm flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto w-full max-w-lg mx-4 animate-in fade-in zoom-in duration-300">
+          <div className={cn(
+            "pointer-events-auto w-full mx-4 animate-in fade-in zoom-in duration-300",
+            dark ? "max-w-2xl" : "max-w-lg",
+          )}>
             <div className={cn(
               "rounded-2xl border-2 shadow-2xl overflow-hidden",
               dark ? "bg-slate-900 border-red-500/50" : "bg-white border-red-200",
             )}>
               {/* Red pulsing header */}
-              <div className="bg-red-600 px-6 py-4 flex items-center gap-3 animate-pulse">
-                <AlertTriangle className="h-7 w-7 text-white shrink-0" />
+              <div className={cn(
+                "bg-red-600 flex items-center gap-3 animate-pulse",
+                dark ? "px-8 py-5" : "px-6 py-4",
+              )}>
+                <AlertTriangle className={cn("text-white shrink-0", dark ? "h-9 w-9" : "h-7 w-7")} />
                 <div className="flex-1">
-                  <h2 className="text-lg font-bold text-white">Alerte Critique</h2>
-                  <p className="text-red-200 text-sm">{freshAlerts.length} alerte{freshAlerts.length > 1 ? "s" : ""} critique{freshAlerts.length > 1 ? "s" : ""}</p>
+                  <h2 className={cn("font-bold text-white", dark ? "text-2xl" : "text-lg")}>Alerte Critique</h2>
+                  <p className={cn("text-red-200", dark ? "text-base" : "text-sm")}>{freshAlerts.length} alerte{freshAlerts.length > 1 ? "s" : ""} critique{freshAlerts.length > 1 ? "s" : ""}</p>
                 </div>
                 <button
                   onClick={() => acknowledgeAll(freshAlerts.map((a) => a.id))}
-                  className="p-1.5 rounded-lg bg-red-700/50 hover:bg-red-700 text-white transition-colors"
+                  className={cn(
+                    "rounded-lg bg-red-700/50 hover:bg-red-700 text-white transition-colors",
+                    dark ? "p-3 min-h-[48px] min-w-[48px] flex items-center justify-center" : "p-1.5",
+                  )}
                 >
-                  <X className="h-5 w-5" />
+                  <X className={cn(dark ? "h-7 w-7" : "h-5 w-5")} />
                 </button>
               </div>
 
               {/* Alert list */}
-              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
+              <div className={cn(
+                "overflow-y-auto divide-y",
+                dark ? "max-h-96 divide-slate-700" : "max-h-64 divide-slate-100 dark:divide-slate-700",
+              )}>
                 {freshAlerts.map((alert) => (
-                  <div key={alert.id} className={cn("px-6 py-3 flex items-start gap-3", dark ? "hover:bg-slate-800" : "hover:bg-red-50/50")}>
+                  <div key={alert.id} className={cn(
+                    "flex items-start",
+                    dark ? "px-8 py-4 gap-4 hover:bg-slate-800" : "px-6 py-3 gap-3 hover:bg-red-50/50",
+                  )}>
                     <div className={cn(
-                      "mt-0.5 w-2 h-2 rounded-full shrink-0 animate-pulse",
+                      "mt-0.5 rounded-full shrink-0 animate-pulse",
+                      dark ? "w-3 h-3" : "w-2 h-2",
                       alert.source === "atera" ? "bg-red-500" : alert.source === "emsisoft" ? "bg-purple-500" : "bg-orange-500",
                     )} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         {sourceBadge(alert.source)}
                       </div>
-                      <p className={cn("text-sm font-medium mt-1 truncate", dark ? "text-white" : "text-slate-900")}>{alert.title}</p>
-                      {alert.detail && <p className={cn("text-xs mt-0.5 truncate", dark ? "text-slate-400" : "text-slate-500")}>{alert.detail}</p>}
+                      <p className={cn(
+                        "font-medium mt-1 truncate",
+                        dark ? "text-base text-white" : "text-sm text-slate-900",
+                      )}>{alert.title}</p>
+                      {alert.detail && <p className={cn(
+                        "mt-0.5 truncate",
+                        dark ? "text-sm text-slate-400" : "text-xs text-slate-500",
+                      )}>{alert.detail}</p>}
                     </div>
                     <button
                       onClick={() => acknowledge(alert.id)}
-                      className={cn("p-1 rounded shrink-0", dark ? "text-slate-500 hover:text-slate-300" : "text-slate-300 hover:text-slate-500")}
+                      className={cn(
+                        "shrink-0",
+                        dark
+                          ? "p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-700/50"
+                          : "p-1 rounded text-slate-300 hover:text-slate-500",
+                      )}
                       title="Acquitter"
                     >
-                      <CheckCircle2 className="h-4 w-4" />
+                      <CheckCircle2 className={cn(dark ? "h-6 w-6" : "h-4 w-4")} />
                     </button>
                   </div>
                 ))}
               </div>
 
               {/* Footer */}
-              <div className={cn("px-6 py-3 border-t flex items-center justify-between", dark ? "border-slate-700 bg-slate-800/50" : "border-slate-100 bg-slate-50")}>
-                <p className={cn("text-xs", dark ? "text-slate-500" : "text-slate-400")}>
+              <div className={cn(
+                "border-t flex items-center justify-between",
+                dark ? "px-8 py-4 border-slate-700 bg-slate-800/50" : "px-6 py-3 border-slate-100 bg-slate-50",
+              )}>
+                <p className={cn(dark ? "text-sm text-slate-500" : "text-xs text-slate-400")}>
                   Se réduit en bas dans 30s
                 </p>
                 <button
                   onClick={() => acknowledgeAll(freshAlerts.map((a) => a.id))}
-                  className="text-xs font-medium text-red-600 hover:text-red-700"
+                  className={cn(
+                    "font-medium text-red-600 hover:text-red-700",
+                    dark ? "text-sm px-4 py-2 min-h-[44px] rounded-lg hover:bg-red-500/10" : "text-xs",
+                  )}
                 >
                   Tout acquitter
                 </button>
@@ -299,44 +337,62 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
           "fixed bottom-0 left-0 right-0 z-[9994] border-t shadow-lg transition-all",
           dark ? "bg-slate-800/95 border-red-500/30 backdrop-blur-sm" : "bg-white/95 border-red-200 backdrop-blur-sm",
         )}>
-          <div className="max-w-screen-xl mx-auto px-4 py-2 flex items-center gap-3">
-            <div className="flex items-center gap-2 shrink-0">
-              <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
-              <span className={cn("text-xs font-bold", dark ? "text-red-400" : "text-red-600")}>
+          <div className={cn(
+            "max-w-screen-xl mx-auto flex items-center",
+            dark ? "px-6 py-3 gap-4" : "px-4 py-2 gap-3",
+          )}>
+            <div className={cn("flex items-center shrink-0", dark ? "gap-3" : "gap-2")}>
+              <AlertTriangle className={cn("text-red-500 animate-pulse", dark ? "h-6 w-6" : "h-4 w-4")} />
+              <span className={cn(
+                "font-bold",
+                dark ? "text-base text-red-400" : "text-xs text-red-600",
+              )}>
                 {minimizedAlerts.length} alerte{minimizedAlerts.length > 1 ? "s" : ""}
               </span>
             </div>
 
-            <div className="flex-1 overflow-x-auto flex items-center gap-2 min-w-0">
+            <div className={cn(
+              "flex-1 overflow-x-auto flex items-center min-w-0",
+              dark ? "gap-3" : "gap-2",
+            )}>
               {minimizedAlerts.map((alert) => (
                 <div
                   key={alert.id}
                   className={cn(
-                    "flex items-center gap-2 px-2.5 py-1.5 rounded-lg shrink-0 max-w-xs",
-                    dark ? "bg-slate-700/60" : "bg-red-50 border border-red-100",
+                    "flex items-center shrink-0",
+                    dark
+                      ? "gap-3 px-4 py-2.5 rounded-xl bg-slate-700/60 max-w-sm"
+                      : "gap-2 px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-100 max-w-xs",
                   )}
                 >
                   <div className={cn(
-                    "w-1.5 h-1.5 rounded-full shrink-0 animate-pulse",
+                    "rounded-full shrink-0 animate-pulse",
+                    dark ? "w-2.5 h-2.5" : "w-1.5 h-1.5",
                     alert.source === "atera" ? "bg-red-500" : alert.source === "emsisoft" ? "bg-purple-500" : "bg-orange-500",
                   )} />
-                  <span className={cn("text-[10px] font-bold uppercase shrink-0", dark ? "text-slate-400" : "text-slate-500")}>
+                  <span className={cn(
+                    "font-bold uppercase shrink-0",
+                    dark ? "text-xs text-slate-400" : "text-[10px] text-slate-500",
+                  )}>
                     {sourceLabel(alert.source)}
                   </span>
-                  <span className={cn("text-xs truncate", dark ? "text-slate-300" : "text-slate-700")}>
+                  <span className={cn(
+                    "truncate",
+                    dark ? "text-sm text-slate-300" : "text-xs text-slate-700",
+                  )}>
                     {alert.title}
                   </span>
                   <button
                     onClick={() => acknowledge(alert.id)}
                     className={cn(
-                      "shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-colors",
+                      "shrink-0 flex items-center font-semibold transition-colors",
                       dark
-                        ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                        : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
+                        ? "gap-2 px-3 py-1.5 rounded-lg text-sm min-h-[40px] bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                        : "gap-1 px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
                     )}
                     title="Acquitter"
                   >
-                    <CheckCircle2 className="h-3 w-3" />
+                    <CheckCircle2 className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                     OK
                   </button>
                 </div>
@@ -346,13 +402,13 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
             <button
               onClick={() => acknowledgeAll(minimizedAlerts.map((a) => a.id))}
               className={cn(
-                "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                "shrink-0 flex items-center font-semibold transition-colors",
                 dark
-                  ? "bg-emerald-600/80 text-white hover:bg-emerald-600"
-                  : "bg-emerald-600 text-white hover:bg-emerald-700",
+                  ? "gap-2 px-5 py-3 rounded-xl text-base min-h-[48px] bg-emerald-600/80 text-white hover:bg-emerald-600"
+                  : "gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-emerald-600 text-white hover:bg-emerald-700",
               )}
             >
-              <CheckCircle2 className="h-3.5 w-3.5" />
+              <CheckCircle2 className={cn(dark ? "h-5 w-5" : "h-3.5 w-3.5")} />
               Tout acquitter
             </button>
           </div>

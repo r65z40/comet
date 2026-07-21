@@ -68,14 +68,14 @@ export default function AteraAlertsWidget({ dark }: { dark?: boolean }) {
   if (loading) {
     return (
       <div className={cn("flex items-center justify-center h-full", dark ? "text-slate-500" : "text-slate-400")}>
-        <RefreshCw className="h-4 w-4 animate-spin" />
+        <RefreshCw className={cn("animate-spin", dark ? "h-6 w-6" : "h-4 w-4")} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={cn("flex items-center justify-center h-full text-xs", dark ? "text-slate-500" : "text-slate-400")}>
+      <div className={cn("flex items-center justify-center h-full", dark ? "text-sm text-slate-500" : "text-xs text-slate-400")}>
         Impossible de charger les alertes
       </div>
     );
@@ -83,8 +83,8 @@ export default function AteraAlertsWidget({ dark }: { dark?: boolean }) {
 
   if (alerts.length === 0) {
     return (
-      <div className={cn("flex flex-col items-center justify-center h-full text-xs gap-1", dark ? "text-slate-500" : "text-slate-400")}>
-        <AlertTriangle className="h-5 w-5 opacity-30" />
+      <div className={cn("flex flex-col items-center justify-center h-full gap-1", dark ? "text-sm text-slate-500" : "text-xs text-slate-400")}>
+        <AlertTriangle className={cn("opacity-30", dark ? "h-8 w-8" : "h-5 w-5")} />
         Aucune alerte active
       </div>
     );
@@ -107,26 +107,29 @@ export default function AteraAlertsWidget({ dark }: { dark?: boolean }) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Summary bar */}
-      <div className={cn("flex items-center gap-3 px-3 py-2 border-b shrink-0", dark ? "border-slate-700" : "border-slate-100")}>
+      <div className={cn(
+        "flex items-center border-b shrink-0",
+        dark ? "gap-4 px-4 py-3 border-slate-700" : "gap-3 px-3 py-2 border-slate-100",
+      )}>
         {stats.critical > 0 && (
-          <div className="flex items-center gap-1 animate-pulse">
-            <XCircle className="h-3.5 w-3.5 text-red-500" />
-            <span className={cn("text-xs font-bold", dark ? "text-red-400" : "text-red-600")}>{stats.critical}</span>
+          <div className={cn("flex items-center animate-pulse", dark ? "gap-2" : "gap-1")}>
+            <XCircle className={cn("text-red-500", dark ? "h-5 w-5" : "h-3.5 w-3.5")} />
+            <span className={cn("font-bold", dark ? "text-sm text-red-400" : "text-xs text-red-600")}>{stats.critical}</span>
           </div>
         )}
         {stats.warning > 0 && (
-          <div className="flex items-center gap-1">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-            <span className={cn("text-xs font-bold", dark ? "text-amber-400" : "text-amber-600")}>{stats.warning}</span>
+          <div className={cn("flex items-center", dark ? "gap-2" : "gap-1")}>
+            <AlertTriangle className={cn("text-amber-500", dark ? "h-5 w-5" : "h-3.5 w-3.5")} />
+            <span className={cn("font-bold", dark ? "text-sm text-amber-400" : "text-xs text-amber-600")}>{stats.warning}</span>
           </div>
         )}
         {stats.info > 0 && (
-          <div className="flex items-center gap-1">
-            <Info className="h-3.5 w-3.5 text-blue-500" />
-            <span className={cn("text-xs font-bold", dark ? "text-blue-400" : "text-blue-600")}>{stats.info}</span>
+          <div className={cn("flex items-center", dark ? "gap-2" : "gap-1")}>
+            <Info className={cn("text-blue-500", dark ? "h-5 w-5" : "h-3.5 w-3.5")} />
+            <span className={cn("font-bold", dark ? "text-sm text-blue-400" : "text-xs text-blue-600")}>{stats.info}</span>
           </div>
         )}
-        <span className={cn("text-[10px] ml-auto", dark ? "text-slate-500" : "text-slate-400")}>
+        <span className={cn("ml-auto", dark ? "text-xs text-slate-500" : "text-[10px] text-slate-400")}>
           {alerts.length} alerte{alerts.length > 1 ? "s" : ""}
         </span>
       </div>
@@ -141,26 +144,37 @@ export default function AteraAlertsWidget({ dark }: { dark?: boolean }) {
             <div
               key={alert.id}
               className={cn(
-                "flex items-start gap-2 px-3 py-2 border-b",
-                dark ? "border-slate-700/50 hover:bg-slate-700/30" : "border-slate-50 hover:bg-slate-50",
+                "flex items-start border-b",
+                dark ? "gap-3 px-4 py-3 border-slate-700/50 hover:bg-slate-700/30" : "gap-2 px-3 py-2 border-slate-50 hover:bg-slate-50",
                 alert.severity === "Critical" && (dark ? "bg-red-500/10" : "bg-red-50/50"),
               )}
             >
-              <Icon className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", cfg.color, alert.severity === "Critical" && "animate-pulse")} />
+              <Icon className={cn(
+                "shrink-0 mt-0.5",
+                cfg.color,
+                alert.severity === "Critical" && "animate-pulse",
+                dark ? "h-5 w-5" : "h-3.5 w-3.5",
+              )} />
 
               <div className="flex-1 min-w-0">
-                <p className={cn("text-xs font-medium truncate", dark ? "text-slate-200" : "text-slate-700")}>
+                <p className={cn(
+                  "font-medium truncate",
+                  dark ? "text-sm text-slate-200" : "text-xs text-slate-700",
+                )}>
                   {alert.title}
                 </p>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className={cn("flex items-center mt-0.5", dark ? "gap-3" : "gap-2")}>
                   {alert.deviceName && (
-                    <span className={cn("flex items-center gap-0.5 text-[10px] truncate", dark ? "text-slate-500" : "text-slate-400")}>
-                      <Monitor className="h-2.5 w-2.5 shrink-0" />
+                    <span className={cn(
+                      "flex items-center truncate",
+                      dark ? "gap-1 text-xs text-slate-500" : "gap-0.5 text-[10px] text-slate-400",
+                    )}>
+                      <Monitor className={cn("shrink-0", dark ? "h-3.5 w-3.5" : "h-2.5 w-2.5")} />
                       {alert.deviceName}
                     </span>
                   )}
                   {alert.customerName && (
-                    <span className={cn("text-[10px] truncate", dark ? "text-slate-500" : "text-slate-400")}>
+                    <span className={cn("truncate", dark ? "text-xs text-slate-500" : "text-[10px] text-slate-400")}>
                       {alert.customerName}
                     </span>
                   )}
@@ -168,8 +182,11 @@ export default function AteraAlertsWidget({ dark }: { dark?: boolean }) {
               </div>
 
               {alert.created && (
-                <span className={cn("text-[9px] shrink-0 flex items-center gap-0.5 mt-0.5", dark ? "text-slate-600" : "text-slate-400")}>
-                  <Clock className="h-2.5 w-2.5" />
+                <span className={cn(
+                  "shrink-0 flex items-center mt-0.5",
+                  dark ? "gap-1 text-xs text-slate-600" : "gap-0.5 text-[9px] text-slate-400",
+                )}>
+                  <Clock className={cn("shrink-0", dark ? "h-3.5 w-3.5" : "h-2.5 w-2.5")} />
                   {timeAgo(alert.created)}
                 </span>
               )}
