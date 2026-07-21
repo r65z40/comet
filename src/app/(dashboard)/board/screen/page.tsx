@@ -686,7 +686,7 @@ export default function BoardScreenPage() {
   return (
     <div
       className="fixed inset-0 bg-slate-900 text-white z-[9999] flex flex-col overflow-hidden"
-      style={{ fontSize: `${uiZoom}%` }}
+      style={{ zoom: uiZoom / 100 }}
     >
       <TicketToast dark />
 
@@ -1389,6 +1389,22 @@ function ScreenCard({ card, isDraggingOverlay, onOpen }: { card: BoardCard; isDr
   const style = { transform: CSS.Transform.toString(transform), transition };
   const priorityColors: Record<number, string> = { 1: "border-l-red-500", 2: "border-l-orange-500", 3: "border-l-slate-600" };
   const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Two-finger tap opens card detail
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || !onOpen) return;
+    function handleTwoFingerTap(e: TouchEvent) {
+      if (e.touches.length >= 2) {
+        e.preventDefault();
+        e.stopPropagation();
+        onOpen!();
+      }
+    }
+    el.addEventListener("touchstart", handleTwoFingerTap, { passive: false });
+    return () => el.removeEventListener("touchstart", handleTwoFingerTap);
+  }, [onOpen]);
 
   if (isDragging) {
     return (
@@ -1402,7 +1418,7 @@ function ScreenCard({ card, isDraggingOverlay, onOpen }: { card: BoardCard; isDr
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => { setNodeRef(node); (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
       style={style}
       {...attributes}
       {...listeners}
@@ -1411,26 +1427,26 @@ function ScreenCard({ card, isDraggingOverlay, onOpen }: { card: BoardCard; isDr
         priorityColors[card.priority] || "border-l-slate-600",
       )}
     >
-      {/* Open button */}
+      {/* Open button — discreet, visible on hover or touch */}
       {onOpen && (
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           onClick={onOpen}
-          className="absolute top-2 right-2 z-10 p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg bg-slate-600/80 hover:bg-blue-600 text-slate-300 hover:text-white transition-colors shadow-lg"
+          className="absolute top-1.5 right-1.5 z-10 p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md opacity-30 group-hover:opacity-100 hover:!opacity-100 hover:bg-blue-600/90 text-slate-400 hover:text-white transition-all"
           title="Ouvrir la carte"
         >
-          <Eye className="h-5 w-5" />
+          <Eye className="h-4 w-4" />
         </button>
       )}
       {card.client && (
-        <div className="flex items-center gap-2.5 px-4 py-2 pr-14 bg-blue-500/10 border-b border-blue-500/20 rounded-t-xl">
+        <div className="flex items-center gap-2.5 px-4 py-2 bg-blue-500/10 border-b border-blue-500/20 rounded-t-xl">
           {card.client.logoUrl && <img src={card.client.logoUrl} alt="" className="h-5 w-5 rounded-full object-cover" />}
           <span className="text-sm font-bold text-blue-300 truncate">{card.client.name}</span>
         </div>
       )}
-      <div className={cn("px-4 py-3", !card.client && "pr-14")}>
+      <div className="px-4 py-3">
         <p className="text-base font-medium text-white line-clamp-2 leading-snug">{card.title}</p>
         {(card.tags.length > 0 || card.dueDate) && (
           <div className="flex items-center gap-2.5 mt-2 flex-wrap">
