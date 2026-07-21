@@ -44,6 +44,8 @@ import {
   ChevronRight,
   Music,
   Tv,
+  Plus,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
@@ -574,6 +576,7 @@ export default function BoardScreenPage() {
           onDragEnd={handleDragEnd}
           activeCard={activeCard}
           onCardOpen={setSelectedCardId}
+          onCardCreated={fetchColumns}
         />
       ),
     },
@@ -946,6 +949,7 @@ function KanbanContent({
   onDragEnd,
   activeCard,
   onCardOpen,
+  onCardCreated,
 }: {
   columns: BoardColumn[];
   sensors: ReturnType<typeof useSensors>;
@@ -955,6 +959,7 @@ function KanbanContent({
   onDragEnd: (event: DragEndEvent) => void;
   activeCard: BoardCard | null;
   onCardOpen: (cardId: string) => void;
+  onCardCreated: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -1026,7 +1031,7 @@ function KanbanContent({
             className="flex gap-4 overflow-x-auto p-4 h-full snap-x snap-mandatory scroll-smooth"
           >
             {columns.map((column) => (
-              <ScreenColumn key={column.id} column={column} colCount={columns.length} onCardOpen={onCardOpen} />
+              <ScreenColumn key={column.id} column={column} colCount={columns.length} onCardOpen={onCardOpen} onCardCreated={onCardCreated} />
             ))}
           </div>
         </SwipeContainer>
@@ -1173,8 +1178,38 @@ function PullToRefresh({ onRefresh, refreshing, children }: { onRefresh: () => v
 }
 
 /* Screen column */
-function ScreenColumn({ column, colCount, onCardOpen }: { column: BoardColumn; colCount: number; onCardOpen: (id: string) => void }) {
+function ScreenColumn({ column, colCount, onCardOpen, onCardCreated }: { column: BoardColumn; colCount: number; onCardOpen: (id: string) => void; onCardCreated: () => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  const [showForm, setShowForm] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newPriority, setNewPriority] = useState(3);
+  const [creating, setCreating] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showForm) inputRef.current?.focus();
+  }, [showForm]);
+
+  async function handleCreate() {
+    const title = newTitle.trim();
+    if (!title || creating) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/board/cards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ columnId: column.id, title, priority: newPriority }),
+      });
+      if (res.ok) {
+        setNewTitle("");
+        setNewPriority(3);
+        setShowForm(false);
+        onCardCreated();
+      }
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
     <div
@@ -1193,10 +1228,73 @@ function ScreenColumn({ column, colCount, onCardOpen }: { column: BoardColumn; c
         <SortableContext items={column.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {column.cards.map((card) => <ScreenCard key={card.id} card={card} onLongPress={() => onCardOpen(card.id)} />)}
         </SortableContext>
-        {column.cards.length === 0 && (
+        {column.cards.length === 0 && !showForm && (
           <div className={cn("flex items-center justify-center border-2 border-dashed rounded-xl py-6 text-sm transition-colors", isOver ? "border-blue-400 text-blue-300 bg-blue-500/10" : "border-slate-700 text-slate-600")}>
             Déposez ici
           </div>
+        )}
+      </div>
+      <div className="border-t border-slate-700/50 p-3">
+        {showForm ? (
+          <div
+            className="space-y-3"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <input
+              ref={inputRef}
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setShowForm(false); setNewTitle(""); } }}
+              placeholder="Titre de la carte..."
+              className="w-full bg-slate-700/60 border border-slate-600 rounded-lg px-4 py-3 text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 mr-1">Priorité</span>
+              {([
+                { v: 1, label: "Haute", color: "bg-red-500/20 text-red-400 border-red-500/30" },
+                { v: 2, label: "Moyenne", color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+                { v: 3, label: "Basse", color: "bg-slate-600/40 text-slate-400 border-slate-500/30" },
+              ] as const).map((p) => (
+                <button
+                  key={p.v}
+                  onClick={() => setNewPriority(p.v)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium border min-h-[36px] transition-all",
+                    newPriority === p.v ? cn(p.color, "ring-1 ring-white/20") : "bg-slate-700/30 text-slate-500 border-slate-700",
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreate}
+                disabled={!newTitle.trim() || creating}
+                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium rounded-lg px-4 py-3 min-h-[48px] text-base transition-colors"
+              >
+                <Send className="h-4 w-4" />
+                {creating ? "Création..." : "Créer"}
+              </button>
+              <button
+                onClick={() => { setShowForm(false); setNewTitle(""); setNewPriority(3); }}
+                className="px-4 py-3 min-h-[48px] rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowForm(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 min-h-[48px] rounded-lg border border-dashed border-slate-600 text-slate-500 hover:text-slate-300 hover:border-slate-500 hover:bg-slate-700/30 transition-colors text-sm font-medium"
+          >
+            <Plus className="h-5 w-5" />
+            Ajouter une carte
+          </button>
         )}
       </div>
     </div>
