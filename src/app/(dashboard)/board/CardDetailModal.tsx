@@ -370,7 +370,7 @@ export default function CardDetailModal({ cardId, users, onClose, dark = false }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm overflow-y-auto py-8"
+      className={cn("fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm overflow-y-auto py-8", dark && "scrollbar-touch")}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className={cn(
@@ -542,7 +542,7 @@ export default function CardDetailModal({ cardId, users, onClose, dark = false }
                 return (
                   <div className={cn(
                     "overflow-y-auto border rounded-lg",
-                    dark ? "max-h-48 border-slate-600 p-2 space-y-1" : "max-h-32 border-slate-200 p-1.5 space-y-0.5",
+                    dark ? "max-h-48 border-slate-600 p-2 space-y-1 scrollbar-touch" : "max-h-32 border-slate-200 p-1.5 space-y-0.5",
                   )}>
                     {users.map((u) => (
                       <label key={u.id} className={cn(
@@ -1041,7 +1041,7 @@ export default function CardDetailModal({ cardId, users, onClose, dark = false }
                 <History className={cn(dark ? "h-4 w-4" : "h-3 w-3")} />
                 Historique ({history.length})
               </label>
-              <div className={cn("overflow-y-auto", dark ? "max-h-64 space-y-2" : "max-h-48 space-y-1.5")}>
+              <div className={cn("overflow-y-auto", dark ? "max-h-64 space-y-2 scrollbar-touch" : "max-h-48 space-y-1.5")}>
                 {history.map((entry) => (
                   <div key={entry.id} className={cn("flex items-start gap-2", dark ? "text-sm text-slate-400" : "text-xs text-slate-500")}>
                     <div className={cn("rounded-full flex-shrink-0", dark ? "w-2 h-2 bg-slate-600 mt-2" : "w-1.5 h-1.5 bg-slate-300 mt-1.5")} />

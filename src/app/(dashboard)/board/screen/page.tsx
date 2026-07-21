@@ -804,7 +804,7 @@ export default function BoardScreenPage() {
             <X className="h-6 w-6" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-6 py-5 scrollbar-touch">
           {/* Affichage section */}
           <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Affichage</h4>
 
@@ -884,7 +884,7 @@ export default function BoardScreenPage() {
       {/* Content */}
       {screenTab === "board" ? (
         <PullToRefresh onRefresh={handlePullRefresh} refreshing={refreshing}>
-          <div ref={gridContainerRef} className="flex-1 overflow-auto p-1 pb-6">
+          <div ref={gridContainerRef} className="flex-1 overflow-auto p-1 pb-6 scrollbar-touch">
             <DashboardGrid
               widgets={widgets}
               defaultLayout={SCREEN_DEFAULT_LAYOUT}
@@ -896,7 +896,7 @@ export default function BoardScreenPage() {
         </PullToRefresh>
       ) : (
         <PullToRefresh onRefresh={handlePullRefresh} refreshing={refreshing}>
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-auto p-4 scrollbar-touch">
             <CalendarPanel dark />
           </div>
         </PullToRefresh>
@@ -950,7 +950,7 @@ function FeedContent({
           </button>
         ))}
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-touch">
         {!feed ? (
           <div className="flex items-center justify-center h-32">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
@@ -1317,7 +1317,7 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated }: { column:
       </div>
       <div
         ref={setNodeRef}
-        className={cn("flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin min-h-[80px] transition-colors", isOver && "bg-slate-700/30")}
+        className={cn("flex-1 overflow-y-auto p-3 space-y-3 scrollbar-touch min-h-[80px] transition-colors", isOver && "bg-slate-700/30")}
       >
         <SortableContext items={column.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {column.cards.map((card) => <ScreenCard key={card.id} card={card} onOpen={() => onCardOpen(card.id)} />)}

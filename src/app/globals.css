@@ -72,6 +72,35 @@ body {
   }
 }
 
+/* Wider scrollbars for touchscreen / screen mode */
+.scrollbar-touch::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+.scrollbar-touch::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 7px;
+}
+
+.scrollbar-touch::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 7px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.scrollbar-touch::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.scrollbar-touch {
+  scrollbar-width: auto;
+  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.05);
+}
+
 /* react-grid-layout */
 .react-grid-layout { position: relative; transition: height 200ms ease; }
 .react-grid-item { transition: all 200ms ease; transition-property: left, top, width, height; }
