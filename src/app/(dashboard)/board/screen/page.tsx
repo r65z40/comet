@@ -260,7 +260,7 @@ export default function BoardScreenPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [uiZoom, setUiZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const isDraggingRef = useRef(false);
+  const movingCountRef = useRef(0);
   const columnsSnapshotRef = useRef<BoardColumn[]>([]);
   const columnsRef = useRef(columns);
   columnsRef.current = columns;
@@ -316,7 +316,7 @@ export default function BoardScreenPage() {
   }
 
   const fetchColumns = useCallback(async () => {
-    if (isDraggingRef.current) return;
+    if (movingCountRef.current > 0) return;
     try {
       const res = await fetch("/api/board/columns");
       if (res.ok) setColumns(await res.json());
@@ -436,7 +436,7 @@ export default function BoardScreenPage() {
   }, []);
 
   function handleDragStart(event: DragStartEvent) {
-    isDraggingRef.current = true;
+    movingCountRef.current++;
     columnsSnapshotRef.current = columns;
     const card = columns.flatMap((c) => c.cards).find((c) => c.id === event.active.id);
     setActiveCard(card || null);
@@ -487,7 +487,7 @@ export default function BoardScreenPage() {
     setActiveCard(null);
 
     if (!over) {
-      isDraggingRef.current = false;
+      movingCountRef.current = Math.max(0, movingCountRef.current - 1);
       setColumns(columnsSnapshotRef.current);
       return;
     }
@@ -495,7 +495,7 @@ export default function BoardScreenPage() {
     const activeId = active.id as string;
     const overId = over.id as string;
     if (activeId === overId) {
-      isDraggingRef.current = false;
+      movingCountRef.current = Math.max(0, movingCountRef.current - 1);
       return;
     }
 
@@ -503,7 +503,7 @@ export default function BoardScreenPage() {
     const latest = columnsRef.current;
     const sourceCol = snapshot.find((col) => col.cards.some((c) => c.id === activeId));
     if (!sourceCol) {
-      isDraggingRef.current = false;
+      movingCountRef.current = Math.max(0, movingCountRef.current - 1);
       return;
     }
     const movedCard = sourceCol.cards.find((c) => c.id === activeId)!;
@@ -519,7 +519,7 @@ export default function BoardScreenPage() {
     } else {
       const overCol = latest.find((col) => col.cards.some((c) => c.id === overId));
       if (!overCol) {
-        isDraggingRef.current = false;
+        movingCountRef.current = Math.max(0, movingCountRef.current - 1);
         setColumns(snapshot);
         return;
       }
@@ -543,8 +543,6 @@ export default function BoardScreenPage() {
     }));
     setColumns(result);
 
-    // isDraggingRef stays true until API completes — blocks fetchColumns
-    // from overwriting the optimistic update with stale DB data
     try {
       const res = await fetch("/api/board/cards/move", {
         method: "POST",
@@ -555,7 +553,7 @@ export default function BoardScreenPage() {
     } catch {
       setColumns(snapshot);
     } finally {
-      isDraggingRef.current = false;
+      movingCountRef.current = Math.max(0, movingCountRef.current - 1);
     }
   }
 

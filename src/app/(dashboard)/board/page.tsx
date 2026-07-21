@@ -219,7 +219,7 @@ export default function BoardPage() {
   const editorRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initDefaultColumnsCalledRef = useRef(false);
-  const movingRef = useRef(false);
+  const movingCountRef = useRef(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -245,7 +245,7 @@ export default function BoardPage() {
   }, [columnIds]);
 
   const fetchBoard = useCallback(async () => {
-    if (movingRef.current) return;
+    if (movingCountRef.current > 0) return;
     try {
       const params = new URLSearchParams();
       if (filters.showArchived) params.set("archived", "true");
@@ -477,7 +477,7 @@ export default function BoardPage() {
       }));
       setColumns(reordered);
 
-      movingRef.current = true;
+      movingCountRef.current++;
       const updates = reordered.map((col, i) => ({ id: col.id, position: i }));
       try {
         const res = await fetch("/api/board/columns", {
@@ -491,7 +491,7 @@ export default function BoardPage() {
         setColumns(snapshot);
         fetchBoard();
       } finally {
-        movingRef.current = false;
+        movingCountRef.current = Math.max(0, movingCountRef.current - 1);
       }
       return;
     }
@@ -545,7 +545,7 @@ export default function BoardPage() {
       return next;
     });
 
-    movingRef.current = true;
+    movingCountRef.current++;
     try {
       const res = await fetch("/api/board/cards/move", {
         method: "POST",
@@ -558,7 +558,7 @@ export default function BoardPage() {
       setColumns(snapshot);
       fetchBoard();
     } finally {
-      movingRef.current = false;
+      movingCountRef.current = Math.max(0, movingCountRef.current - 1);
     }
   }
 
