@@ -171,7 +171,6 @@ export default function SpotifyWidget({ dark = false, externalCommand }: { dark?
   const [sdkDeviceId, setSdkDeviceId] = useState<string | null>(null);
   const [sdkState, setSdkState] = useState<PlayerState | null>(null);
   const sdkLoaded = useRef(false);
-  const isSecureContext = typeof window !== "undefined" && (window.isSecureContext ?? window.location.protocol === "https:");
 
   const [apiState, setApiState] = useState<PlayerState | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval>>(null);
@@ -213,14 +212,15 @@ export default function SpotifyWidget({ dark = false, externalCommand }: { dark?
       .finally(() => setLoading(false));
   }, []);
 
-  // SDK init (HTTPS only)
+  // SDK init — try on any page, let it fail gracefully if not secure context
   useEffect(() => {
-    if (!connected || !isSecureContext || sdkLoaded.current) return;
+    if (!connected || sdkLoaded.current) return;
     sdkLoaded.current = true;
 
     const script = document.createElement("script");
     script.src = "https://sdk.scdn.co/spotify-player.js";
     script.async = true;
+    script.onerror = () => { sdkLoaded.current = false; };
     document.body.appendChild(script);
 
     window.onSpotifyWebPlaybackSDKReady = () => {
@@ -236,7 +236,19 @@ export default function SpotifyWidget({ dark = false, externalCommand }: { dark?
       });
 
       p.addListener("ready", (data) => {
-        setSdkDeviceId((data as { device_id: string }).device_id);
+        const deviceId = (data as { device_id: string }).device_id;
+        setSdkDeviceId(deviceId);
+        // Transfer playback to this browser tab
+        fetch("/api/spotify/token")
+          .then(r => r.json())
+          .then(d => {
+            fetch("https://api.spotify.com/v1/me/player", {
+              method: "PUT",
+              headers: { Authorization: `Bearer ${d.token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ device_ids: [deviceId], play: false }),
+            }).catch(() => {});
+          })
+          .catch(() => {});
       });
 
       p.addListener("player_state_changed", (s) => {
@@ -271,7 +283,7 @@ export default function SpotifyWidget({ dark = false, externalCommand }: { dark?
     };
 
     return () => { script.remove(); };
-  }, [connected, isSecureContext]);
+  }, [connected]);
 
   // SDK progress ticker
   useEffect(() => {

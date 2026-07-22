@@ -267,6 +267,7 @@ export default function BoardScreenPage() {
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [uiZoom, setUiZoom] = useState(100);
+  const [calendarZoom, setCalendarZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const movingCountRef = useRef(0);
   const columnsSnapshotRef = useRef<BoardColumn[]>([]);
@@ -414,6 +415,8 @@ export default function BoardScreenPage() {
     try {
       const savedZoom = localStorage.getItem("comet_screen_zoom");
       if (savedZoom) setUiZoom(Number(savedZoom));
+      const savedCalZoom = localStorage.getItem("comet_calendar_zoom");
+      if (savedCalZoom) setCalendarZoom(Number(savedCalZoom));
     } catch {}
     const el = document.documentElement;
     if (el.requestFullscreen && !document.fullscreenElement) {
@@ -443,6 +446,11 @@ export default function BoardScreenPage() {
   function handleZoomChange(value: number) {
     setUiZoom(value);
     try { localStorage.setItem("comet_screen_zoom", String(value)); } catch {}
+  }
+
+  function handleCalendarZoomChange(value: number) {
+    setCalendarZoom(value);
+    try { localStorage.setItem("comet_calendar_zoom", String(value)); } catch {}
   }
 
   useEffect(() => {
@@ -728,7 +736,7 @@ export default function BoardScreenPage() {
   return (
     <>
     {/* Fixed zoom controls — outside the zoomed container so they don't shift */}
-    <div className="fixed bottom-4 left-4 z-[10001] flex items-center gap-1 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-xl px-2 py-1 shadow-lg">
+    {screenTab === "board" && <div className="fixed bottom-4 left-4 z-[10001] flex items-center gap-1 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-xl px-2 py-1 shadow-lg">
       <button
         onClick={() => handleZoomChange(Math.max(10, uiZoom - 10))}
         className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-slate-700 text-slate-400 transition-colors"
@@ -747,11 +755,11 @@ export default function BoardScreenPage() {
       >
         <ZoomIn className="h-3.5 w-3.5" />
       </button>
-    </div>
+    </div>}
 
     <div
       className="fixed inset-0 bg-slate-900 text-white z-[9999] flex flex-col overflow-hidden"
-      style={{ zoom: uiZoom / 100 }}
+      style={{ zoom: uiZoom / 100, overscrollBehavior: "none" }}
     >
       <TicketToast dark />
 
@@ -907,6 +915,51 @@ export default function BoardScreenPage() {
             </div>
           </div>
 
+          {/* Calendar zoom */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-base text-slate-300">
+                <Calendar className="h-5 w-5 text-slate-400" />
+                Zoom calendrier
+              </div>
+              <span className="text-base font-bold text-orange-400">{calendarZoom}%</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleCalendarZoomChange(Math.max(10, calendarZoom - 10))}
+                className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors shrink-0"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </button>
+              <input
+                type="range"
+                min={10}
+                max={300}
+                step={5}
+                value={calendarZoom}
+                onChange={(e) => handleCalendarZoomChange(Number(e.target.value))}
+                className="flex-1 h-3 rounded-full appearance-none cursor-pointer bg-slate-700 accent-orange-500"
+                style={{ touchAction: "none" }}
+              />
+              <button
+                onClick={() => handleCalendarZoomChange(Math.min(300, calendarZoom + 10))}
+                className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors shrink-0"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-xs text-slate-600">10%</span>
+              <button
+                onClick={() => handleCalendarZoomChange(100)}
+                className="text-xs text-slate-500 hover:text-orange-400 transition-colors"
+              >
+                Réinitialiser
+              </button>
+              <span className="text-xs text-slate-600">300%</span>
+            </div>
+          </div>
+
           {/* Fullscreen toggle */}
           <div className="flex items-center justify-between py-4 border-b border-slate-700/50 mb-5">
             <div className="flex items-center gap-2 text-base text-slate-300">
@@ -965,11 +1018,9 @@ export default function BoardScreenPage() {
           </div>
         </PullToRefresh>
       ) : (
-        <PullToRefresh onRefresh={handlePullRefresh} refreshing={refreshing}>
-          <div className="flex-1 overflow-hidden p-4 flex flex-col">
-            <CalendarPanel dark />
-          </div>
-        </PullToRefresh>
+        <div className="flex-1 overflow-hidden flex flex-col" style={calendarZoom !== 100 ? { zoom: calendarZoom / 100 } : undefined}>
+          <CalendarPanel dark />
+        </div>
       )}
 
       <CriticalAlertOverlay dark />
@@ -1297,36 +1348,66 @@ function PullToRefresh({ onRefresh, refreshing, children }: { onRefresh: () => v
   const [pullDistance, setPullDistance] = useState(0);
   const touchStartRef = useRef<number | null>(null);
   const pullingRef = useRef(false);
+  const pullDistRef = useRef(0);
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    function handleTouchStart(e: TouchEvent) {
+      const target = e.target as HTMLElement;
+      if (target.closest('.widget-drag-handle') || target.closest('.react-grid-item')) return;
+      let scrollable = target as HTMLElement | null;
+      while (scrollable && scrollable !== el) {
+        if (scrollable.scrollHeight > scrollable.clientHeight && scrollable.scrollTop > 0) return;
+        scrollable = scrollable.parentElement;
+      }
+      touchStartRef.current = e.touches[0].clientY;
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+      if (touchStartRef.current === null) return;
+      const dy = e.touches[0].clientY - touchStartRef.current;
+      if (dy > 0) {
+        pullingRef.current = true;
+        const dist = Math.min(dy * 0.4, 80);
+        pullDistRef.current = dist;
+        setPullDistance(dist);
+        e.preventDefault();
+      } else {
+        pullingRef.current = false;
+        pullDistRef.current = 0;
+        setPullDistance(0);
+      }
+    }
+
+    function handleTouchEnd() {
+      if (pullingRef.current && pullDistRef.current > 50) {
+        onRefreshRef.current();
+      }
+      touchStartRef.current = null;
+      pullingRef.current = false;
+      pullDistRef.current = 0;
+      setPullDistance(0);
+    }
+
+    el.addEventListener("touchstart", handleTouchStart, { passive: true });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    el.addEventListener("touchend", handleTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+      el.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, []);
 
   return (
     <div
       ref={containerRef}
       className="flex-1 flex flex-col overflow-hidden relative"
-      onTouchStart={(e) => {
-        const el = containerRef.current;
-        if (el && el.scrollTop <= 0) {
-          touchStartRef.current = e.touches[0].clientY;
-        }
-      }}
-      onTouchMove={(e) => {
-        if (touchStartRef.current === null) return;
-        const dy = e.touches[0].clientY - touchStartRef.current;
-        if (dy > 0) {
-          pullingRef.current = true;
-          setPullDistance(Math.min(dy * 0.4, 80));
-        } else {
-          pullingRef.current = false;
-          setPullDistance(0);
-        }
-      }}
-      onTouchEnd={() => {
-        if (pullingRef.current && pullDistance > 50) {
-          onRefresh();
-        }
-        touchStartRef.current = null;
-        pullingRef.current = false;
-        setPullDistance(0);
-      }}
+      style={{ overscrollBehavior: "contain" }}
     >
       <div
         className="flex items-center justify-center text-slate-400 overflow-hidden transition-all duration-200 shrink-0"

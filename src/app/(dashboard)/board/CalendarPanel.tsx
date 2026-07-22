@@ -215,8 +215,11 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
   }
 
   const today = startOfDay(new Date());
-  const weekStart = addDays(today, weekOffset * 7);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const baseDate = addDays(today, weekOffset * 7);
+  const dayOfWeek = baseDate.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = addDays(baseDate, mondayOffset);
+  const days = Array.from({ length: 5 }, (_, i) => addDays(monday, i));
 
   const visibleFeedIds = new Set(feeds.filter(f => !f.hidden).map(f => f.id));
 
@@ -464,7 +467,7 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
             </button>
             <div className="flex items-center gap-3">
               <span className={cn("font-medium", dark ? "text-base text-slate-300" : "text-sm text-slate-700")}>
-                {formatDateShort(days[0])} — {formatDateShort(days[6])}
+                {formatDateShort(days[0])} — {formatDateShort(days[4])}
               </span>
               {weekOffset !== 0 && (
                 <button
@@ -658,7 +661,7 @@ function TimeGrid({
       </div>
 
       {/* Day columns */}
-      <div className={cn("flex-1 grid divide-x", dark ? "divide-slate-700" : "divide-slate-100")} style={{ gridTemplateColumns: `repeat(7, 1fr)` }}>
+      <div className={cn("flex-1 grid divide-x", dark ? "divide-slate-700" : "divide-slate-100")} style={{ gridTemplateColumns: `repeat(5, 1fr)` }}>
         {days.map((day) => {
           const dayEvents = getEventsForDay(day);
           const allDayEvents = dayEvents.filter(e => e.allDay);
