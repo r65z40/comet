@@ -51,10 +51,13 @@ function cacheSet<T>(key: string, data: T, ttl: number): void {
 
 export function invalidateOmadaCache(): void {
   cache.clear();
+  tokenData = null;
+  detectedApiVer = null;
 }
 
 // --- Token management ---
 let tokenData: { accessToken: string; expiresAt: number } | null = null;
+let detectedApiVer: number | null = null;
 
 // --- Config ---
 export interface OmadaConfig {
@@ -153,11 +156,11 @@ async function getControllerInfo(baseUrl: string): Promise<{ omadacId: string; c
 async function diagnosePaths(baseUrl: string, omadacId: string, token: string): Promise<string[]> {
   const results: string[] = [];
   const paths = [
-    `/openapi/v1/${omadacId}/sites`,
-    `/${omadacId}/openapi/v1/sites`,
     `/openapi/v1/${omadacId}/sites?page=1&pageSize=100`,
-    `/${omadacId}/api/v2/sites`,
-    `/api/v2/sites`,
+    `/openapi/v2/${omadacId}/sites?page=1&pageSize=100`,
+    `/openapi/v3/${omadacId}/sites?page=1&pageSize=100`,
+    `/${omadacId}/openapi/v1/sites?page=1&pageSize=100`,
+    `/api/v2/sites?page=1&pageSize=100`,
   ];
 
   for (const path of paths) {
@@ -184,6 +187,15 @@ async function diagnosePaths(baseUrl: string, omadacId: string, token: string): 
   return results;
 }
 
+// --- Detect API version ---
+async function getApiVersion(baseUrl: string): Promise<number> {
+  if (detectedApiVer !== null) return detectedApiVer;
+  const info = await getControllerInfo(baseUrl);
+  const ver = info?.apiVer ? parseInt(info.apiVer, 10) : 1;
+  detectedApiVer = isNaN(ver) || ver < 1 ? 1 : ver;
+  return detectedApiVer;
+}
+
 // --- Base fetch ---
 async function omadaFetch(path: string, config?: OmadaConfig) {
   const cfg = config ?? (await getOmadaConfig());
@@ -192,7 +204,8 @@ async function omadaFetch(path: string, config?: OmadaConfig) {
   }
 
   const token = await getAccessToken(cfg);
-  const url = `${cfg.baseUrl}/openapi/v1/${cfg.omadacId}${path}`;
+  const apiVer = await getApiVersion(cfg.baseUrl);
+  const url = `${cfg.baseUrl}/openapi/v${apiVer}/${cfg.omadacId}${path}`;
   const res = await omadaRawFetch(url, {
     headers: {
       Authorization: `AccessToken=${token}`,
