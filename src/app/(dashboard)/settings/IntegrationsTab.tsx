@@ -65,7 +65,7 @@ export default function IntegrationsTab({
   const [savingOmada, setSavingOmada] = useState(false);
   const [savedOmada, setSavedOmada] = useState(false);
   const [testingOmada, setTestingOmada] = useState(false);
-  const [omadaTestResult, setOmadaTestResult] = useState<{ success: boolean; error?: string; sites?: number; devices?: number } | null>(null);
+  const [omadaTestResult, setOmadaTestResult] = useState<{ success: boolean; error?: string; sites?: number; devices?: number; debug?: string } | null>(null);
 
   // Spotify settings
   const [spotifyClientId, setSpotifyClientId] = useState("");
@@ -657,6 +657,9 @@ export default function IntegrationsTab({
           {omadaTestResult && (
             <div className={`p-3 rounded-lg text-sm ${omadaTestResult.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
               {omadaTestResult.success ? `Connexion Omada réussie ! ${omadaTestResult.sites} site(s), ${omadaTestResult.devices} appareil(s) trouvé(s).` : `Erreur : ${omadaTestResult.error}`}
+              {omadaTestResult.debug && (
+                <div className="mt-1 text-xs opacity-70">{omadaTestResult.debug}</div>
+              )}
             </div>
           )}
         </div>}
