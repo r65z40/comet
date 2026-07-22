@@ -328,30 +328,89 @@ export interface OmadaSummary {
   }[];
 }
 
+// --- MSP: list customers, then sites per customer ---
+interface OmadaCustomer {
+  customerId: string;
+  name: string;
+}
+
+async function getCustomers(config: OmadaConfig): Promise<OmadaCustomer[]> {
+  const cached = cacheGet<OmadaCustomer[]>("omada:customers");
+  if (cached) return cached;
+
+  const result = await webSessionFetch("/customers?currentPage=1&currentPageSize=200", config);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const customers: OmadaCustomer[] = (result.customers || result.data || []).map((c: any) => ({
+    customerId: c.customerId || c.id,
+    name: c.name || "",
+  }));
+
+  cacheSet("omada:customers", customers, 5 * 60 * 1000);
+  return customers;
+}
+
 // --- API functions ---
 export async function getSites(config?: OmadaConfig): Promise<OmadaSite[]> {
   const cached = cacheGet<OmadaSite[]>("omada:sites");
   if (cached) return cached;
 
   const cfg = config ?? (await getOmadaConfig());
-  let result;
+  const allSites: OmadaSite[] = [];
 
   if (useWebSession(cfg)) {
-    // Web session: GET /{omadacId}/api/v2/sites — returns { data: [...] } with different pagination
-    result = await webSessionFetch("/sites?currentPage=1&currentPageSize=100", cfg);
+    // Try direct sites first
+    const directResult = await webSessionFetch("/sites?currentPage=1&currentPageSize=100", cfg);
+    const directSites = directResult.data || [];
+
+    if (directSites.length > 0) {
+      // Non-MSP controller: sites are at the root
+      for (const s of directSites) {
+        allSites.push({
+          siteId: s.siteId || s.id || s.key,
+          name: s.name,
+          region: s.region || "",
+          timeZone: s.timeZone || "",
+        });
+      }
+    } else {
+      // MSP controller: sites are under customers
+      const customers = await getCustomers(cfg);
+      for (const customer of customers) {
+        try {
+          const custResult = await webSessionFetch(
+            `/customers/${customer.customerId}/sites?currentPage=1&currentPageSize=100`,
+            cfg,
+          );
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const custSites = custResult.data || [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          for (const s of custSites as any[]) {
+            allSites.push({
+              siteId: s.siteId || s.id || s.key,
+              name: `${customer.name} — ${s.name || "Site"}`,
+              region: s.region || "",
+              timeZone: s.timeZone || "",
+            });
+          }
+        } catch {
+          // Skip customers we can't access
+        }
+      }
+    }
   } else {
-    result = await openApiFetch("/sites?page=1&pageSize=100", cfg);
+    const result = await openApiFetch("/sites?page=1&pageSize=100", cfg);
+    for (const s of (result.data || []) as Record<string, string>[]) {
+      allSites.push({
+        siteId: s.siteId || s.id || s.key,
+        name: s.name,
+        region: s.region || "",
+        timeZone: s.timeZone || "",
+      });
+    }
   }
 
-  const sites: OmadaSite[] = (result.data || []).map((s: Record<string, string>) => ({
-    siteId: s.siteId || s.id || s.key,
-    name: s.name,
-    region: s.region || "",
-    timeZone: s.timeZone || "",
-  }));
-
-  cacheSet("omada:sites", sites, 5 * 60 * 1000);
-  return sites;
+  cacheSet("omada:sites", allSites, 5 * 60 * 1000);
+  return allSites;
 }
 
 export async function getDevices(siteId: string, config?: OmadaConfig): Promise<OmadaDevice[]> {
@@ -477,43 +536,13 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
       };
     }
 
-    // Probe raw response to debug structure
-    let rawDebug = "";
-    if (isWeb) {
-      try {
-        const session = await getWebSession(config);
-        const probeEndpoints = [
-          "/users/current",
-          "/dashboard/overviewDiagram",
-          "/customers?currentPage=1&currentPageSize=100",
-          "/sites?currentPage=1&currentPageSize=100&type=ap",
-          "/devices?currentPage=1&currentPageSize=100",
-          "/dashboard/devices",
-        ];
-        for (const ep of probeEndpoints) {
-          const probeUrl = `${config.baseUrl}/${config.omadacId}/api/v2${ep}`;
-          const probeRes = await omadaRawFetch(probeUrl, {
-            headers: {
-              "Content-Type": "application/json",
-              "Csrf-Token": session.csrfToken,
-              Cookie: session.cookies,
-            },
-          });
-          const probeText = await probeRes.text();
-          rawDebug += `\n${ep} → ${probeText.slice(0, 250)}`;
-        }
-      } catch (e) {
-        rawDebug = `\nProbe error: ${e instanceof Error ? e.message : "unknown"}`;
-      }
-    }
-
     const sites = await getSites(config);
     let totalDevices = 0;
-    for (const site of sites.slice(0, 3)) {
+    for (const site of sites) {
       const devices = await getDevices(site.siteId, config);
       totalDevices += devices.length;
     }
-    return { success: true, sites: sites.length, devices: totalDevices, debug: debugInfo + rawDebug };
+    return { success: true, sites: sites.length, devices: totalDevices, debug: debugInfo };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erreur inconnue";
 
