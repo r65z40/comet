@@ -536,13 +536,44 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
       };
     }
 
+    // Probe customer/site structure for MSP
+    let rawDebug = "";
+    if (isWeb) {
+      try {
+        const session = await getWebSession(config);
+        const headers = { "Content-Type": "application/json", "Csrf-Token": session.csrfToken, Cookie: session.cookies };
+        // Get first customer
+        const custRes = await omadaRawFetch(`${config.baseUrl}/${config.omadacId}/api/v2/customers?currentPage=1&currentPageSize=5`, { headers });
+        const custJson = await custRes.json();
+        const customers = custJson.result?.customers || custJson.result?.data || [];
+        if (customers.length > 0) {
+          const cid = customers[0].customerId || customers[0].id;
+          const cname = customers[0].name;
+          rawDebug += `\nCustomer: ${cname} (${cid})`;
+          // Try different paths for sites under this customer
+          const sitePaths = [
+            `/customers/${cid}/sites?currentPage=1&currentPageSize=10`,
+            `/customers/${cid}/sites`,
+            `/sites?currentPage=1&currentPageSize=10&customerId=${cid}`,
+          ];
+          for (const sp of sitePaths) {
+            const sRes = await omadaRawFetch(`${config.baseUrl}/${config.omadacId}/api/v2${sp}`, { headers });
+            const sText = await sRes.text();
+            rawDebug += `\n${sp} → ${sText.slice(0, 300)}`;
+          }
+        }
+      } catch (e) {
+        rawDebug += `\nProbe error: ${e instanceof Error ? e.message : "unknown"}`;
+      }
+    }
+
     const sites = await getSites(config);
     let totalDevices = 0;
     for (const site of sites) {
       const devices = await getDevices(site.siteId, config);
       totalDevices += devices.length;
     }
-    return { success: true, sites: sites.length, devices: totalDevices, debug: debugInfo };
+    return { success: true, sites: sites.length, devices: totalDevices, debug: debugInfo + rawDebug };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erreur inconnue";
 
