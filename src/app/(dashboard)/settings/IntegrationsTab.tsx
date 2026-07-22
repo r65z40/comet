@@ -658,7 +658,7 @@ export default function IntegrationsTab({
             <div className={`p-3 rounded-lg text-sm ${omadaTestResult.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
               {omadaTestResult.success ? `Connexion Omada réussie ! ${omadaTestResult.sites} site(s), ${omadaTestResult.devices} appareil(s) trouvé(s).` : `Erreur : ${omadaTestResult.error}`}
               {omadaTestResult.debug && (
-                <div className="mt-1 text-xs opacity-70">{omadaTestResult.debug}</div>
+                <pre className="mt-2 text-xs opacity-70 whitespace-pre-wrap font-mono bg-black/5 rounded p-2">{omadaTestResult.debug}</pre>
               )}
             </div>
           )}

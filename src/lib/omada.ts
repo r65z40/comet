@@ -132,7 +132,7 @@ async function getAccessToken(config: OmadaConfig): Promise<string> {
 }
 
 // --- Controller info ---
-async function getControllerInfo(baseUrl: string): Promise<{ omadacId: string; controllerVer: string; apiVer: string } | null> {
+async function getControllerInfo(baseUrl: string): Promise<{ omadacId: string; controllerVer: string; apiVer: string; type: string } | null> {
   try {
     const res = await omadaRawFetch(`${baseUrl}/api/info`);
     if (!res.ok) return null;
@@ -142,10 +142,46 @@ async function getControllerInfo(baseUrl: string): Promise<{ omadacId: string; c
       omadacId: r.omadacId || "",
       controllerVer: r.controllerVer || r.firmwareVer || "",
       apiVer: r.apiVer?.toString() || "",
+      type: r.type?.toString() || "",
     };
   } catch {
     return null;
   }
+}
+
+// --- Diagnostic: try multiple API paths ---
+async function diagnosePaths(baseUrl: string, omadacId: string, token: string): Promise<string[]> {
+  const results: string[] = [];
+  const paths = [
+    `/openapi/v1/${omadacId}/sites`,
+    `/${omadacId}/openapi/v1/sites`,
+    `/openapi/v1/${omadacId}/sites?page=1&pageSize=100`,
+    `/${omadacId}/api/v2/sites`,
+    `/api/v2/sites`,
+  ];
+
+  for (const path of paths) {
+    try {
+      const res = await omadaRawFetch(`${baseUrl}${path}`, {
+        headers: {
+          Authorization: `AccessToken=${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      const text = await res.text().catch(() => "");
+      let errorCode = "?";
+      let msg = text.slice(0, 100);
+      try {
+        const j = JSON.parse(text);
+        errorCode = String(j.errorCode ?? "?");
+        msg = j.msg || msg;
+      } catch { /* not json */ }
+      results.push(`${path} → HTTP ${res.status}, code=${errorCode}, ${msg}`);
+    } catch (e) {
+      results.push(`${path} → ${e instanceof Error ? e.message : "error"}`);
+    }
+  }
+  return results;
 }
 
 // --- Base fetch ---
@@ -360,14 +396,26 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
     const token = await getAccessToken(config);
     if (!token) return { success: false, error: "Impossible d'obtenir le token d'accès.", debug: debugInfo };
 
-    const sites = await getSites(config);
-    let totalDevices = 0;
-    for (const site of sites.slice(0, 3)) {
-      const devices = await getDevices(site.siteId, config);
-      totalDevices += devices.length;
+    try {
+      const sites = await getSites(config);
+      let totalDevices = 0;
+      for (const site of sites.slice(0, 3)) {
+        const devices = await getDevices(site.siteId, config);
+        totalDevices += devices.length;
+      }
+      return { success: true, sites: sites.length, devices: totalDevices, debug: debugInfo };
+    } catch (apiErr) {
+      const apiMsg = apiErr instanceof Error ? apiErr.message : "";
+      if (apiMsg.includes("OMADA_API_ERROR") || apiMsg.includes("forbidden") || apiMsg.includes("Forbidden")) {
+        const diag = await diagnosePaths(config.baseUrl, config.omadacId, token);
+        return {
+          success: false,
+          error: `L'API refuse l'accès aux endpoints. Diagnostic des chemins testé ci-dessous.`,
+          debug: [debugInfo, "--- Chemins testés ---", ...diag].join("\n"),
+        };
+      }
+      throw apiErr;
     }
-
-    return { success: true, sites: sites.length, devices: totalDevices, debug: debugInfo };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erreur inconnue";
     if (msg.startsWith("CONNECTION_ERROR:")) {
