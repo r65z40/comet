@@ -483,8 +483,12 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
       try {
         const session = await getWebSession(config);
         const probeEndpoints = [
-          "/sites",
-          "/sites?currentPage=1&currentPageSize=100",
+          "/users/current",
+          "/dashboard/overviewDiagram",
+          "/customers?currentPage=1&currentPageSize=100",
+          "/sites?currentPage=1&currentPageSize=100&type=ap",
+          "/devices?currentPage=1&currentPageSize=100",
+          "/dashboard/devices",
         ];
         for (const ep of probeEndpoints) {
           const probeUrl = `${config.baseUrl}/${config.omadacId}/api/v2${ep}`;
@@ -496,7 +500,7 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
             },
           });
           const probeText = await probeRes.text();
-          rawDebug += `\n${ep} → ${probeText.slice(0, 300)}`;
+          rawDebug += `\n${ep} → ${probeText.slice(0, 250)}`;
         }
       } catch (e) {
         rawDebug = `\nProbe error: ${e instanceof Error ? e.message : "unknown"}`;
