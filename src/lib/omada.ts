@@ -1,4 +1,5 @@
 import { getSettings } from "@/lib/settings";
+
 // --- Self-signed SSL support for self-hosted controllers ---
 function isSelfHostedUrl(url: string): boolean {
   try {
@@ -51,21 +52,21 @@ function cacheSet<T>(key: string, data: T, ttl: number): void {
 
 export function invalidateOmadaCache(): void {
   cache.clear();
-  tokenData = null;
-  detectedApiVer = null;
+  openApiToken = null;
+  webSession = null;
 }
-
-// --- Token management ---
-let tokenData: { accessToken: string; expiresAt: number } | null = null;
-let detectedApiVer: number | null = null;
 
 // --- Config ---
 export interface OmadaConfig {
-  clientId: string;
-  clientSecret: string;
   baseUrl: string;
   omadacId: string;
   enabled: boolean;
+  // Open API auth (client credentials)
+  clientId: string;
+  clientSecret: string;
+  // Web session auth (login/password) — fallback
+  username: string;
+  password: string;
 }
 
 export async function getOmadaConfig(): Promise<OmadaConfig> {
@@ -75,6 +76,8 @@ export async function getOmadaConfig(): Promise<OmadaConfig> {
     "omada_base_url",
     "omada_controller_id",
     "omada_enabled",
+    "omada_username",
+    "omada_password",
   ]);
   return {
     clientId: map.omada_client_id || "",
@@ -82,60 +85,13 @@ export async function getOmadaConfig(): Promise<OmadaConfig> {
     baseUrl: (map.omada_base_url || "").replace(/\/+$/, ""),
     omadacId: map.omada_controller_id || "",
     enabled: map.omada_enabled === "true",
+    username: map.omada_username || "",
+    password: map.omada_password || "",
   };
-}
-
-// --- Auth ---
-async function getAccessToken(config: OmadaConfig): Promise<string> {
-  if (tokenData && Date.now() < tokenData.expiresAt) {
-    return tokenData.accessToken;
-  }
-
-  const url = `${config.baseUrl}/openapi/authorize/token?grant_type=client_credentials`;
-  let res: Response;
-  try {
-    res = await omadaRawFetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        omadacId: config.omadacId,
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-      }),
-    });
-  } catch (fetchErr) {
-    const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
-    throw new Error(`CONNECTION_ERROR: ${msg}`);
-  }
-
-  const text = await res.text().catch(() => "");
-  if (!res.ok) {
-    throw new Error(`AUTH_HTTP_${res.status}: ${text}`);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let json: any;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`AUTH_PARSE_ERROR: ${text.slice(0, 200)}`);
-  }
-
-  if (json.errorCode !== 0) {
-    throw new Error(`AUTH_API_ERROR: code=${json.errorCode} msg=${json.msg || "Unknown"}`);
-  }
-
-  const result = json.result;
-  tokenData = {
-    accessToken: result.accessToken,
-    expiresAt: Date.now() + (result.expiresIn - 300) * 1000,
-  };
-
-  return tokenData.accessToken;
 }
 
 // --- Controller info ---
-async function getControllerInfo(baseUrl: string): Promise<{ omadacId: string; controllerVer: string; apiVer: string; type: string } | null> {
+async function getControllerInfo(baseUrl: string): Promise<{ omadacId: string; controllerVer: string; apiVer: string } | null> {
   try {
     const res = await omadaRawFetch(`${baseUrl}/api/info`);
     if (!res.ok) return null;
@@ -145,72 +101,55 @@ async function getControllerInfo(baseUrl: string): Promise<{ omadacId: string; c
       omadacId: r.omadacId || "",
       controllerVer: r.controllerVer || r.firmwareVer || "",
       apiVer: r.apiVer?.toString() || "",
-      type: r.type?.toString() || "",
     };
   } catch {
     return null;
   }
 }
 
-// --- Diagnostic: try multiple auth formats on the sites endpoint ---
-async function diagnosePaths(baseUrl: string, omadacId: string, token: string): Promise<string[]> {
-  const results: string[] = [];
-  const sitesPath = `/openapi/v1/${omadacId}/sites?page=1&pageSize=100`;
+// ============================================================
+// AUTH MODE 1: Open API (Client Credentials)
+// ============================================================
+let openApiToken: { accessToken: string; expiresAt: number } | null = null;
 
-  const authVariants: [string, Record<string, string>][] = [
-    ["AccessToken=xxx", { Authorization: `AccessToken=${token}` }],
-    ["Bearer xxx", { Authorization: `Bearer ${token}` }],
-    ["AccessToken=xxx (no Content-Type)", { Authorization: `AccessToken=${token}` }],
-  ];
-
-  for (const [label, headers] of authVariants) {
-    try {
-      const fullHeaders: Record<string, string> = { ...headers };
-      if (!label.includes("no Content-Type")) {
-        fullHeaders["Content-Type"] = "application/json";
-      }
-      const res = await omadaRawFetch(`${baseUrl}${sitesPath}`, { headers: fullHeaders });
-      const text = await res.text().catch(() => "");
-      let errorCode = "?";
-      let msg = text.slice(0, 150);
-      try {
-        const j = JSON.parse(text);
-        errorCode = String(j.errorCode ?? "?");
-        msg = j.msg || msg;
-        if (j.result) msg = `OK! ${JSON.stringify(j.result).slice(0, 100)}`;
-      } catch { /* not json */ }
-      results.push(`Auth [${label}] → HTTP ${res.status}, code=${errorCode}, ${msg}`);
-    } catch (e) {
-      results.push(`Auth [${label}] → ${e instanceof Error ? e.message : "error"}`);
-    }
+async function getOpenApiToken(config: OmadaConfig): Promise<string> {
+  if (openApiToken && Date.now() < openApiToken.expiresAt) {
+    return openApiToken.accessToken;
   }
 
-  // Also try the token info endpoint to see token scope
-  try {
-    const res = await omadaRawFetch(`${baseUrl}/openapi/authorize/token/info`, {
-      headers: {
-        Authorization: `AccessToken=${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-    const text = await res.text().catch(() => "");
-    results.push(`Token info → HTTP ${res.status}, ${text.slice(0, 200)}`);
-  } catch (e) {
-    results.push(`Token info → ${e instanceof Error ? e.message : "error"}`);
+  const url = `${config.baseUrl}/openapi/authorize/token?grant_type=client_credentials`;
+  const res = await omadaRawFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      omadacId: config.omadacId,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+    }),
+  });
+
+  const text = await res.text().catch(() => "");
+  if (!res.ok) throw new Error(`AUTH_HTTP_${res.status}: ${text}`);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let json: any;
+  try { json = JSON.parse(text); } catch { throw new Error(`AUTH_PARSE_ERROR: ${text.slice(0, 200)}`); }
+
+  if (json.errorCode !== 0) {
+    throw new Error(`AUTH_API_ERROR: code=${json.errorCode} msg=${json.msg || "Unknown"}`);
   }
 
-  return results;
+  const result = json.result;
+  openApiToken = {
+    accessToken: result.accessToken,
+    expiresAt: Date.now() + (result.expiresIn - 300) * 1000,
+  };
+  return openApiToken.accessToken;
 }
 
-// --- Base fetch ---
-async function omadaFetch(path: string, config?: OmadaConfig) {
-  const cfg = config ?? (await getOmadaConfig());
-  if (!cfg.enabled || !cfg.clientId || !cfg.clientSecret) {
-    throw new Error("Omada non configuré");
-  }
-
-  const token = await getAccessToken(cfg);
-  const url = `${cfg.baseUrl}/openapi/v1/${cfg.omadacId}${path}`;
+async function openApiFetch(path: string, config: OmadaConfig) {
+  const token = await getOpenApiToken(config);
+  const url = `${config.baseUrl}/openapi/v1/${config.omadacId}${path}`;
   const res = await omadaRawFetch(url, {
     headers: {
       Authorization: `AccessToken=${token}`,
@@ -219,23 +158,125 @@ async function omadaFetch(path: string, config?: OmadaConfig) {
   });
 
   const text = await res.text().catch(() => "");
-  if (!res.ok) {
-    throw new Error(`Omada API ${res.status}: ${text}`);
-  }
+  if (!res.ok) throw new Error(`Omada API ${res.status}: ${text}`);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let json: any;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Omada API parse error: ${text.slice(0, 200)}`);
-  }
+  try { json = JSON.parse(text); } catch { throw new Error(`Omada API parse error: ${text.slice(0, 200)}`); }
 
   if (json.errorCode !== 0) {
     throw new Error(`OMADA_API_ERROR: code=${json.errorCode} msg=${json.msg || "Unknown"} path=${path}`);
   }
-
   return json.result;
+}
+
+// ============================================================
+// AUTH MODE 2: Web Session (Login/Password)
+// ============================================================
+let webSession: { csrfToken: string; cookies: string; expiresAt: number } | null = null;
+
+async function getWebSession(config: OmadaConfig): Promise<{ csrfToken: string; cookies: string }> {
+  if (webSession && Date.now() < webSession.expiresAt) {
+    return { csrfToken: webSession.csrfToken, cookies: webSession.cookies };
+  }
+
+  const loginUrl = `${config.baseUrl}/${config.omadacId}/api/v2/login`;
+  const res = await omadaRawFetch(loginUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: config.username,
+      password: config.password,
+    }),
+  });
+
+  const text = await res.text().catch(() => "");
+  if (!res.ok) throw new Error(`WEB_AUTH_HTTP_${res.status}: ${text}`);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let json: any;
+  try { json = JSON.parse(text); } catch { throw new Error(`WEB_AUTH_PARSE: ${text.slice(0, 200)}`); }
+
+  if (json.errorCode !== 0) {
+    throw new Error(`WEB_AUTH_ERROR: code=${json.errorCode} msg=${json.msg || "Unknown"}`);
+  }
+
+  const csrfToken = json.result?.token || "";
+  const setCookies = res.headers.getSetCookie?.() || [];
+  const cookies = setCookies.map((c: string) => c.split(";")[0]).join("; ");
+
+  webSession = {
+    csrfToken,
+    cookies,
+    expiresAt: Date.now() + 25 * 60 * 1000, // 25 min session
+  };
+
+  return { csrfToken, cookies };
+}
+
+async function webSessionFetch(path: string, config: OmadaConfig, method = "GET", body?: unknown) {
+  const session = await getWebSession(config);
+  const url = `${config.baseUrl}/${config.omadacId}/api/v2${path}`;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Csrf-Token": session.csrfToken,
+    Cookie: session.cookies,
+  };
+
+  const res = await omadaRawFetch(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await res.text().catch(() => "");
+
+  // Session expired — re-login once
+  if (res.status === 401 || text.includes("-44112") || text.includes("-44113")) {
+    webSession = null;
+    const newSession = await getWebSession(config);
+    headers["Csrf-Token"] = newSession.csrfToken;
+    headers["Cookie"] = newSession.cookies;
+    const retry = await omadaRawFetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const retryText = await retry.text().catch(() => "");
+    if (!retry.ok) throw new Error(`Omada API ${retry.status}: ${retryText}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const retryJson: any = JSON.parse(retryText);
+    if (retryJson.errorCode !== 0) throw new Error(`OMADA_API_ERROR: code=${retryJson.errorCode} msg=${retryJson.msg}`);
+    return retryJson.result;
+  }
+
+  if (!res.ok) throw new Error(`Omada API ${res.status}: ${text}`);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let json: any;
+  try { json = JSON.parse(text); } catch { throw new Error(`Omada parse error: ${text.slice(0, 200)}`); }
+
+  if (json.errorCode !== 0) {
+    throw new Error(`OMADA_API_ERROR: code=${json.errorCode} msg=${json.msg || "Unknown"} path=${path}`);
+  }
+  return json.result;
+}
+
+// ============================================================
+// Unified fetch — picks the right auth mode
+// ============================================================
+function useWebSession(config: OmadaConfig): boolean {
+  return !!(config.username && config.password);
+}
+
+async function omadaFetch(path: string, config?: OmadaConfig) {
+  const cfg = config ?? (await getOmadaConfig());
+  if (!cfg.enabled) throw new Error("Omada non configuré");
+
+  if (useWebSession(cfg)) {
+    if (!cfg.username || !cfg.password) throw new Error("Omada: identifiants web manquants");
+    return webSessionFetch(path, cfg);
+  }
+
+  if (!cfg.clientId || !cfg.clientSecret) throw new Error("Omada: Client ID/Secret manquants");
+  return openApiFetch(path, cfg);
 }
 
 // --- Types ---
@@ -292,9 +333,18 @@ export async function getSites(config?: OmadaConfig): Promise<OmadaSite[]> {
   const cached = cacheGet<OmadaSite[]>("omada:sites");
   if (cached) return cached;
 
-  const result = await omadaFetch("/sites?page=1&pageSize=100", config);
+  const cfg = config ?? (await getOmadaConfig());
+  let result;
+
+  if (useWebSession(cfg)) {
+    // Web session: GET /{omadacId}/api/v2/sites — returns { data: [...] } with different pagination
+    result = await webSessionFetch("/sites?currentPage=1&currentPageSize=100", cfg);
+  } else {
+    result = await openApiFetch("/sites?page=1&pageSize=100", cfg);
+  }
+
   const sites: OmadaSite[] = (result.data || []).map((s: Record<string, string>) => ({
-    siteId: s.siteId || s.id,
+    siteId: s.siteId || s.id || s.key,
     name: s.name,
     region: s.region || "",
     timeZone: s.timeZone || "",
@@ -309,7 +359,15 @@ export async function getDevices(siteId: string, config?: OmadaConfig): Promise<
   const cached = cacheGet<OmadaDevice[]>(cacheKey);
   if (cached) return cached;
 
-  const result = await omadaFetch(`/sites/${siteId}/devices?page=1&pageSize=200`, config);
+  const cfg = config ?? (await getOmadaConfig());
+  let result;
+
+  if (useWebSession(cfg)) {
+    result = await webSessionFetch(`/sites/${siteId}/devices?currentPage=1&currentPageSize=200`, cfg);
+  } else {
+    result = await openApiFetch(`/sites/${siteId}/devices?page=1&pageSize=200`, cfg);
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const devices: OmadaDevice[] = (result.data || []).map((d: any) => ({
     mac: d.mac || "",
@@ -391,81 +449,77 @@ export async function getOmadaSummary(config?: OmadaConfig): Promise<OmadaSummar
 export async function testOmadaConnection(): Promise<{ success: boolean; error?: string; sites?: number; devices?: number; debug?: string }> {
   try {
     const config = await getOmadaConfig();
-    if (!config.clientId || !config.clientSecret || !config.baseUrl || !config.omadacId) {
-      return { success: false, error: "Configuration incomplète. Remplissez tous les champs." };
+    const isWeb = useWebSession(config);
+
+    if (isWeb) {
+      if (!config.username || !config.password || !config.baseUrl || !config.omadacId) {
+        return { success: false, error: "Configuration incomplète. Remplissez l'URL, le Controller ID, le nom d'utilisateur et le mot de passe." };
+      }
+    } else {
+      if (!config.clientId || !config.clientSecret || !config.baseUrl || !config.omadacId) {
+        return { success: false, error: "Configuration incomplète. Remplissez tous les champs." };
+      }
     }
 
-    tokenData = null;
     invalidateOmadaCache();
 
     const info = await getControllerInfo(config.baseUrl);
+    const mode = isWeb ? "Web Session" : "Open API";
     const debugInfo = info
-      ? `Controller v${info.controllerVer}, API v${info.apiVer}, omadacId=${info.omadacId}`
-      : "Endpoint /api/info non accessible";
+      ? `Mode: ${mode} | Controller v${info.controllerVer}, API v${info.apiVer}, omadacId=${info.omadacId}`
+      : `Mode: ${mode} | /api/info non accessible`;
 
     if (info && info.omadacId && info.omadacId !== config.omadacId) {
       return {
         success: false,
-        error: `Le Controller ID ne correspond pas. Vous avez saisi "${config.omadacId}" mais le contrôleur rapporte "${info.omadacId}".`,
+        error: `Le Controller ID ne correspond pas. Saisi: "${config.omadacId}", contrôleur: "${info.omadacId}".`,
         debug: debugInfo,
       };
     }
 
-    const token = await getAccessToken(config);
-    if (!token) return { success: false, error: "Impossible d'obtenir le token d'accès.", debug: debugInfo };
-
-    try {
-      const sites = await getSites(config);
-      let totalDevices = 0;
-      for (const site of sites.slice(0, 3)) {
-        const devices = await getDevices(site.siteId, config);
-        totalDevices += devices.length;
-      }
-      return { success: true, sites: sites.length, devices: totalDevices, debug: debugInfo };
-    } catch (apiErr) {
-      const apiMsg = apiErr instanceof Error ? apiErr.message : "";
-      if (apiMsg.includes("OMADA_API_ERROR") || apiMsg.includes("forbidden") || apiMsg.includes("Forbidden")) {
-        const diag = await diagnosePaths(config.baseUrl, config.omadacId, token);
-        return {
-          success: false,
-          error: `L'API refuse l'accès aux endpoints. Diagnostic des chemins testé ci-dessous.`,
-          debug: [debugInfo, "--- Chemins testés ---", ...diag].join("\n"),
-        };
-      }
-      throw apiErr;
+    const sites = await getSites(config);
+    let totalDevices = 0;
+    for (const site of sites.slice(0, 3)) {
+      const devices = await getDevices(site.siteId, config);
+      totalDevices += devices.length;
     }
+    return { success: true, sites: sites.length, devices: totalDevices, debug: debugInfo };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erreur inconnue";
-    if (msg.startsWith("CONNECTION_ERROR:")) {
+
+    if (msg.startsWith("CONNECTION_ERROR:") || msg.includes("fetch failed")) {
       const detail = msg.replace("CONNECTION_ERROR: ", "");
       if (detail.includes("ECONNREFUSED") || detail.includes("EHOSTUNREACH")) {
-        return { success: false, error: "Impossible de se connecter au contrôleur Omada. Vérifiez l'URL et que le port 8043 est ouvert." };
-      }
-      if (detail.includes("CERT") || detail.includes("certificate") || detail.includes("SSL")) {
-        return { success: false, error: `Erreur de certificat SSL : ${detail}` };
+        return { success: false, error: "Impossible de se connecter. Vérifiez l'URL et que le port est ouvert." };
       }
       if (detail.includes("ETIMEDOUT") || detail.includes("timeout")) {
-        return { success: false, error: "Connexion timeout. Vérifiez que le port 8043 est bien ouvert et accessible depuis Internet." };
+        return { success: false, error: "Connexion timeout. Vérifiez que le port est accessible depuis Internet." };
       }
       return { success: false, error: `Connexion échouée : ${detail}` };
     }
-    if (msg.startsWith("AUTH_HTTP_")) {
-      const status = msg.match(/AUTH_HTTP_(\d+)/)?.[1] || "?";
-      const body = msg.replace(/AUTH_HTTP_\d+: ?/, "");
+    if (msg.startsWith("AUTH_HTTP_") || msg.startsWith("WEB_AUTH_HTTP_")) {
+      const status = msg.match(/HTTP_(\d+)/)?.[1] || "?";
+      const body = msg.replace(/\w+_HTTP_\d+: ?/, "");
       if (status === "401" || status === "403") {
-        return { success: false, error: `Authentification refusée (HTTP ${status}). Vérifiez que l'app est en mode "Client Credentials" et que le Client ID/Secret sont corrects.` };
+        return { success: false, error: `Authentification refusée (HTTP ${status}). Vérifiez vos identifiants.` };
       }
       return { success: false, error: `Erreur HTTP ${status} : ${body.slice(0, 300)}` };
     }
     if (msg.startsWith("AUTH_API_ERROR:")) {
-      return { success: false, error: `Omada a refusé l'authentification : ${msg.replace("AUTH_API_ERROR: ", "")}` };
+      return { success: false, error: `Open API : ${msg.replace("AUTH_API_ERROR: ", "")}` };
     }
-    if (msg.startsWith("AUTH_PARSE_ERROR:")) {
-      return { success: false, error: `Réponse inattendue du serveur (pas du JSON). L'URL pointe peut-être vers l'interface web au lieu de l'API.` };
+    if (msg.startsWith("WEB_AUTH_ERROR:")) {
+      const detail = msg.replace("WEB_AUTH_ERROR: ", "");
+      if (detail.includes("-30109")) {
+        return { success: false, error: "Nom d'utilisateur ou mot de passe incorrect." };
+      }
+      return { success: false, error: `Connexion web échouée : ${detail}` };
+    }
+    if (msg.includes("AUTH_PARSE_ERROR") || msg.includes("WEB_AUTH_PARSE")) {
+      return { success: false, error: "Réponse inattendue du serveur. L'URL pointe peut-être vers l'interface web au lieu de l'API." };
     }
     if (msg.startsWith("OMADA_API_ERROR:")) {
-      const detail = msg.replace("OMADA_API_ERROR: ", "");
-      return { success: false, error: `L'API Omada a refusé la requête : ${detail}` };
+      return { success: false, error: `API Omada : ${msg.replace("OMADA_API_ERROR: ", "")}` };
     }
     return { success: false, error: msg };
   }

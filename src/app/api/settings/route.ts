@@ -11,7 +11,7 @@ import { cacheGet, cacheSet, cacheInvalidate } from "@/lib/cache";
 const ENCRYPTED_KEYS = new Set([
   "axonaut_api_key", "smtp_pass", "cloud_s3_secret_key", "cloud_ftp_password",
   "oxibox_api_key", "emsisoft_api_key",
-  "omada_client_secret",
+  "omada_client_secret", "omada_password",
   "spotify_client_secret", "spotify_access_token", "spotify_refresh_token",
 ]);
 

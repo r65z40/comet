@@ -61,6 +61,9 @@ export default function IntegrationsTab({
   const [omadaClientSecret, setOmadaClientSecret] = useState("");
   const [omadaBaseUrl, setOmadaBaseUrl] = useState("");
   const [omadaControllerId, setOmadaControllerId] = useState("");
+  const [omadaUsername, setOmadaUsername] = useState("");
+  const [omadaPassword, setOmadaPassword] = useState("");
+  const [omadaAuthMode, setOmadaAuthMode] = useState<"openapi" | "web">("openapi");
   const [omadaEnabled, setOmadaEnabled] = useState(false);
   const [savingOmada, setSavingOmada] = useState(false);
   const [savedOmada, setSavedOmada] = useState(false);
@@ -107,6 +110,9 @@ export default function IntegrationsTab({
     setOmadaClientSecret(settings.omada_client_secret || "");
     setOmadaBaseUrl(settings.omada_base_url || "");
     setOmadaControllerId(settings.omada_controller_id || "");
+    setOmadaUsername(settings.omada_username || "");
+    setOmadaPassword(settings.omada_password || "");
+    setOmadaAuthMode(settings.omada_username ? "web" : "openapi");
     setOmadaEnabled(settings.omada_enabled === "true");
     setSpotifyClientId(settings.spotify_client_id || "");
     setSpotifyClientSecret(settings.spotify_client_secret || "");
@@ -565,29 +571,79 @@ export default function IntegrationsTab({
             <p className="text-[11px] text-slate-400 mt-1">Visible dans Global View &gt; Settings &gt; Platform Integration &gt; Open API</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1.5">Client ID</label>
-              <input
-                type="text"
-                value={omadaClientId}
-                onChange={(e) => setOmadaClientId(e.target.value)}
-                placeholder="Client ID"
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1.5">Client Secret</label>
-              <input
-                type="password"
-                value={omadaClientSecret}
-                onChange={(e) => setOmadaClientSecret(e.target.value)}
-                placeholder="Client Secret"
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Mode d&apos;authentification</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setOmadaAuthMode("openapi")}
+                className={cn("flex-1 px-3 py-2 text-sm rounded-lg border transition-colors", omadaAuthMode === "openapi" ? "bg-cyan-50 border-cyan-300 text-cyan-700 font-medium" : "border-slate-200 text-slate-500 hover:bg-slate-50")}
+              >
+                Open API (Client ID/Secret)
+              </button>
+              <button
+                type="button"
+                onClick={() => setOmadaAuthMode("web")}
+                className={cn("flex-1 px-3 py-2 text-sm rounded-lg border transition-colors", omadaAuthMode === "web" ? "bg-cyan-50 border-cyan-300 text-cyan-700 font-medium" : "border-slate-200 text-slate-500 hover:bg-slate-50")}
+              >
+                Login Web (Username/Password)
+              </button>
             </div>
           </div>
-          <p className="text-[11px] text-slate-400 -mt-2">Créez une application dans Omada &gt; Global View &gt; Settings &gt; Platform Integration &gt; Open API</p>
+
+          {omadaAuthMode === "openapi" ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">Client ID</label>
+                  <input
+                    type="text"
+                    value={omadaClientId}
+                    onChange={(e) => setOmadaClientId(e.target.value)}
+                    placeholder="Client ID"
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">Client Secret</label>
+                  <input
+                    type="password"
+                    value={omadaClientSecret}
+                    onChange={(e) => setOmadaClientSecret(e.target.value)}
+                    placeholder="Client Secret"
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400 -mt-2">Créez une application dans Omada &gt; Global View &gt; Settings &gt; Platform Integration &gt; Open API</p>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">Nom d&apos;utilisateur</label>
+                  <input
+                    type="text"
+                    value={omadaUsername}
+                    onChange={(e) => setOmadaUsername(e.target.value)}
+                    placeholder="admin"
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">Mot de passe</label>
+                  <input
+                    type="password"
+                    value={omadaPassword}
+                    onChange={(e) => setOmadaPassword(e.target.value)}
+                    placeholder="Mot de passe Omada"
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400 -mt-2">Identifiants de connexion à l&apos;interface web du contrôleur Omada</p>
+            </>
+          )}
 
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={omadaEnabled} onChange={(e) => setOmadaEnabled(e.target.checked)} className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
@@ -604,10 +660,12 @@ export default function IntegrationsTab({
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    omada_client_id: omadaClientId,
-                    omada_client_secret: omadaClientSecret,
                     omada_base_url: omadaBaseUrl,
                     omada_controller_id: omadaControllerId,
+                    omada_client_id: omadaAuthMode === "openapi" ? omadaClientId : "",
+                    omada_client_secret: omadaAuthMode === "openapi" ? omadaClientSecret : "",
+                    omada_username: omadaAuthMode === "web" ? omadaUsername : "",
+                    omada_password: omadaAuthMode === "web" ? omadaPassword : "",
                     omada_enabled: omadaEnabled ? "true" : "false",
                   }),
                 });
@@ -629,10 +687,12 @@ export default function IntegrationsTab({
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    omada_client_id: omadaClientId,
-                    omada_client_secret: omadaClientSecret,
                     omada_base_url: omadaBaseUrl,
                     omada_controller_id: omadaControllerId,
+                    omada_client_id: omadaAuthMode === "openapi" ? omadaClientId : "",
+                    omada_client_secret: omadaAuthMode === "openapi" ? omadaClientSecret : "",
+                    omada_username: omadaAuthMode === "web" ? omadaUsername : "",
+                    omada_password: omadaAuthMode === "web" ? omadaPassword : "",
                     omada_enabled: omadaEnabled ? "true" : "false",
                   }),
                 });
@@ -645,7 +705,7 @@ export default function IntegrationsTab({
                 setOmadaTestResult(data);
                 setTestingOmada(false);
               }}
-              disabled={testingOmada || !omadaClientId || !omadaClientSecret}
+              disabled={testingOmada || (omadaAuthMode === "openapi" ? (!omadaClientId || !omadaClientSecret) : (!omadaUsername || !omadaPassword))}
               className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
             >
               {testingOmada ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
