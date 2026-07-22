@@ -758,8 +758,9 @@ function TimeGrid({
                         style={{ borderLeftColor: event.feedColor }}
                       >
                         <div className={cn("px-1.5 py-0.5", dark ? "text-[11px]" : "text-[10px]")}>
-                          <div className="font-semibold truncate" style={{ color: event.feedColor }}>
-                            {formatTime(event.start)}
+                          <div className="font-semibold truncate flex items-center gap-1" style={{ color: event.feedColor }}>
+                            <span>{formatTime(event.start)}</span>
+                            <span className={cn("font-normal opacity-70", dark ? "text-slate-400" : "text-slate-500")}>{event.feedName}</span>
                           </div>
                           <div className={cn("truncate font-medium leading-tight", dark ? "text-slate-200" : "text-slate-700")}>
                             {event.summary}
