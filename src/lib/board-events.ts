@@ -11,7 +11,9 @@ export type BoardEventType =
   | "comment:delete"
   | "checklist:update"
   | "attachment:update"
-  | "tag:update";
+  | "tag:update"
+  | "media:video"
+  | "media:spotify";
 
 export interface BoardEvent {
   type: BoardEventType;
@@ -19,6 +21,9 @@ export interface BoardEvent {
   columnId?: string;
   userId?: string;
   ts: number;
+  mediaUrl?: string;
+  spotifyUri?: string;
+  spotifyAction?: "play" | "pause" | "next" | "prev";
 }
 
 type Listener = (event: BoardEvent) => void;

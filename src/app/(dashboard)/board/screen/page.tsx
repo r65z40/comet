@@ -64,9 +64,10 @@ import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
 import EmisoftWidget from "../EmisoftWidget";
 import EmisoftAlertsWidget from "../EmisoftAlertsWidget";
 import OmadaWidget from "../OmadaWidget";
-import SpotifyWidget from "../SpotifyWidget";
+import SpotifyWidget, { SpotifyExternalCommand } from "../SpotifyWidget";
 import VideoPlayerWidget from "../VideoPlayerWidget";
 import { useBoardSync } from "@/lib/hooks/useBoardSync";
+import { useMediaSync, MediaCommand } from "@/lib/hooks/useMediaSync";
 
 interface CardTag {
   id: string;
@@ -390,6 +391,20 @@ export default function BoardScreenPage() {
 
   useBoardSync(fetchColumns);
 
+  const [extVideoUrl, setExtVideoUrl] = useState<string | undefined>();
+  const [extSpotifyCmd, setExtSpotifyCmd] = useState<SpotifyExternalCommand | undefined>();
+
+  const handleMediaCommand = useCallback((cmd: MediaCommand) => {
+    if (cmd.type === "video" && cmd.url) {
+      setExtVideoUrl(cmd.url);
+      setVisibility((v) => ({ ...v, showVideoPlayer: true }));
+    } else if (cmd.type === "spotify") {
+      setExtSpotifyCmd({ uri: cmd.spotifyUri, action: cmd.spotifyAction, ts: cmd.ts });
+      setVisibility((v) => ({ ...v, showSpotify: true }));
+    }
+  }, []);
+  useMediaSync(handleMediaCommand);
+
   useEffect(() => {
     try {
       const savedZoom = localStorage.getItem("comet_screen_zoom");
@@ -684,7 +699,7 @@ export default function BoardScreenPage() {
           id: "spotify",
           title: "Spotify",
           icon: <Music className="h-4 w-4 text-green-400" />,
-          content: <SpotifyWidget dark />,
+          content: <SpotifyWidget dark externalCommand={extSpotifyCmd} />,
         }]
       : []),
     ...(visibility.showVideoPlayer
@@ -692,7 +707,7 @@ export default function BoardScreenPage() {
           id: "video_player",
           title: "Lecteur vidéo",
           icon: <Tv className="h-4 w-4 text-cyan-400" />,
-          content: <VideoPlayerWidget dark />,
+          content: <VideoPlayerWidget dark externalUrl={extVideoUrl} />,
         }]
       : []),
     ...(visibility.showCalendar

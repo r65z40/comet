@@ -31,6 +31,7 @@ interface Channel {
 
 interface VideoPlayerWidgetProps {
   dark?: boolean;
+  externalUrl?: string;
 }
 
 const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|ogv|avi|mkv|mov|flv|wmv)(\?|$)/i;
@@ -77,11 +78,20 @@ function parseM3U(text: string): Channel[] {
   return channels;
 }
 
-export default function VideoPlayerWidget({ dark = false }: VideoPlayerWidgetProps) {
+export default function VideoPlayerWidget({ dark = false, externalUrl }: VideoPlayerWidgetProps) {
   const [url, setUrl] = useState("");
   const [activeUrl, setActiveUrl] = useState("");
   const [streamType, setStreamType] = useState<"hls" | "youtube" | "native" | "iframe">("native");
   const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    if (externalUrl) {
+      setUrl(externalUrl);
+      setActiveUrl(externalUrl);
+      setStreamType(detectStreamType(externalUrl));
+      setPlaying(true);
+    }
+  }, [externalUrl]);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(0.8);
   const [fullscreen, setFullscreen] = useState(false);

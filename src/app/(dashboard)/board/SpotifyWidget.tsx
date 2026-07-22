@@ -157,7 +157,13 @@ const GENRE_CARDS = [
 type Tab = "home" | "search" | "library" | "playing";
 type DetailView = null | { type: "playlist"; data: Playlist } | { type: "artist"; data: Artist };
 
-export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
+export interface SpotifyExternalCommand {
+  uri?: string;
+  action?: "play" | "pause" | "next" | "prev";
+  ts: number;
+}
+
+export default function SpotifyWidget({ dark = false, externalCommand }: { dark?: boolean; externalCommand?: SpotifyExternalCommand }) {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -331,6 +337,20 @@ export default function SpotifyWidget({ dark = false }: { dark?: boolean }) {
         .finally(() => setLoadingPlaylists(false));
     }
   }, [activeTab, playlists.length, loadingPlaylists, connected]);
+
+  // External commands from remote control
+  const lastExtCmdTs = useRef(0);
+  useEffect(() => {
+    if (!externalCommand || externalCommand.ts <= lastExtCmdTs.current) return;
+    lastExtCmdTs.current = externalCommand.ts;
+    if (externalCommand.uri) {
+      playTrack(externalCommand.uri);
+    } else if (externalCommand.action) {
+      const actionMap: Record<string, string> = { play: "resume", pause: "pause", next: "next", prev: "previous" };
+      doControl(actionMap[externalCommand.action] || externalCommand.action);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalCommand]);
 
   // Controls
   async function doControl(action: string) {

@@ -53,6 +53,7 @@ import {
   Bookmark,
   Trash2,
   Monitor,
+  Send,
   Calendar,
   HardDrive,
   Bell,
@@ -76,6 +77,7 @@ import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
 import EmisoftWidget from "./EmisoftWidget";
 import OmadaWidget from "./OmadaWidget";
 import VideoPlayerWidget from "./VideoPlayerWidget";
+import ScreenRemotePanel from "./ScreenRemotePanel";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 import { useBoardSync } from "@/lib/hooks/useBoardSync";
 
@@ -182,6 +184,7 @@ export default function BoardPage() {
     searchParams.get("card")
   );
   const [showAddColumn, setShowAddColumn] = useState(false);
+  const [showRemote, setShowRemote] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnColor, setNewColumnColor] = useState("#3b82f6");
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
@@ -1193,6 +1196,11 @@ export default function BoardPage() {
             )}
           </div>
 
+          {/* Screen remote */}
+          <button onClick={() => setShowRemote(true)} className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors" title="Envoyer au screen">
+            <Send className="h-4 w-4" />
+          </button>
+
           {/* Screen mode */}
           <button onClick={() => router.push("/board/screen")} className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors" title="Mode écran">
             <Monitor className="h-4 w-4" />
@@ -1279,6 +1287,7 @@ export default function BoardPage() {
       )}
 
       <CriticalAlertOverlay />
+      {showRemote && <ScreenRemotePanel onClose={() => setShowRemote(false)} />}
     </div>
   );
 }
