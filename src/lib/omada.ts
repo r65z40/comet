@@ -1,4 +1,30 @@
 import { getSettings } from "@/lib/settings";
+// --- Self-signed SSL support for self-hosted controllers ---
+function isSelfHostedUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return !hostname.endsWith("tplinkcloud.com");
+  } catch {
+    return false;
+  }
+}
+
+async function omadaRawFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  if (isSelfHostedUrl(url)) {
+    const prev = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+    try {
+      return await fetch(url, { ...options, cache: "no-store" });
+    } finally {
+      if (prev === undefined) {
+        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+      } else {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = prev;
+      }
+    }
+  }
+  return fetch(url, { ...options, cache: "no-store" });
+}
 
 // --- In-memory cache ---
 interface CacheEntry<T> {
@@ -65,7 +91,7 @@ async function getAccessToken(config: OmadaConfig): Promise<string> {
   const url = `${config.baseUrl}/openapi/authorize/token?grant_type=client_credentials`;
   let res: Response;
   try {
-    res = await fetch(url, {
+    res = await omadaRawFetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -73,7 +99,6 @@ async function getAccessToken(config: OmadaConfig): Promise<string> {
         client_id: config.clientId,
         client_secret: config.clientSecret,
       }),
-      cache: "no-store",
     });
   } catch (fetchErr) {
     const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
@@ -115,12 +140,11 @@ async function omadaFetch(path: string, config?: OmadaConfig) {
 
   const token = await getAccessToken(cfg);
   const url = `${cfg.baseUrl}/openapi/v1/${cfg.omadacId}${path}`;
-  const res = await fetch(url, {
+  const res = await omadaRawFetch(url, {
     headers: {
       Authorization: `AccessToken=${token}`,
       "Content-Type": "application/json",
     },
-    cache: "no-store",
   });
 
   if (!res.ok) {
