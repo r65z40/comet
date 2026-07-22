@@ -845,8 +845,8 @@ export default function BoardScreenPage() {
             </div>
             <input
               type="range"
-              min={70}
-              max={150}
+              min={10}
+              max={300}
               step={5}
               value={uiZoom}
               onChange={(e) => handleZoomChange(Number(e.target.value))}
@@ -854,14 +854,14 @@ export default function BoardScreenPage() {
               style={{ touchAction: "none" }}
             />
             <div className="flex items-center justify-between mt-1.5">
-              <span className="text-xs text-slate-600">70%</span>
+              <span className="text-xs text-slate-600">10%</span>
               <button
                 onClick={() => handleZoomChange(100)}
                 className="text-xs text-slate-500 hover:text-blue-400 transition-colors"
               >
                 Réinitialiser
               </button>
-              <span className="text-xs text-slate-600">150%</span>
+              <span className="text-xs text-slate-600">300%</span>
             </div>
           </div>
 

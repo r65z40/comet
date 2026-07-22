@@ -491,125 +491,17 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
             </button>
           </div>
 
-          {/* Day columns — swipeable on touch */}
-          <div
-            className={cn("grid grid-cols-7 divide-x flex-1 min-h-0 overflow-y-auto", dark ? "divide-slate-700" : "divide-slate-100")}
-            onTouchStart={(e) => { swipeRef.current = { x: e.touches[0].clientX, t: Date.now() }; }}
-            onTouchEnd={(e) => {
-              if (!swipeRef.current) return;
-              const dx = e.changedTouches[0].clientX - swipeRef.current.x;
-              const dt = Date.now() - swipeRef.current.t;
-              swipeRef.current = null;
-              if (dt < 400 && Math.abs(dx) > 80) {
-                setWeekOffset(w => dx < 0 ? w + 1 : w - 1);
-              }
-            }}
-          >
-            {days.map((day) => {
-              const dayEvents = getEventsForDay(day);
-              const isToday = isSameDay(day, today);
-
-              return (
-                <div key={day.toISOString()} className={cn(
-                  dark ? "min-h-[180px]" : "min-h-[120px]",
-                  isToday && (dark ? "bg-blue-900/20" : "bg-blue-50/40"),
-                )}>
-                  {/* Day header */}
-                  <div className={cn(
-                    "text-center border-b",
-                    dark ? "py-3 border-slate-700" : "py-2 border-slate-100",
-                    isToday && (dark ? "bg-blue-900/30" : "bg-blue-50"),
-                  )}>
-                    <div className={cn(
-                      "uppercase tracking-wider",
-                      dark ? "text-sm text-slate-500" : "text-[10px] text-slate-400",
-                    )}>
-                      {day.toLocaleDateString("fr-FR", { weekday: "short" })}
-                    </div>
-                    <div className={cn(
-                      "font-bold",
-                      dark ? "text-2xl" : "text-lg",
-                      isToday ? "text-blue-500" : dark ? "text-slate-300" : "text-slate-700",
-                    )}>
-                      {day.getDate()}
-                    </div>
-                  </div>
-
-                  {/* Events */}
-                  <div className={cn(dark ? "p-2 space-y-2" : "p-1 space-y-1")}>
-                    {dayEvents.length === 0 && (
-                      <div className={cn("text-center", dark ? "text-sm py-4 text-slate-600" : "text-[10px] py-3 text-slate-300")}>—</div>
-                    )}
-                    {dayEvents.map(event => {
-                      const isExpanded = expandedEvent === `${event.uid}-${day.toISOString()}`;
-                      return (
-                        <button
-                          key={`${event.uid}-${day.toISOString()}`}
-                          onClick={() => setExpandedEvent(isExpanded ? null : `${event.uid}-${day.toISOString()}`)}
-                          className={cn("w-full text-left group", dark && "min-h-[40px]")}
-                        >
-                          <div
-                            className={cn(
-                              "rounded-lg leading-snug transition-all border-l-[3px]",
-                              dark ? "px-2.5 py-2 text-sm" : "px-1.5 py-1 text-[11px]",
-                              isExpanded
-                                ? dark ? "bg-slate-700 shadow-sm border border-slate-600" : "bg-white shadow-sm border border-slate-200"
-                                : dark ? "hover:bg-slate-700/60" : "hover:bg-white/80",
-                            )}
-                            style={{ borderLeftColor: event.feedColor }}
-                          >
-                            {!event.allDay && (
-                              <span className={cn("font-semibold", dark ? "text-sm" : "")} style={{ color: event.feedColor }}>
-                                {formatTime(event.start)}{" "}
-                              </span>
-                            )}
-                            <span className={cn(
-                              dark ? "text-slate-200" : "text-slate-700",
-                              !isExpanded && "line-clamp-2",
-                            )}>
-                              {event.summary}
-                            </span>
-                            {!isExpanded && (
-                              <div className={cn("flex items-center gap-1.5 mt-1", dark ? "text-xs text-slate-500" : "text-[9px] text-slate-400")}>
-                                <div className={cn("rounded-full shrink-0", dark ? "w-2 h-2" : "w-1.5 h-1.5")} style={{ backgroundColor: event.feedColor }} />
-                                <span className="truncate">{event.feedName}</span>
-                              </div>
-                            )}
-
-                            {isExpanded && (
-                              <div className={cn("space-y-1.5", dark ? "mt-2" : "mt-1.5")}>
-                                {!event.allDay && (
-                                  <div className={cn("flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-[10px] text-slate-400")}>
-                                    <Clock className={dark ? "h-4 w-4" : "h-3 w-3"} />
-                                    {formatTime(event.start)} — {formatTime(event.end)}
-                                  </div>
-                                )}
-                                {event.location && (
-                                  <div className={cn("flex items-center gap-1.5", dark ? "text-sm text-slate-400" : "text-[10px] text-slate-400")}>
-                                    <MapPin className={cn("flex-shrink-0", dark ? "h-4 w-4" : "h-3 w-3")} />
-                                    <span className="truncate">{event.location}</span>
-                                  </div>
-                                )}
-                                {event.description && (
-                                  <p className={cn("line-clamp-3 whitespace-pre-line", dark ? "text-sm text-slate-400" : "text-[10px] text-slate-400")}>
-                                    {event.description}
-                                  </p>
-                                )}
-                                <div className={cn("flex items-center gap-1.5", dark ? "text-sm text-slate-500" : "text-[10px] text-slate-300")}>
-                                  <div className={cn("rounded-full", dark ? "w-2.5 h-2.5" : "w-2 h-2")} style={{ backgroundColor: event.feedColor }} />
-                                  {event.feedName}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {/* Time-grid day columns — swipeable on touch */}
+          <TimeGrid
+            days={days}
+            today={today}
+            dark={dark}
+            getEventsForDay={getEventsForDay}
+            expandedEvent={expandedEvent}
+            setExpandedEvent={setExpandedEvent}
+            swipeRef={swipeRef}
+            setWeekOffset={setWeekOffset}
+          />
         </>
       )}
 
@@ -637,6 +529,257 @@ export default function CalendarPanel({ dark = false }: { dark?: boolean }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+const HOUR_START = 8;
+const HOUR_END = 19;
+const TOTAL_HOURS = HOUR_END - HOUR_START;
+
+function TimeGrid({
+  days,
+  today,
+  dark,
+  getEventsForDay,
+  expandedEvent,
+  setExpandedEvent,
+  swipeRef,
+  setWeekOffset,
+}: {
+  days: Date[];
+  today: Date;
+  dark: boolean;
+  getEventsForDay: (day: Date) => CalendarEvent[];
+  expandedEvent: string | null;
+  setExpandedEvent: (id: string | null) => void;
+  swipeRef: React.RefObject<{ x: number; t: number } | null>;
+  setWeekOffset: React.Dispatch<React.SetStateAction<number>>;
+}) {
+  const HOUR_HEIGHT = dark ? 60 : 48;
+  const hours = Array.from({ length: TOTAL_HOURS }, (_, i) => HOUR_START + i);
+
+  function getEventPosition(event: CalendarEvent, day: Date) {
+    const dayStart = new Date(day);
+    dayStart.setHours(HOUR_START, 0, 0, 0);
+    const dayEnd = new Date(day);
+    dayEnd.setHours(HOUR_END, 0, 0, 0);
+
+    const evStart = new Date(event.start);
+    const evEnd = new Date(event.end);
+
+    const clampedStart = Math.max(evStart.getTime(), dayStart.getTime());
+    const clampedEnd = Math.min(evEnd.getTime(), dayEnd.getTime());
+
+    if (clampedEnd <= clampedStart) return null;
+
+    const totalMs = TOTAL_HOURS * 3600000;
+    const topPct = ((clampedStart - dayStart.getTime()) / totalMs) * 100;
+    const heightPct = ((clampedEnd - clampedStart) / totalMs) * 100;
+
+    return { top: topPct, height: Math.max(heightPct, 100 / TOTAL_HOURS / 4) };
+  }
+
+  function layoutColumns(events: CalendarEvent[], day: Date) {
+    const positioned = events
+      .filter(e => !e.allDay)
+      .map(e => ({ event: e, pos: getEventPosition(e, day) }))
+      .filter((p): p is { event: CalendarEvent; pos: { top: number; height: number } } => p.pos !== null)
+      .sort((a, b) => a.pos.top - b.pos.top || b.pos.height - a.pos.height);
+
+    const columns: { event: CalendarEvent; pos: { top: number; height: number }; col: number }[] = [];
+    const ends: number[] = [];
+
+    for (const item of positioned) {
+      let col = 0;
+      while (col < ends.length && ends[col] > item.pos.top + 0.1) col++;
+      if (col === ends.length) ends.push(0);
+      ends[col] = item.pos.top + item.pos.height;
+      columns.push({ ...item, col });
+    }
+
+    const totalCols = ends.length || 1;
+    return columns.map(c => ({
+      ...c,
+      left: (c.col / totalCols) * 100,
+      width: (1 / totalCols) * 100,
+    }));
+  }
+
+  return (
+    <div
+      className={cn("flex flex-1 min-h-0 overflow-y-auto overflow-x-hidden", dark ? "divide-slate-700" : "divide-slate-100")}
+      onTouchStart={(e) => { swipeRef.current = { x: e.touches[0].clientX, t: Date.now() }; }}
+      onTouchEnd={(e) => {
+        if (!swipeRef.current) return;
+        const dx = e.changedTouches[0].clientX - swipeRef.current.x;
+        const dt = Date.now() - swipeRef.current.t;
+        swipeRef.current = null;
+        if (dt < 400 && Math.abs(dx) > 80) {
+          setWeekOffset(w => dx < 0 ? w + 1 : w - 1);
+        }
+      }}
+    >
+      {/* Time gutter */}
+      <div className={cn("shrink-0 border-r", dark ? "border-slate-700 w-12" : "border-slate-200 w-10")}>
+        {/* Spacer for day headers */}
+        <div className={cn("border-b", dark ? "h-16 border-slate-700" : "h-12 border-slate-200")} />
+        {hours.map(h => (
+          <div
+            key={h}
+            className={cn(
+              "relative border-b text-right pr-2",
+              dark ? "border-slate-700/50" : "border-slate-100",
+            )}
+            style={{ height: HOUR_HEIGHT }}
+          >
+            <span className={cn(
+              "absolute -top-2.5 right-2",
+              dark ? "text-[11px] text-slate-500" : "text-[10px] text-slate-400",
+            )}>
+              {h}:00
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Day columns */}
+      <div className={cn("flex-1 grid divide-x", dark ? "divide-slate-700" : "divide-slate-100")} style={{ gridTemplateColumns: `repeat(7, 1fr)` }}>
+        {days.map((day) => {
+          const dayEvents = getEventsForDay(day);
+          const allDayEvents = dayEvents.filter(e => e.allDay);
+          const timedEvents = layoutColumns(dayEvents, day);
+          const isToday = isSameDay(day, today);
+
+          return (
+            <div key={day.toISOString()} className={cn(isToday && (dark ? "bg-blue-900/10" : "bg-blue-50/30"))}>
+              {/* Day header */}
+              <div className={cn(
+                "text-center border-b sticky top-0 z-10",
+                dark ? "py-2 border-slate-700 bg-slate-800" : "py-1.5 border-slate-200 bg-white",
+                isToday && (dark ? "bg-blue-900/30" : "bg-blue-50"),
+                dark ? "h-16" : "h-12",
+              )}>
+                <div className={cn(
+                  "uppercase tracking-wider",
+                  dark ? "text-[11px] text-slate-500" : "text-[10px] text-slate-400",
+                )}>
+                  {day.toLocaleDateString("fr-FR", { weekday: "short" })}
+                </div>
+                <div className={cn(
+                  "font-bold",
+                  dark ? "text-xl" : "text-base",
+                  isToday ? "text-blue-500" : dark ? "text-slate-300" : "text-slate-700",
+                )}>
+                  {day.getDate()}
+                </div>
+                {allDayEvents.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-0.5 mt-0.5">
+                    {allDayEvents.slice(0, 2).map(e => (
+                      <div
+                        key={e.uid}
+                        className={cn("rounded px-1 truncate max-w-full", dark ? "text-[10px] text-white/90" : "text-[9px] text-white")}
+                        style={{ backgroundColor: e.feedColor }}
+                        title={e.summary}
+                      >
+                        {e.summary}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Time slots with positioned events */}
+              <div className="relative">
+                {/* Hour grid lines */}
+                {hours.map(h => (
+                  <div
+                    key={h}
+                    className={cn("border-b", dark ? "border-slate-700/50" : "border-slate-100")}
+                    style={{ height: HOUR_HEIGHT }}
+                  />
+                ))}
+
+                {/* Current time indicator */}
+                {isToday && (() => {
+                  const now = new Date();
+                  const nowH = now.getHours() + now.getMinutes() / 60;
+                  if (nowH < HOUR_START || nowH > HOUR_END) return null;
+                  const topPct = ((nowH - HOUR_START) / TOTAL_HOURS) * 100;
+                  return (
+                    <div
+                      className="absolute left-0 right-0 z-20 pointer-events-none"
+                      style={{ top: `${topPct}%` }}
+                    >
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 shrink-0" />
+                        <div className="flex-1 h-[2px] bg-red-500" />
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Positioned events */}
+                {timedEvents.map(({ event, pos, left, width }) => {
+                  const evKey = `${event.uid}-${day.toISOString()}`;
+                  const isExpanded = expandedEvent === evKey;
+                  return (
+                    <button
+                      key={evKey}
+                      onClick={() => setExpandedEvent(isExpanded ? null : evKey)}
+                      className="absolute z-10 text-left px-[1px]"
+                      style={{
+                        top: `${pos.top}%`,
+                        height: `${pos.height}%`,
+                        left: `${left}%`,
+                        width: `${width}%`,
+                      }}
+                    >
+                      <div
+                        className={cn(
+                          "h-full rounded border-l-[3px] overflow-hidden transition-all",
+                          dark
+                            ? "bg-slate-700/80 hover:bg-slate-600/90 text-slate-200"
+                            : "bg-white hover:bg-slate-50 text-slate-700 shadow-sm border border-slate-200",
+                          isExpanded && (dark ? "ring-1 ring-blue-500/50 bg-slate-600/90 z-20" : "ring-1 ring-blue-400 z-20"),
+                        )}
+                        style={{ borderLeftColor: event.feedColor }}
+                      >
+                        <div className={cn("px-1.5 py-0.5", dark ? "text-[11px]" : "text-[10px]")}>
+                          <div className="font-semibold truncate" style={{ color: event.feedColor }}>
+                            {formatTime(event.start)}
+                          </div>
+                          <div className={cn("truncate font-medium leading-tight", dark ? "text-slate-200" : "text-slate-700")}>
+                            {event.summary}
+                          </div>
+                          {isExpanded && (
+                            <div className={cn("mt-1 space-y-0.5", dark ? "text-slate-400" : "text-slate-500")}>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3 shrink-0" />
+                                <span>{formatTime(event.start)} — {formatTime(event.end)}</span>
+                              </div>
+                              {event.location && (
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{event.location}</span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: event.feedColor }} />
+                                <span className="truncate">{event.feedName}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
