@@ -477,13 +477,39 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
       };
     }
 
+    // Probe raw response to debug structure
+    let rawDebug = "";
+    if (isWeb) {
+      try {
+        const session = await getWebSession(config);
+        const probeEndpoints = [
+          "/sites",
+          "/sites?currentPage=1&currentPageSize=100",
+        ];
+        for (const ep of probeEndpoints) {
+          const probeUrl = `${config.baseUrl}/${config.omadacId}/api/v2${ep}`;
+          const probeRes = await omadaRawFetch(probeUrl, {
+            headers: {
+              "Content-Type": "application/json",
+              "Csrf-Token": session.csrfToken,
+              Cookie: session.cookies,
+            },
+          });
+          const probeText = await probeRes.text();
+          rawDebug += `\n${ep} → ${probeText.slice(0, 300)}`;
+        }
+      } catch (e) {
+        rawDebug = `\nProbe error: ${e instanceof Error ? e.message : "unknown"}`;
+      }
+    }
+
     const sites = await getSites(config);
     let totalDevices = 0;
     for (const site of sites.slice(0, 3)) {
       const devices = await getDevices(site.siteId, config);
       totalDevices += devices.length;
     }
-    return { success: true, sites: sites.length, devices: totalDevices, debug: debugInfo };
+    return { success: true, sites: sites.length, devices: totalDevices, debug: debugInfo + rawDebug };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erreur inconnue";
 
