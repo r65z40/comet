@@ -263,6 +263,8 @@ async function webSessionFetch(path: string, config: OmadaConfig, method = "GET"
 // Unified fetch — picks the right auth mode
 // ============================================================
 function useWebSession(config: OmadaConfig): boolean {
+  // Prefer Open API when client credentials are available (required for MSP mode)
+  if (config.clientId && config.clientSecret) return false;
   return !!(config.username && config.password);
 }
 
@@ -536,7 +538,7 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
       };
     }
 
-    // Probe MSP structure — customerId IS a siteId (confirmed by -1505 permission error)
+    // Detect MSP mode and guide user
     let rawDebug = "";
     if (isWeb) {
       try {
@@ -544,65 +546,28 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
         const hdrs = { "Content-Type": "application/json", "Csrf-Token": session.csrfToken, Cookie: session.cookies };
         const base = `${config.baseUrl}/${config.omadacId}/api/v2`;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        async function probe(label: string, url: string, opts: RequestInit = {}): Promise<any> {
-          try {
-            const r = await omadaRawFetch(url, { headers: hdrs, ...opts });
-            const t = await r.text();
-            rawDebug += `\n${label} → ${t.slice(0, 350)}`;
-            try { return JSON.parse(t); } catch { return null; }
-          } catch (e) {
-            rawDebug += `\n${label} → ERROR: ${e instanceof Error ? e.message : "?"}`;
-            return null;
+        // Check if this is an MSP controller by trying to list customers
+        const custRes = await omadaRawFetch(`${base}/customers?currentPage=1&currentPageSize=5`, { headers: hdrs });
+        const custText = await custRes.text().catch(() => "");
+        let isMsp = false;
+        try {
+          const custJson = JSON.parse(custText);
+          const customers = custJson?.result?.customers || custJson?.result?.data || [];
+          if (customers.length > 0) {
+            isMsp = true;
+            rawDebug += `\nMode MSP détecté (${customers.length} customers).`;
+            rawDebug += `\n\n⚠️ En mode MSP, l'API Web (/api/v2/) ne peut pas accéder aux sites des customers.`;
+            rawDebug += `\nVous devez configurer l'Open API (Client ID + Client Secret) :`;
+            rawDebug += `\n  1. Interface Omada → MSP View → Settings → Platform Integration → Open API`;
+            rawDebug += `\n  2. Cliquer "Add New App" → Mode: Client`;
+            rawDebug += `\n  3. Configurer les privilèges customers (All Customers) et rôle (Viewer minimum)`;
+            rawDebug += `\n  4. Copier le Client ID et Client Secret dans les paramètres Comet`;
+            rawDebug += `\n  5. Supprimer le nom d'utilisateur/mot de passe des paramètres Omada (ou les laisser, l'Open API sera prioritaire)`;
           }
-        }
+        } catch {}
 
-        // Check current user info and privileges
-        await probe("GET /users/current", `${base}/users/current`);
-        await probe("GET /privilege", `${base}/privilege`);
-
-        // Get all customers
-        const custJson = await probe("GET /customers", `${base}/customers?currentPage=1&currentPageSize=20`);
-        const customers = custJson?.result?.customers || custJson?.result?.data || [];
-        rawDebug += `\n--- ${customers.length} customers found ---`;
-
-        if (customers.length > 0) {
-          const cid = customers[0].customerId || customers[0].id;
-          const cname = customers[0].name;
-          rawDebug += `\nCustomer[0]: ${cname} (${cid})`;
-
-          // Try switching/adopting customer context
-          await probe(`POST /customers/${cid}/login`, `${base}/customers/${cid}/login`, { method: "POST" });
-          await probe(`POST /sites/${cid}/cmd/adopt`, `${base}/sites/${cid}/cmd/adopt`, { method: "POST" });
-
-          // Try alt URL structure: /{omadacId}/{customerId}/api/v2/...
-          const altBase = `${config.baseUrl}/${config.omadacId}/${cid}/api/v2`;
-          await probe(`ALT /sites (cid in path)`, `${altBase}/sites?currentPage=1&currentPageSize=10`);
-          await probe(`ALT /devices (cid in path)`, `${altBase}/devices?currentPage=1&currentPageSize=5`);
-
-          // Try /devices with siteId param
-          await probe(`GET /devices?siteId=${cid}`, `${base}/devices?siteId=${cid}&currentPage=1&currentPageSize=5`);
-          await probe(`GET /devices?site=${cid}`, `${base}/devices?site=${cid}&currentPage=1&currentPageSize=5`);
-
-          // Try privilege escalation to customer
-          await probe(`POST /privilege/escalate`, `${base}/privilege/escalate`, {
-            method: "POST",
-            body: JSON.stringify({ customerId: cid }),
-          });
-
-          // Scan all customers for accessible sites
-          rawDebug += `\n--- Scanning all customers for site access ---`;
-          for (const c of customers.slice(0, 5)) {
-            const id = c.customerId || c.id;
-            const r = await probe(
-              `sites/${id}/devices [${c.name}]`,
-              `${base}/sites/${id}/devices?currentPage=1&currentPageSize=3`,
-            );
-            if (r?.errorCode === 0) {
-              rawDebug += `\n*** FOUND DEVICES for ${c.name}! ***`;
-              break;
-            }
-          }
+        if (!isMsp) {
+          rawDebug += `\nMode standard (non-MSP).`;
         }
       } catch (e) {
         rawDebug += `\nProbe error: ${e instanceof Error ? e.message : "unknown"}`;
