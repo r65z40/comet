@@ -542,24 +542,65 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
       try {
         const session = await getWebSession(config);
         const headers = { "Content-Type": "application/json", "Csrf-Token": session.csrfToken, Cookie: session.cookies };
-        // Get first customer
-        const custRes = await omadaRawFetch(`${config.baseUrl}/${config.omadacId}/api/v2/customers?currentPage=1&currentPageSize=5`, { headers });
+        const base = `${config.baseUrl}/${config.omadacId}/api/v2`;
+
+        // Try global endpoints first
+        const globalPaths = [
+          `/devices?currentPage=1&currentPageSize=5`,
+          `/maintenance/device?currentPage=1&currentPageSize=5`,
+          `/dashboard`,
+        ];
+        for (const gp of globalPaths) {
+          try {
+            const gRes = await omadaRawFetch(`${base}${gp}`, { headers });
+            const gText = await gRes.text();
+            rawDebug += `\n${gp} → ${gText.slice(0, 300)}`;
+          } catch (e) {
+            rawDebug += `\n${gp} → ERROR: ${e instanceof Error ? e.message : "?"}`;
+          }
+        }
+
+        // Get first customer and dump full object
+        const custRes = await omadaRawFetch(`${base}/customers?currentPage=1&currentPageSize=5`, { headers });
         const custJson = await custRes.json();
         const customers = custJson.result?.customers || custJson.result?.data || [];
         if (customers.length > 0) {
-          const cid = customers[0].customerId || customers[0].id;
-          const cname = customers[0].name;
-          rawDebug += `\nCustomer: ${cname} (${cid})`;
-          // Try different paths for sites under this customer
-          const sitePaths = [
-            `/customers/${cid}/sites?currentPage=1&currentPageSize=10`,
-            `/customers/${cid}/sites`,
-            `/sites?currentPage=1&currentPageSize=10&customerId=${cid}`,
+          const fullCustomer = customers[0];
+          rawDebug += `\nCustomer[0] keys: ${Object.keys(fullCustomer).join(", ")}`;
+          rawDebug += `\nCustomer[0] dump: ${JSON.stringify(fullCustomer).slice(0, 500)}`;
+
+          const cid = fullCustomer.customerId || fullCustomer.id;
+          const cname = fullCustomer.name;
+          const siteId = fullCustomer.siteId || fullCustomer.site || fullCustomer.defaultSiteId;
+          rawDebug += `\nUsing cid=${cid}, name=${cname}, extractedSiteId=${siteId || "none"}`;
+
+          // Try many paths under this customer
+          const probePaths = [
+            `/customers/${cid}`,
+            `/customers/${cid}/devices?currentPage=1&currentPageSize=5`,
+            `/customers/${cid}/overview`,
+            `/customers/${cid}/dashboard`,
+            `/customers/${cid}/setting`,
+            `/customers/${cid}/gateway`,
+            `/sites/${cid}/setting`,
+            `/sites/${cid}/devices?currentPage=1&currentPageSize=5`,
+            `/sites/${cid}/dashboard`,
           ];
-          for (const sp of sitePaths) {
-            const sRes = await omadaRawFetch(`${config.baseUrl}/${config.omadacId}/api/v2${sp}`, { headers });
-            const sText = await sRes.text();
-            rawDebug += `\n${sp} → ${sText.slice(0, 300)}`;
+
+          // If customer has a siteId field, try that too
+          if (siteId && siteId !== cid) {
+            probePaths.push(`/sites/${siteId}/devices?currentPage=1&currentPageSize=5`);
+            probePaths.push(`/sites/${siteId}/dashboard`);
+          }
+
+          for (const sp of probePaths) {
+            try {
+              const sRes = await omadaRawFetch(`${base}${sp}`, { headers });
+              const sText = await sRes.text();
+              rawDebug += `\n${sp} → ${sText.slice(0, 300)}`;
+            } catch (e) {
+              rawDebug += `\n${sp} → ERROR: ${e instanceof Error ? e.message : "?"}`;
+            }
           }
         }
       } catch (e) {
