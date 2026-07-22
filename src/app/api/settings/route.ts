@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { invalidateEmsisoftCache } from "@/lib/emsisoft";
 import { invalidateOxiboxCache } from "@/lib/oxibox";
+import { invalidateOmadaCache } from "@/lib/omada";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { logAudit } from "@/lib/audit";
 import { cacheGet, cacheSet, cacheInvalidate } from "@/lib/cache";
@@ -10,6 +11,7 @@ import { cacheGet, cacheSet, cacheInvalidate } from "@/lib/cache";
 const ENCRYPTED_KEYS = new Set([
   "axonaut_api_key", "smtp_pass", "cloud_s3_secret_key", "cloud_ftp_password",
   "oxibox_api_key", "emsisoft_api_key",
+  "omada_client_secret",
   "spotify_client_secret", "spotify_access_token", "spotify_refresh_token",
 ]);
 
@@ -82,6 +84,7 @@ export async function PUT(req: NextRequest) {
 
     if (changedKeys.some((k) => k.startsWith("emsisoft_"))) invalidateEmsisoftCache();
     if (changedKeys.some((k) => k.startsWith("oxibox_"))) invalidateOxiboxCache();
+    if (changedKeys.some((k) => k.startsWith("omada_"))) invalidateOmadaCache();
 
     await logAudit({
       userId: session.user.id,

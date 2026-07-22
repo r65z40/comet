@@ -15,6 +15,7 @@ import {
   Music,
   LogIn,
   LogOut,
+  Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SettingsTabProps } from "./GeneralTab";
@@ -55,6 +56,17 @@ export default function IntegrationsTab({
   const [testingEmsisoft, setTestingEmsisoft] = useState(false);
   const [emsisoftTestResult, setEmsisoftTestResult] = useState<{ success: boolean; error?: string; workspaces?: number } | null>(null);
 
+  // Omada settings
+  const [omadaClientId, setOmadaClientId] = useState("");
+  const [omadaClientSecret, setOmadaClientSecret] = useState("");
+  const [omadaBaseUrl, setOmadaBaseUrl] = useState("");
+  const [omadaControllerId, setOmadaControllerId] = useState("");
+  const [omadaEnabled, setOmadaEnabled] = useState(false);
+  const [savingOmada, setSavingOmada] = useState(false);
+  const [savedOmada, setSavedOmada] = useState(false);
+  const [testingOmada, setTestingOmada] = useState(false);
+  const [omadaTestResult, setOmadaTestResult] = useState<{ success: boolean; error?: string; sites?: number; devices?: number } | null>(null);
+
   // Spotify settings
   const [spotifyClientId, setSpotifyClientId] = useState("");
   const [spotifyClientSecret, setSpotifyClientSecret] = useState("");
@@ -91,6 +103,11 @@ export default function IntegrationsTab({
     setEmsisoftApiKey(settings.emsisoft_api_key || "");
     setEmsisoftApiUrl(settings.emsisoft_api_url || "https://api.emsisoft.com/v1");
     setEmsisoftEnabled(settings.emsisoft_enabled === "true");
+    setOmadaClientId(settings.omada_client_id || "");
+    setOmadaClientSecret(settings.omada_client_secret || "");
+    setOmadaBaseUrl(settings.omada_base_url || "");
+    setOmadaControllerId(settings.omada_controller_id || "");
+    setOmadaEnabled(settings.omada_enabled === "true");
     setSpotifyClientId(settings.spotify_client_id || "");
     setSpotifyClientSecret(settings.spotify_client_secret || "");
     setSpotifyRedirectUri(settings.spotify_redirect_uri || "");
@@ -504,6 +521,142 @@ export default function IntegrationsTab({
           {emsisoftTestResult && (
             <div className={`p-3 rounded-lg text-sm ${emsisoftTestResult.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
               {emsisoftTestResult.success ? `Connexion Emsisoft réussie ! ${emsisoftTestResult.workspaces} workspace(s) trouvé(s).` : `Erreur : ${emsisoftTestResult.error}`}
+            </div>
+          )}
+        </div>}
+      </div>}
+
+      {/* Omada Integration */}
+      {isAdmin && <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button onClick={() => toggleSection("omada")} className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-cyan-50 p-2">
+              <Wifi className="h-4 w-4 text-cyan-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">Omada</h3>
+              <p className="text-xs text-slate-400">Supervision réseau TP-Link Omada</p>
+            </div>
+          </div>
+          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${openSections.omada ? "rotate-180" : ""}`} />
+        </button>
+        {openSections.omada && <div className="px-6 pb-6 space-y-4 border-t border-slate-100 pt-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">URL du contrôleur</label>
+            <input
+              type="text"
+              value={omadaBaseUrl}
+              onChange={(e) => setOmadaBaseUrl(e.target.value)}
+              placeholder="https://use1-omada-northbound.tplinkcloud.com"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">URL cloud (ex: use1-omada-northbound.tplinkcloud.com) ou locale (ex: https://192.168.1.1:8043)</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">Controller ID (omadacId)</label>
+            <input
+              type="text"
+              value={omadaControllerId}
+              onChange={(e) => setOmadaControllerId(e.target.value)}
+              placeholder="ID du contrôleur Omada"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">Visible dans Global View &gt; Settings &gt; Platform Integration &gt; Open API</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">Client ID</label>
+              <input
+                type="text"
+                value={omadaClientId}
+                onChange={(e) => setOmadaClientId(e.target.value)}
+                placeholder="Client ID"
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">Client Secret</label>
+              <input
+                type="password"
+                value={omadaClientSecret}
+                onChange={(e) => setOmadaClientSecret(e.target.value)}
+                placeholder="Client Secret"
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-400 -mt-2">Créez une application dans Omada &gt; Global View &gt; Settings &gt; Platform Integration &gt; Open API</p>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={omadaEnabled} onChange={(e) => setOmadaEnabled(e.target.checked)} className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+            <span className="text-sm text-slate-700">Activer l&apos;intégration Omada</span>
+          </label>
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={async () => {
+                setSavingOmada(true);
+                setSavedOmada(false);
+                setOmadaTestResult(null);
+                await fetch("/api/settings", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    omada_client_id: omadaClientId,
+                    omada_client_secret: omadaClientSecret,
+                    omada_base_url: omadaBaseUrl,
+                    omada_controller_id: omadaControllerId,
+                    omada_enabled: omadaEnabled ? "true" : "false",
+                  }),
+                });
+                setSavingOmada(false);
+                setSavedOmada(true);
+                setTimeout(() => setSavedOmada(false), 3000);
+              }}
+              disabled={savingOmada}
+              className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+            >
+              {savingOmada ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Enregistrer
+            </button>
+            <button
+              onClick={async () => {
+                setTestingOmada(true);
+                setOmadaTestResult(null);
+                await fetch("/api/settings", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    omada_client_id: omadaClientId,
+                    omada_client_secret: omadaClientSecret,
+                    omada_base_url: omadaBaseUrl,
+                    omada_controller_id: omadaControllerId,
+                    omada_enabled: omadaEnabled ? "true" : "false",
+                  }),
+                });
+                const res = await fetch("/api/omada", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "test" }),
+                });
+                const data = await res.json();
+                setOmadaTestResult(data);
+                setTestingOmada(false);
+              }}
+              disabled={testingOmada || !omadaClientId || !omadaClientSecret}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              {testingOmada ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+              Tester la connexion
+            </button>
+            {savedOmada && <span className="text-xs text-emerald-600">Paramètres enregistrés</span>}
+          </div>
+
+          {omadaTestResult && (
+            <div className={`p-3 rounded-lg text-sm ${omadaTestResult.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              {omadaTestResult.success ? `Connexion Omada réussie ! ${omadaTestResult.sites} site(s), ${omadaTestResult.devices} appareil(s) trouvé(s).` : `Erreur : ${omadaTestResult.error}`}
             </div>
           )}
         </div>}

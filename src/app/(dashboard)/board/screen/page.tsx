@@ -50,6 +50,7 @@ import {
   Maximize,
   Minimize,
   ZoomIn,
+  Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
@@ -62,6 +63,7 @@ import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
 import EmisoftWidget from "../EmisoftWidget";
 import EmisoftAlertsWidget from "../EmisoftAlertsWidget";
+import OmadaWidget from "../OmadaWidget";
 import SpotifyWidget from "../SpotifyWidget";
 import VideoPlayerWidget from "../VideoPlayerWidget";
 import { useBoardSync } from "@/lib/hooks/useBoardSync";
@@ -154,6 +156,7 @@ interface ScreenVisibility {
   showActivityFeed: boolean;
   showEmsisoft: boolean;
   showEmsisoftAlerts: boolean;
+  showOmada: boolean;
   showSpotify: boolean;
   showVideoPlayer: boolean;
 }
@@ -167,6 +170,7 @@ const DEFAULT_VISIBILITY: ScreenVisibility = {
   showActivityFeed: true,
   showEmsisoft: true,
   showEmsisoftAlerts: true,
+  showOmada: true,
   showSpotify: true,
   showVideoPlayer: false,
 };
@@ -180,7 +184,8 @@ const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "activity_feed", x: 0, y: 12, w: 4, h: 4, minW: 2, minH: 2 },
   { i: "emsisoft", x: 4, y: 12, w: 4, h: 4, minW: 2, minH: 2 },
   { i: "emsisoft_alerts", x: 8, y: 12, w: 4, h: 4, minW: 2, minH: 3 },
-  { i: "spotify", x: 0, y: 16, w: 3, h: 4, minW: 2, minH: 3 },
+  { i: "omada", x: 0, y: 16, w: 4, h: 4, minW: 2, minH: 2 },
+  { i: "spotify", x: 4, y: 16, w: 3, h: 4, minW: 2, minH: 3 },
   { i: "video_player", x: 3, y: 16, w: 6, h: 5, minW: 3, minH: 3 },
   { i: "calendar", x: 9, y: 16, w: 3, h: 3, minW: 3, minH: 2 },
 ];
@@ -666,6 +671,14 @@ export default function BoardScreenPage() {
           content: <EmisoftAlertsWidget dark />,
         }]
       : []),
+    ...(visibility.showOmada
+      ? [{
+          id: "omada",
+          title: "Réseau Omada",
+          icon: <Wifi className="h-4 w-4 text-cyan-400" />,
+          content: <OmadaWidget dark />,
+        }]
+      : []),
     ...(visibility.showSpotify
       ? [{
           id: "spotify",
@@ -862,6 +875,7 @@ export default function BoardScreenPage() {
             { key: "showActivityFeed" as const, label: "Fil d'activité" },
             { key: "showEmsisoft" as const, label: "Sécurité Emsisoft" },
             { key: "showEmsisoftAlerts" as const, label: "Alertes Emsisoft (live)" },
+            { key: "showOmada" as const, label: "Réseau Omada" },
             { key: "showSpotify" as const, label: "Spotify" },
             { key: "showVideoPlayer" as const, label: "Lecteur vidéo" },
             { key: "showCalendar" as const, label: "Calendrier" },

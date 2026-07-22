@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 interface CriticalAlert {
   id: string;
-  source: "atera" | "oxibox" | "emsisoft";
+  source: "atera" | "oxibox" | "emsisoft" | "omada";
   title: string;
   detail: string;
   severity: string;
@@ -150,6 +150,26 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
       }
     } catch {}
 
+    // Check Omada
+    try {
+      const res = await fetch("/api/omada");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.enabled && data.offlineAlerts) {
+          for (const d of data.offlineAlerts) {
+            newAlerts.push({
+              id: `omada-${d.mac}`,
+              source: "omada",
+              title: `Appareil hors ligne : ${d.name}`,
+              detail: [d.type, d.site].filter(Boolean).join(" — "),
+              severity: "Critical",
+              timestamp: d.lastSeen || Date.now(),
+            });
+          }
+        }
+      }
+    } catch {}
+
     // Detect truly new alerts (not seen before)
     const unseenAlerts: CriticalAlert[] = [];
     for (const alert of newAlerts) {
@@ -204,14 +224,16 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
         ? (dark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700")
         : source === "emsisoft"
           ? (dark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700")
-          : (dark ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-700"),
+          : source === "omada"
+            ? (dark ? "bg-cyan-500/20 text-cyan-400" : "bg-cyan-100 text-cyan-700")
+            : (dark ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-700"),
     )}>
-      {source === "atera" ? "Atera" : source === "emsisoft" ? "Emsisoft" : "Oxibox"}
+      {source === "atera" ? "Atera" : source === "emsisoft" ? "Emsisoft" : source === "omada" ? "Omada" : "Oxibox"}
     </span>
   );
 
   const sourceLabel = (source: CriticalAlert["source"]) =>
-    source === "atera" ? "Atera" : source === "emsisoft" ? "Emsisoft" : "Oxibox";
+    source === "atera" ? "Atera" : source === "emsisoft" ? "Emsisoft" : source === "omada" ? "Omada" : "Oxibox";
 
   return (
     <>
@@ -277,7 +299,7 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
                     <div className={cn(
                       "mt-0.5 rounded-full shrink-0 animate-pulse",
                       dark ? "w-3 h-3" : "w-2 h-2",
-                      alert.source === "atera" ? "bg-red-500" : alert.source === "emsisoft" ? "bg-purple-500" : "bg-orange-500",
+                      alert.source === "atera" ? "bg-red-500" : alert.source === "emsisoft" ? "bg-purple-500" : alert.source === "omada" ? "bg-cyan-500" : "bg-orange-500",
                     )} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -368,7 +390,7 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
                   <div className={cn(
                     "rounded-full shrink-0 animate-pulse",
                     dark ? "w-2.5 h-2.5" : "w-1.5 h-1.5",
-                    alert.source === "atera" ? "bg-red-500" : alert.source === "emsisoft" ? "bg-purple-500" : "bg-orange-500",
+                    alert.source === "atera" ? "bg-red-500" : alert.source === "emsisoft" ? "bg-purple-500" : alert.source === "omada" ? "bg-cyan-500" : "bg-orange-500",
                   )} />
                   <span className={cn(
                     "font-bold uppercase shrink-0",
