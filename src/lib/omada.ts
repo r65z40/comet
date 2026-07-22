@@ -152,48 +152,54 @@ async function getControllerInfo(baseUrl: string): Promise<{ omadacId: string; c
   }
 }
 
-// --- Diagnostic: try multiple API paths ---
+// --- Diagnostic: try multiple auth formats on the sites endpoint ---
 async function diagnosePaths(baseUrl: string, omadacId: string, token: string): Promise<string[]> {
   const results: string[] = [];
-  const paths = [
-    `/openapi/v1/${omadacId}/sites?page=1&pageSize=100`,
-    `/openapi/v2/${omadacId}/sites?page=1&pageSize=100`,
-    `/openapi/v3/${omadacId}/sites?page=1&pageSize=100`,
-    `/${omadacId}/openapi/v1/sites?page=1&pageSize=100`,
-    `/api/v2/sites?page=1&pageSize=100`,
+  const sitesPath = `/openapi/v1/${omadacId}/sites?page=1&pageSize=100`;
+
+  const authVariants: [string, Record<string, string>][] = [
+    ["AccessToken=xxx", { Authorization: `AccessToken=${token}` }],
+    ["Bearer xxx", { Authorization: `Bearer ${token}` }],
+    ["AccessToken=xxx (no Content-Type)", { Authorization: `AccessToken=${token}` }],
   ];
 
-  for (const path of paths) {
+  for (const [label, headers] of authVariants) {
     try {
-      const res = await omadaRawFetch(`${baseUrl}${path}`, {
-        headers: {
-          Authorization: `AccessToken=${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const fullHeaders: Record<string, string> = { ...headers };
+      if (!label.includes("no Content-Type")) {
+        fullHeaders["Content-Type"] = "application/json";
+      }
+      const res = await omadaRawFetch(`${baseUrl}${sitesPath}`, { headers: fullHeaders });
       const text = await res.text().catch(() => "");
       let errorCode = "?";
-      let msg = text.slice(0, 100);
+      let msg = text.slice(0, 150);
       try {
         const j = JSON.parse(text);
         errorCode = String(j.errorCode ?? "?");
         msg = j.msg || msg;
+        if (j.result) msg = `OK! ${JSON.stringify(j.result).slice(0, 100)}`;
       } catch { /* not json */ }
-      results.push(`${path} → HTTP ${res.status}, code=${errorCode}, ${msg}`);
+      results.push(`Auth [${label}] → HTTP ${res.status}, code=${errorCode}, ${msg}`);
     } catch (e) {
-      results.push(`${path} → ${e instanceof Error ? e.message : "error"}`);
+      results.push(`Auth [${label}] → ${e instanceof Error ? e.message : "error"}`);
     }
   }
-  return results;
-}
 
-// --- Detect API version ---
-async function getApiVersion(baseUrl: string): Promise<number> {
-  if (detectedApiVer !== null) return detectedApiVer;
-  const info = await getControllerInfo(baseUrl);
-  const ver = info?.apiVer ? parseInt(info.apiVer, 10) : 1;
-  detectedApiVer = isNaN(ver) || ver < 1 ? 1 : ver;
-  return detectedApiVer;
+  // Also try the token info endpoint to see token scope
+  try {
+    const res = await omadaRawFetch(`${baseUrl}/openapi/authorize/token/info`, {
+      headers: {
+        Authorization: `AccessToken=${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    const text = await res.text().catch(() => "");
+    results.push(`Token info → HTTP ${res.status}, ${text.slice(0, 200)}`);
+  } catch (e) {
+    results.push(`Token info → ${e instanceof Error ? e.message : "error"}`);
+  }
+
+  return results;
 }
 
 // --- Base fetch ---
@@ -204,8 +210,7 @@ async function omadaFetch(path: string, config?: OmadaConfig) {
   }
 
   const token = await getAccessToken(cfg);
-  const apiVer = await getApiVersion(cfg.baseUrl);
-  const url = `${cfg.baseUrl}/openapi/v${apiVer}/${cfg.omadacId}${path}`;
+  const url = `${cfg.baseUrl}/openapi/v1/${cfg.omadacId}${path}`;
   const res = await omadaRawFetch(url, {
     headers: {
       Authorization: `AccessToken=${token}`,
