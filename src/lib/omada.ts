@@ -63,25 +63,38 @@ async function getAccessToken(config: OmadaConfig): Promise<string> {
   }
 
   const url = `${config.baseUrl}/openapi/authorize/token?grant_type=client_credentials`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      omadacId: config.omadacId,
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-    }),
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Omada auth failed (${res.status}): ${text}`);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        omadacId: config.omadacId,
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+      }),
+      cache: "no-store",
+    });
+  } catch (fetchErr) {
+    const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+    throw new Error(`CONNECTION_ERROR: ${msg}`);
   }
 
-  const json = await res.json();
+  const text = await res.text().catch(() => "");
+  if (!res.ok) {
+    throw new Error(`AUTH_HTTP_${res.status}: ${text}`);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`AUTH_PARSE_ERROR: ${text.slice(0, 200)}`);
+  }
+
   if (json.errorCode !== 0) {
-    throw new Error(`Omada auth error: ${json.msg || "Unknown error"}`);
+    throw new Error(`AUTH_API_ERROR: code=${json.errorCode} msg=${json.msg || "Unknown"}`);
   }
 
   const result = json.result;
@@ -303,11 +316,29 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erreur inconnue";
-    if (msg.includes("fetch failed") || msg.includes("ECONNREFUSED")) {
-      return { success: false, error: "Impossible de se connecter au contrôleur Omada. Vérifiez l'URL." };
+    if (msg.startsWith("CONNECTION_ERROR:")) {
+      const detail = msg.replace("CONNECTION_ERROR: ", "");
+      if (detail.includes("ECONNREFUSED") || detail.includes("EHOSTUNREACH")) {
+        return { success: false, error: "Impossible de se connecter au contrôleur Omada. Vérifiez l'URL." };
+      }
+      if (detail.includes("CERT") || detail.includes("certificate") || detail.includes("SSL")) {
+        return { success: false, error: `Erreur de certificat SSL : ${detail}. Pour un contrôleur local, vérifiez le certificat HTTPS.` };
+      }
+      return { success: false, error: `Connexion échouée : ${detail}` };
     }
-    if (msg.includes("401") || msg.includes("403") || msg.includes("auth")) {
-      return { success: false, error: "Authentification échouée. Vérifiez le Client ID et le Client Secret." };
+    if (msg.startsWith("AUTH_HTTP_")) {
+      const status = msg.match(/AUTH_HTTP_(\d+)/)?.[1] || "?";
+      const body = msg.replace(/AUTH_HTTP_\d+: ?/, "");
+      if (status === "401" || status === "403") {
+        return { success: false, error: `Authentification refusée (HTTP ${status}). Vérifiez que l'app Omada est en mode "Client Credentials" (pas "Authorization Code"), et que le Client ID/Secret sont corrects.` };
+      }
+      return { success: false, error: `Erreur HTTP ${status} lors de l'authentification : ${body.slice(0, 200)}` };
+    }
+    if (msg.startsWith("AUTH_API_ERROR:")) {
+      return { success: false, error: `Omada a refusé l'authentification : ${msg.replace("AUTH_API_ERROR: ", "")}. Vérifiez que l'app est en mode "Client Credentials".` };
+    }
+    if (msg.startsWith("AUTH_PARSE_ERROR:")) {
+      return { success: false, error: `Réponse inattendue du serveur (pas du JSON). L'URL pointe peut-être vers l'interface web au lieu de l'API.` };
     }
     return { success: false, error: msg };
   }
