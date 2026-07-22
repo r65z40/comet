@@ -556,7 +556,21 @@ function TimeGrid({
   swipeRef: React.RefObject<{ x: number; t: number } | null>;
   setWeekOffset: React.Dispatch<React.SetStateAction<number>>;
 }) {
-  const HOUR_HEIGHT = dark ? 60 : 48;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerH, setContainerH] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setContainerH(Math.floor(e.contentRect.height)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const headerH = dark ? 64 : 48;
+  const availableH = Math.max(0, containerH - headerH);
+  const hourHeight = availableH > 0 ? Math.floor(availableH / TOTAL_HOURS) : (dark ? 60 : 48);
+
   const hours = Array.from({ length: TOTAL_HOURS }, (_, i) => HOUR_START + i);
 
   function getEventPosition(event: CalendarEvent, day: Date) {
@@ -608,7 +622,8 @@ function TimeGrid({
 
   return (
     <div
-      className={cn("flex flex-1 min-h-0 overflow-y-auto overflow-x-hidden", dark ? "divide-slate-700" : "divide-slate-100")}
+      ref={containerRef}
+      className={cn("flex flex-1 min-h-0 overflow-hidden", dark ? "divide-slate-700" : "divide-slate-100")}
       onTouchStart={(e) => { swipeRef.current = { x: e.touches[0].clientX, t: Date.now() }; }}
       onTouchEnd={(e) => {
         if (!swipeRef.current) return;
@@ -622,8 +637,7 @@ function TimeGrid({
     >
       {/* Time gutter */}
       <div className={cn("shrink-0 border-r", dark ? "border-slate-700 w-12" : "border-slate-200 w-10")}>
-        {/* Spacer for day headers */}
-        <div className={cn("border-b", dark ? "h-16 border-slate-700" : "h-12 border-slate-200")} />
+        <div className={cn("border-b", dark ? "border-slate-700" : "border-slate-200")} style={{ height: headerH }} />
         {hours.map(h => (
           <div
             key={h}
@@ -631,7 +645,7 @@ function TimeGrid({
               "relative border-b text-right pr-2",
               dark ? "border-slate-700/50" : "border-slate-100",
             )}
-            style={{ height: HOUR_HEIGHT }}
+            style={{ height: hourHeight }}
           >
             <span className={cn(
               "absolute -top-2.5 right-2",
@@ -655,11 +669,10 @@ function TimeGrid({
             <div key={day.toISOString()} className={cn(isToday && (dark ? "bg-blue-900/10" : "bg-blue-50/30"))}>
               {/* Day header */}
               <div className={cn(
-                "text-center border-b sticky top-0 z-10",
-                dark ? "py-2 border-slate-700 bg-slate-800" : "py-1.5 border-slate-200 bg-white",
+                "text-center border-b flex flex-col justify-center",
+                dark ? "border-slate-700 bg-slate-800" : "border-slate-200 bg-white",
                 isToday && (dark ? "bg-blue-900/30" : "bg-blue-50"),
-                dark ? "h-16" : "h-12",
-              )}>
+              )} style={{ height: headerH }}>
                 <div className={cn(
                   "uppercase tracking-wider",
                   dark ? "text-[11px] text-slate-500" : "text-[10px] text-slate-400",
@@ -691,12 +704,11 @@ function TimeGrid({
 
               {/* Time slots with positioned events */}
               <div className="relative">
-                {/* Hour grid lines */}
                 {hours.map(h => (
                   <div
                     key={h}
                     className={cn("border-b", dark ? "border-slate-700/50" : "border-slate-100")}
-                    style={{ height: HOUR_HEIGHT }}
+                    style={{ height: hourHeight }}
                   />
                 ))}
 
@@ -727,21 +739,21 @@ function TimeGrid({
                     <button
                       key={evKey}
                       onClick={() => setExpandedEvent(isExpanded ? null : evKey)}
-                      className="absolute z-10 text-left px-[1px]"
+                      className="absolute z-10 text-left"
                       style={{
-                        top: `${pos.top}%`,
-                        height: `${pos.height}%`,
-                        left: `${left}%`,
-                        width: `${width}%`,
+                        top: `calc(${pos.top}% + 1px)`,
+                        height: `calc(${pos.height}% - 2px)`,
+                        left: `calc(${left}% + 1px)`,
+                        width: `calc(${width}% - 2px)`,
                       }}
                     >
                       <div
                         className={cn(
-                          "h-full rounded border-l-[3px] overflow-hidden transition-all",
+                          "h-full rounded-md border-l-[3px] overflow-hidden transition-all",
                           dark
-                            ? "bg-slate-700/80 hover:bg-slate-600/90 text-slate-200"
+                            ? "bg-slate-700/90 hover:bg-slate-600 text-slate-200 border border-slate-600/60"
                             : "bg-white hover:bg-slate-50 text-slate-700 shadow-sm border border-slate-200",
-                          isExpanded && (dark ? "ring-1 ring-blue-500/50 bg-slate-600/90 z-20" : "ring-1 ring-blue-400 z-20"),
+                          isExpanded && (dark ? "ring-1 ring-blue-500/50 bg-slate-600 z-20" : "ring-1 ring-blue-400 z-20"),
                         )}
                         style={{ borderLeftColor: event.feedColor }}
                       >

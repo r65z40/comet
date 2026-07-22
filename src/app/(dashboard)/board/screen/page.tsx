@@ -50,6 +50,8 @@ import {
   Maximize,
   Minimize,
   ZoomIn,
+  ZoomOut,
+  Minus as MinusIcon,
   Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -229,8 +231,6 @@ function timeAgo(dateStr: string) {
   return `il y a ${days}j`;
 }
 
-// Compensates for nested scroll containers that cause the DragOverlay
-// to appear offset from the actual touch/pointer position.
 function snapToCursor({
   activatorEvent,
   draggingNodeRect,
@@ -242,6 +242,9 @@ function snapToCursor({
 }) {
   if (draggingNodeRect && activatorEvent && "clientX" in activatorEvent) {
     const e = activatorEvent as PointerEvent;
+    if (e.pointerType === "touch") {
+      return transform;
+    }
     const offsetX = e.clientX - draggingNodeRect.left - draggingNodeRect.width / 2;
     const offsetY = e.clientY - draggingNodeRect.top - draggingNodeRect.height / 2;
     return { ...transform, x: transform.x + offsetX, y: transform.y + offsetY };
@@ -721,6 +724,41 @@ export default function BoardScreenPage() {
   ];
 
   return (
+    <>
+    {/* Fixed zoom controls — outside the zoomed container so they don't shift */}
+    <div className="fixed bottom-6 left-6 z-[10001] flex items-center gap-2 bg-slate-800/95 backdrop-blur-sm border border-slate-600 rounded-2xl px-3 py-2 shadow-2xl">
+      <button
+        onClick={() => handleZoomChange(Math.max(10, uiZoom - 10))}
+        className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+      >
+        <ZoomOut className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => handleZoomChange(Math.max(10, uiZoom - 5))}
+        className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-slate-700 text-slate-400 transition-colors"
+      >
+        <MinusIcon className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => handleZoomChange(100)}
+        className="min-w-[52px] text-center text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors"
+      >
+        {uiZoom}%
+      </button>
+      <button
+        onClick={() => handleZoomChange(Math.min(300, uiZoom + 5))}
+        className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-slate-700 text-slate-400 transition-colors"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => handleZoomChange(Math.min(300, uiZoom + 10))}
+        className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+      >
+        <ZoomIn className="h-4 w-4" />
+      </button>
+    </div>
+
     <div
       className="fixed inset-0 bg-slate-900 text-white z-[9999] flex flex-col overflow-hidden"
       style={{ zoom: uiZoom / 100 }}
@@ -834,7 +872,7 @@ export default function BoardScreenPage() {
           {/* Affichage section */}
           <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Affichage</h4>
 
-          {/* Zoom slider */}
+          {/* Zoom controls */}
           <div className="mb-5">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 text-base text-slate-300">
@@ -843,16 +881,30 @@ export default function BoardScreenPage() {
               </div>
               <span className="text-base font-bold text-blue-400">{uiZoom}%</span>
             </div>
-            <input
-              type="range"
-              min={10}
-              max={300}
-              step={5}
-              value={uiZoom}
-              onChange={(e) => handleZoomChange(Number(e.target.value))}
-              className="w-full h-3 rounded-full appearance-none cursor-pointer bg-slate-700 accent-blue-500"
-              style={{ touchAction: "none" }}
-            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleZoomChange(Math.max(10, uiZoom - 10))}
+                className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors shrink-0"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </button>
+              <input
+                type="range"
+                min={10}
+                max={300}
+                step={5}
+                value={uiZoom}
+                onChange={(e) => handleZoomChange(Number(e.target.value))}
+                className="flex-1 h-3 rounded-full appearance-none cursor-pointer bg-slate-700 accent-blue-500"
+                style={{ touchAction: "none" }}
+              />
+              <button
+                onClick={() => handleZoomChange(Math.min(300, uiZoom + 10))}
+                className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors shrink-0"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </button>
+            </div>
             <div className="flex items-center justify-between mt-1.5">
               <span className="text-xs text-slate-600">10%</span>
               <button
@@ -943,6 +995,7 @@ export default function BoardScreenPage() {
         />
       )}
     </div>
+    </>
   );
 }
 

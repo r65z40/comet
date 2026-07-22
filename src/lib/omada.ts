@@ -536,70 +536,71 @@ export async function testOmadaConnection(): Promise<{ success: boolean; error?:
       };
     }
 
-    // Probe customer/site structure for MSP
+    // Probe MSP structure — customerId IS a siteId (confirmed by -1505 permission error)
     let rawDebug = "";
     if (isWeb) {
       try {
         const session = await getWebSession(config);
-        const headers = { "Content-Type": "application/json", "Csrf-Token": session.csrfToken, Cookie: session.cookies };
+        const hdrs = { "Content-Type": "application/json", "Csrf-Token": session.csrfToken, Cookie: session.cookies };
         const base = `${config.baseUrl}/${config.omadacId}/api/v2`;
 
-        // Try global endpoints first
-        const globalPaths = [
-          `/devices?currentPage=1&currentPageSize=5`,
-          `/maintenance/device?currentPage=1&currentPageSize=5`,
-          `/dashboard`,
-        ];
-        for (const gp of globalPaths) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        async function probe(label: string, url: string, opts: RequestInit = {}): Promise<any> {
           try {
-            const gRes = await omadaRawFetch(`${base}${gp}`, { headers });
-            const gText = await gRes.text();
-            rawDebug += `\n${gp} → ${gText.slice(0, 300)}`;
+            const r = await omadaRawFetch(url, { headers: hdrs, ...opts });
+            const t = await r.text();
+            rawDebug += `\n${label} → ${t.slice(0, 350)}`;
+            try { return JSON.parse(t); } catch { return null; }
           } catch (e) {
-            rawDebug += `\n${gp} → ERROR: ${e instanceof Error ? e.message : "?"}`;
+            rawDebug += `\n${label} → ERROR: ${e instanceof Error ? e.message : "?"}`;
+            return null;
           }
         }
 
-        // Get first customer and dump full object
-        const custRes = await omadaRawFetch(`${base}/customers?currentPage=1&currentPageSize=5`, { headers });
-        const custJson = await custRes.json();
-        const customers = custJson.result?.customers || custJson.result?.data || [];
+        // Check current user info and privileges
+        await probe("GET /users/current", `${base}/users/current`);
+        await probe("GET /privilege", `${base}/privilege`);
+
+        // Get all customers
+        const custJson = await probe("GET /customers", `${base}/customers?currentPage=1&currentPageSize=20`);
+        const customers = custJson?.result?.customers || custJson?.result?.data || [];
+        rawDebug += `\n--- ${customers.length} customers found ---`;
+
         if (customers.length > 0) {
-          const fullCustomer = customers[0];
-          rawDebug += `\nCustomer[0] keys: ${Object.keys(fullCustomer).join(", ")}`;
-          rawDebug += `\nCustomer[0] dump: ${JSON.stringify(fullCustomer).slice(0, 500)}`;
+          const cid = customers[0].customerId || customers[0].id;
+          const cname = customers[0].name;
+          rawDebug += `\nCustomer[0]: ${cname} (${cid})`;
 
-          const cid = fullCustomer.customerId || fullCustomer.id;
-          const cname = fullCustomer.name;
-          const siteId = fullCustomer.siteId || fullCustomer.site || fullCustomer.defaultSiteId;
-          rawDebug += `\nUsing cid=${cid}, name=${cname}, extractedSiteId=${siteId || "none"}`;
+          // Try switching/adopting customer context
+          await probe(`POST /customers/${cid}/login`, `${base}/customers/${cid}/login`, { method: "POST" });
+          await probe(`POST /sites/${cid}/cmd/adopt`, `${base}/sites/${cid}/cmd/adopt`, { method: "POST" });
 
-          // Try many paths under this customer
-          const probePaths = [
-            `/customers/${cid}`,
-            `/customers/${cid}/devices?currentPage=1&currentPageSize=5`,
-            `/customers/${cid}/overview`,
-            `/customers/${cid}/dashboard`,
-            `/customers/${cid}/setting`,
-            `/customers/${cid}/gateway`,
-            `/sites/${cid}/setting`,
-            `/sites/${cid}/devices?currentPage=1&currentPageSize=5`,
-            `/sites/${cid}/dashboard`,
-          ];
+          // Try alt URL structure: /{omadacId}/{customerId}/api/v2/...
+          const altBase = `${config.baseUrl}/${config.omadacId}/${cid}/api/v2`;
+          await probe(`ALT /sites (cid in path)`, `${altBase}/sites?currentPage=1&currentPageSize=10`);
+          await probe(`ALT /devices (cid in path)`, `${altBase}/devices?currentPage=1&currentPageSize=5`);
 
-          // If customer has a siteId field, try that too
-          if (siteId && siteId !== cid) {
-            probePaths.push(`/sites/${siteId}/devices?currentPage=1&currentPageSize=5`);
-            probePaths.push(`/sites/${siteId}/dashboard`);
-          }
+          // Try /devices with siteId param
+          await probe(`GET /devices?siteId=${cid}`, `${base}/devices?siteId=${cid}&currentPage=1&currentPageSize=5`);
+          await probe(`GET /devices?site=${cid}`, `${base}/devices?site=${cid}&currentPage=1&currentPageSize=5`);
 
-          for (const sp of probePaths) {
-            try {
-              const sRes = await omadaRawFetch(`${base}${sp}`, { headers });
-              const sText = await sRes.text();
-              rawDebug += `\n${sp} → ${sText.slice(0, 300)}`;
-            } catch (e) {
-              rawDebug += `\n${sp} → ERROR: ${e instanceof Error ? e.message : "?"}`;
+          // Try privilege escalation to customer
+          await probe(`POST /privilege/escalate`, `${base}/privilege/escalate`, {
+            method: "POST",
+            body: JSON.stringify({ customerId: cid }),
+          });
+
+          // Scan all customers for accessible sites
+          rawDebug += `\n--- Scanning all customers for site access ---`;
+          for (const c of customers.slice(0, 5)) {
+            const id = c.customerId || c.id;
+            const r = await probe(
+              `sites/${id}/devices [${c.name}]`,
+              `${base}/sites/${id}/devices?currentPage=1&currentPageSize=3`,
+            );
+            if (r?.errorCode === 0) {
+              rawDebug += `\n*** FOUND DEVICES for ${c.name}! ***`;
+              break;
             }
           }
         }
