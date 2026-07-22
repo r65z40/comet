@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Monitor, Send, Search, Play, Pause, SkipForward, SkipBack, Video, Music, X, Loader2 } from "lucide-react";
+import { Monitor, Send, Search, Play, Pause, Square, SkipForward, SkipBack, Video, Music, X, Loader2, Volume2, VolumeX } from "lucide-react";
 
 interface Track {
   id: string;
@@ -17,6 +17,9 @@ export default function ScreenRemotePanel({ onClose }: { onClose: () => void }) 
   const [videoUrl, setVideoUrl] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [videoSent, setVideoSent] = useState(false);
+  const [videoVolume, setVideoVolume] = useState(80);
+  const [videoMuted, setVideoMuted] = useState(false);
 
   const [spotifyQuery, setSpotifyQuery] = useState("");
   const [spotifyResults, setSpotifyResults] = useState<Track[]>([]);
@@ -33,7 +36,33 @@ export default function ScreenRemotePanel({ onClose }: { onClose: () => void }) 
     });
     setSending(false);
     setSent(true);
+    setVideoSent(true);
     setTimeout(() => setSent(false), 3000);
+  }
+
+  async function sendVideoControl(action: "play" | "pause" | "stop" | "mute" | "unmute", volume?: number) {
+    await fetch("/api/screen/media", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "video:control", action, volume }),
+    });
+    if (action === "stop") setVideoSent(false);
+  }
+
+  async function sendVideoVolume(vol: number) {
+    setVideoVolume(vol);
+    setVideoMuted(vol === 0);
+    await fetch("/api/screen/media", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "video:control", volume: vol / 100 }),
+    });
+  }
+
+  async function toggleVideoMute() {
+    const newMuted = !videoMuted;
+    setVideoMuted(newMuted);
+    await sendVideoControl(newMuted ? "mute" : "unmute");
   }
 
   async function sendSpotifyTrack(uri: string) {
@@ -136,6 +165,38 @@ export default function ScreenRemotePanel({ onClose }: { onClose: () => void }) 
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 Envoyer au Screen
               </button>
+
+              {/* Video playback controls */}
+              {videoSent && (
+                <div className="pt-3 border-t border-slate-100 space-y-3">
+                  <p className="text-xs font-medium text-slate-500">Contrôles du lecteur</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <button onClick={() => sendVideoControl("play")} className="p-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+                      <Play className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => sendVideoControl("pause")} className="p-2.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+                      <Pause className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => sendVideoControl("stop")} className="p-2.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+                      <Square className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button onClick={toggleVideoMute} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+                      {videoMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={videoMuted ? 0 : videoVolume}
+                      onChange={(e) => sendVideoVolume(Number(e.target.value))}
+                      className="flex-1 h-2 rounded-full appearance-none cursor-pointer bg-slate-200 accent-indigo-600"
+                    />
+                    <span className="text-xs text-slate-400 w-8 text-right">{videoMuted ? 0 : videoVolume}%</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

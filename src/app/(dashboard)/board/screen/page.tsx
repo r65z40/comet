@@ -51,7 +51,6 @@ import {
   Minimize,
   ZoomIn,
   ZoomOut,
-  Minus as MinusIcon,
   Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -67,7 +66,7 @@ import EmisoftWidget from "../EmisoftWidget";
 import EmisoftAlertsWidget from "../EmisoftAlertsWidget";
 import OmadaWidget from "../OmadaWidget";
 import SpotifyWidget, { SpotifyExternalCommand } from "../SpotifyWidget";
-import VideoPlayerWidget from "../VideoPlayerWidget";
+import VideoPlayerWidget, { VideoExternalCommand } from "../VideoPlayerWidget";
 import { useBoardSync } from "@/lib/hooks/useBoardSync";
 import { useMediaSync, MediaCommand } from "@/lib/hooks/useMediaSync";
 
@@ -395,12 +394,15 @@ export default function BoardScreenPage() {
   useBoardSync(fetchColumns);
 
   const [extVideoUrl, setExtVideoUrl] = useState<string | undefined>();
+  const [extVideoCmd, setExtVideoCmd] = useState<VideoExternalCommand | undefined>();
   const [extSpotifyCmd, setExtSpotifyCmd] = useState<SpotifyExternalCommand | undefined>();
 
   const handleMediaCommand = useCallback((cmd: MediaCommand) => {
     if (cmd.type === "video" && cmd.url) {
       setExtVideoUrl(cmd.url);
       setVisibility((v) => ({ ...v, showVideoPlayer: true }));
+    } else if (cmd.type === "video:control") {
+      setExtVideoCmd({ action: cmd.videoAction, volume: cmd.videoVolume, ts: cmd.ts });
     } else if (cmd.type === "spotify") {
       setExtSpotifyCmd({ uri: cmd.spotifyUri, action: cmd.spotifyAction, ts: cmd.ts });
       setVisibility((v) => ({ ...v, showSpotify: true }));
@@ -710,7 +712,7 @@ export default function BoardScreenPage() {
           id: "video_player",
           title: "Lecteur vidéo",
           icon: <Tv className="h-4 w-4 text-cyan-400" />,
-          content: <VideoPlayerWidget dark externalUrl={extVideoUrl} />,
+          content: <VideoPlayerWidget dark externalUrl={extVideoUrl} externalCommand={extVideoCmd} />,
         }]
       : []),
     ...(visibility.showCalendar
@@ -726,36 +728,24 @@ export default function BoardScreenPage() {
   return (
     <>
     {/* Fixed zoom controls — outside the zoomed container so they don't shift */}
-    <div className="fixed bottom-6 left-6 z-[10001] flex items-center gap-2 bg-slate-800/95 backdrop-blur-sm border border-slate-600 rounded-2xl px-3 py-2 shadow-2xl">
+    <div className="fixed bottom-4 left-4 z-[10001] flex items-center gap-1 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-xl px-2 py-1 shadow-lg">
       <button
         onClick={() => handleZoomChange(Math.max(10, uiZoom - 10))}
-        className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
-      >
-        <ZoomOut className="h-4 w-4" />
-      </button>
-      <button
-        onClick={() => handleZoomChange(Math.max(10, uiZoom - 5))}
         className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-slate-700 text-slate-400 transition-colors"
       >
-        <MinusIcon className="h-3.5 w-3.5" />
+        <ZoomOut className="h-3.5 w-3.5" />
       </button>
       <button
         onClick={() => handleZoomChange(100)}
-        className="min-w-[52px] text-center text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors"
+        className="min-w-[40px] text-center text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
       >
         {uiZoom}%
       </button>
       <button
-        onClick={() => handleZoomChange(Math.min(300, uiZoom + 5))}
+        onClick={() => handleZoomChange(Math.min(300, uiZoom + 10))}
         className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-slate-700 text-slate-400 transition-colors"
       >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-      <button
-        onClick={() => handleZoomChange(Math.min(300, uiZoom + 10))}
-        className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
-      >
-        <ZoomIn className="h-4 w-4" />
+        <ZoomIn className="h-3.5 w-3.5" />
       </button>
     </div>
 
@@ -970,12 +960,13 @@ export default function BoardScreenPage() {
               storageKey="comet_screen_grid"
               dark
               rowHeight={screenRowHeight}
+              transformScale={uiZoom / 100}
             />
           </div>
         </PullToRefresh>
       ) : (
         <PullToRefresh onRefresh={handlePullRefresh} refreshing={refreshing}>
-          <div className="flex-1 overflow-auto p-4 scrollbar-touch">
+          <div className="flex-1 overflow-hidden p-4 flex flex-col">
             <CalendarPanel dark />
           </div>
         </PullToRefresh>

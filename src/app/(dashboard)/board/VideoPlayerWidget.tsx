@@ -29,9 +29,16 @@ interface Channel {
   group?: string;
 }
 
+export interface VideoExternalCommand {
+  action?: "play" | "pause" | "stop" | "mute" | "unmute";
+  volume?: number;
+  ts: number;
+}
+
 interface VideoPlayerWidgetProps {
   dark?: boolean;
   externalUrl?: string;
+  externalCommand?: VideoExternalCommand;
 }
 
 const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|ogv|avi|mkv|mov|flv|wmv)(\?|$)/i;
@@ -78,7 +85,7 @@ function parseM3U(text: string): Channel[] {
   return channels;
 }
 
-export default function VideoPlayerWidget({ dark = false, externalUrl }: VideoPlayerWidgetProps) {
+export default function VideoPlayerWidget({ dark = false, externalUrl, externalCommand }: VideoPlayerWidgetProps) {
   const [url, setUrl] = useState("");
   const [activeUrl, setActiveUrl] = useState("");
   const [streamType, setStreamType] = useState<"hls" | "youtube" | "native" | "iframe">("native");
@@ -92,6 +99,31 @@ export default function VideoPlayerWidget({ dark = false, externalUrl }: VideoPl
       setPlaying(true);
     }
   }, [externalUrl]);
+
+  const lastExtCmdTs = useRef(0);
+  useEffect(() => {
+    if (!externalCommand || externalCommand.ts <= lastExtCmdTs.current) return;
+    lastExtCmdTs.current = externalCommand.ts;
+    const video = videoRef.current;
+    if (externalCommand.action === "play") {
+      if (video) { video.play().catch(() => {}); setPlaying(true); }
+    } else if (externalCommand.action === "pause") {
+      if (video) { video.pause(); setPlaying(false); }
+    } else if (externalCommand.action === "stop") {
+      if (video) { video.pause(); video.currentTime = 0; setPlaying(false); }
+      setActiveUrl("");
+      setShowUrlInput(true);
+    } else if (externalCommand.action === "mute") {
+      setMuted(true);
+    } else if (externalCommand.action === "unmute") {
+      setMuted(false);
+    }
+    if (externalCommand.volume !== undefined) {
+      setVolume(externalCommand.volume);
+      setMuted(externalCommand.volume === 0);
+    }
+  }, [externalCommand]);
+
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(0.8);
   const [fullscreen, setFullscreen] = useState(false);

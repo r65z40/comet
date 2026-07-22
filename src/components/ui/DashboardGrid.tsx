@@ -34,6 +34,7 @@ interface Props {
   dark?: boolean;
   rowHeight?: number;
   className?: string;
+  transformScale?: number;
 }
 
 function WidgetContentArea({ children }: { children: ReactNode }) {
@@ -72,6 +73,7 @@ export default function DashboardGrid({
   dark = false,
   rowHeight = 60,
   className,
+  transformScale,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
@@ -147,6 +149,7 @@ export default function DashboardGrid({
           compactType="vertical"
           resizeHandles={["se"]}
           useCSSTransforms
+          {...(transformScale ? { transformScale } : {})}
         >
           {widgets.map((widget) => (
             <div

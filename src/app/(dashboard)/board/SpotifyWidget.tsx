@@ -171,7 +171,7 @@ export default function SpotifyWidget({ dark = false, externalCommand }: { dark?
   const [sdkDeviceId, setSdkDeviceId] = useState<string | null>(null);
   const [sdkState, setSdkState] = useState<PlayerState | null>(null);
   const sdkLoaded = useRef(false);
-  const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+  const isSecureContext = typeof window !== "undefined" && (window.isSecureContext ?? window.location.protocol === "https:");
 
   const [apiState, setApiState] = useState<PlayerState | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval>>(null);
@@ -215,7 +215,7 @@ export default function SpotifyWidget({ dark = false, externalCommand }: { dark?
 
   // SDK init (HTTPS only)
   useEffect(() => {
-    if (!connected || !isHttps || sdkLoaded.current) return;
+    if (!connected || !isSecureContext || sdkLoaded.current) return;
     sdkLoaded.current = true;
 
     const script = document.createElement("script");
@@ -271,7 +271,7 @@ export default function SpotifyWidget({ dark = false, externalCommand }: { dark?
     };
 
     return () => { script.remove(); };
-  }, [connected, isHttps]);
+  }, [connected, isSecureContext]);
 
   // SDK progress ticker
   useEffect(() => {

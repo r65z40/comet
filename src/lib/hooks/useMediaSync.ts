@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import type { BoardEvent } from "@/lib/board-events";
 
 export interface MediaCommand {
-  type: "video" | "spotify";
+  type: "video" | "video:control" | "spotify";
   url?: string;
+  videoAction?: "play" | "pause" | "stop" | "mute" | "unmute";
+  videoVolume?: number;
   spotifyUri?: string;
   spotifyAction?: "play" | "pause" | "next" | "prev";
   ts: number;
@@ -29,6 +31,13 @@ export function useMediaSync(onMediaCommand: (cmd: MediaCommand) => void) {
           const evt: BoardEvent = JSON.parse(e.data);
           if (evt.type === "media:video" && evt.mediaUrl) {
             cbRef.current({ type: "video", url: evt.mediaUrl, ts: evt.ts });
+          } else if (evt.type === "media:video:control") {
+            cbRef.current({
+              type: "video:control",
+              videoAction: evt.videoAction,
+              videoVolume: evt.videoVolume,
+              ts: evt.ts,
+            });
           } else if (evt.type === "media:spotify") {
             cbRef.current({
               type: "spotify",

@@ -13,6 +13,7 @@ export type BoardEventType =
   | "attachment:update"
   | "tag:update"
   | "media:video"
+  | "media:video:control"
   | "media:spotify";
 
 export interface BoardEvent {
@@ -22,6 +23,8 @@ export interface BoardEvent {
   userId?: string;
   ts: number;
   mediaUrl?: string;
+  videoAction?: "play" | "pause" | "stop" | "mute" | "unmute";
+  videoVolume?: number;
   spotifyUri?: string;
   spotifyAction?: "play" | "pause" | "next" | "prev";
 }
