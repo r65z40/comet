@@ -44,11 +44,6 @@ function WidgetContentArea({ children }: { children: ReactNode }) {
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
-    // Native touchstart listener — react-draggable adds a native touchstart
-    // listener on the parent grid-item wrapper, and React's synthetic
-    // stopPropagation cannot prevent native listeners from firing.
-    // Stopping propagation here blocks react-draggable while letting
-    // pointerdown (which fires first) reach dnd-kit normally.
     const stop = (e: Event) => e.stopPropagation();
     el.addEventListener("touchstart", stop, { passive: false });
     return () => el.removeEventListener("touchstart", stop);
@@ -67,6 +62,40 @@ function WidgetContentArea({ children }: { children: ReactNode }) {
   );
 }
 
+function useDragHandleTouchFix(containerRef: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let dragging = false;
+
+    function onTouchStart(e: TouchEvent) {
+      const target = e.target as HTMLElement;
+      if (target.closest(".widget-drag-handle")) {
+        dragging = true;
+        e.preventDefault();
+      }
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (dragging) e.preventDefault();
+    }
+
+    function onTouchEnd() {
+      dragging = false;
+    }
+
+    container.addEventListener("touchstart", onTouchStart, { passive: false });
+    container.addEventListener("touchmove", onTouchMove, { passive: false });
+    container.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      container.removeEventListener("touchstart", onTouchStart);
+      container.removeEventListener("touchmove", onTouchMove);
+      container.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [containerRef]);
+}
+
 export default function DashboardGrid({
   widgets,
   defaultLayout,
@@ -81,6 +110,8 @@ export default function DashboardGrid({
   const [w, setW] = useState(0);
   const [allPositions, setAllPositions] = useState<LayoutItem[]>(defaultLayout);
   const [ready, setReady] = useState(false);
+
+  useDragHandleTouchFix(ref);
 
   useEffect(() => {
     try {

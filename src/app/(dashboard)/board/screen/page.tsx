@@ -231,27 +231,6 @@ function timeAgo(dateStr: string) {
   return `il y a ${days}j`;
 }
 
-function snapToCursor({
-  activatorEvent,
-  draggingNodeRect,
-  transform,
-}: {
-  activatorEvent: Event | null;
-  draggingNodeRect: { left: number; top: number; width: number; height: number } | null;
-  transform: { x: number; y: number; scaleX: number; scaleY: number };
-}) {
-  if (draggingNodeRect && activatorEvent && "clientX" in activatorEvent) {
-    const e = activatorEvent as PointerEvent;
-    if (e.pointerType === "touch") {
-      return transform;
-    }
-    const offsetX = e.clientX - draggingNodeRect.left - draggingNodeRect.width / 2;
-    const offsetY = e.clientY - draggingNodeRect.top - draggingNodeRect.height / 2;
-    return { ...transform, x: transform.x + offsetX, y: transform.y + offsetY };
-  }
-  return transform;
-}
-
 export default function BoardScreenPage() {
   const router = useRouter();
   const [columns, setColumns] = useState<BoardColumn[]>([]);
@@ -285,6 +264,29 @@ export default function BoardScreenPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor),
   );
+
+  const uiZoomRef = useRef(uiZoom);
+  uiZoomRef.current = uiZoom;
+  const snapToCursor = useCallback(({
+    activatorEvent,
+    draggingNodeRect,
+    transform,
+  }: {
+    activatorEvent: Event | null;
+    draggingNodeRect: { left: number; top: number; width: number; height: number } | null;
+    transform: { x: number; y: number; scaleX: number; scaleY: number };
+  }) => {
+    const scale = uiZoomRef.current / 100;
+    const scaled = { ...transform, x: transform.x / scale, y: transform.y / scale };
+    if (draggingNodeRect && activatorEvent && "clientX" in activatorEvent) {
+      const e = activatorEvent as PointerEvent;
+      if (e.pointerType === "touch") return scaled;
+      const offsetX = (e.clientX - draggingNodeRect.left - draggingNodeRect.width / 2) / scale;
+      const offsetY = (e.clientY - draggingNodeRect.top - draggingNodeRect.height / 2) / scale;
+      return { ...scaled, x: scaled.x + offsetX, y: scaled.y + offsetY };
+    }
+    return scaled;
+  }, []);
 
   useEffect(() => {
     try {
@@ -650,6 +652,7 @@ export default function BoardScreenPage() {
           activeCard={activeCard}
           onCardOpen={setSelectedCardId}
           onCardCreated={fetchColumns}
+          snapModifier={snapToCursor}
         />
       ),
     },
@@ -1178,6 +1181,7 @@ function KanbanContent({
   activeCard,
   onCardOpen,
   onCardCreated,
+  snapModifier,
 }: {
   columns: BoardColumn[];
   sensors: ReturnType<typeof useSensors>;
@@ -1188,6 +1192,8 @@ function KanbanContent({
   activeCard: BoardCard | null;
   onCardOpen: (cardId: string) => void;
   onCardCreated: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  snapModifier: (args: any) => any;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -1313,7 +1319,7 @@ function KanbanContent({
           </button>
         )}
       </div>
-      <DragOverlay modifiers={[snapToCursor]}>
+      <DragOverlay modifiers={[snapModifier]}>
         {activeCard ? (
           <div className="rotate-3 scale-105 opacity-90 drop-shadow-2xl">
             <ScreenCard card={activeCard} isDraggingOverlay />

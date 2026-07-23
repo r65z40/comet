@@ -264,8 +264,12 @@ export default function CardDetailModal({ cardId, users, onClose, dark = false }
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: cardId, archived: newArchived }),
     });
-    fetchCard();
-    fetchHistory();
+    if (newArchived) {
+      onClose();
+    } else {
+      fetchCard();
+      fetchHistory();
+    }
   }
 
   async function addComment() {
