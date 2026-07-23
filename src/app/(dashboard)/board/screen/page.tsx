@@ -52,6 +52,7 @@ import {
   ZoomIn,
   ZoomOut,
   Wifi,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TicketToast from "@/components/layout/TicketToast";
@@ -179,17 +180,17 @@ const DEFAULT_VISIBILITY: ScreenVisibility = {
 
 const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "cybernews", x: 0, y: 0, w: 12, h: 1, minW: 6, minH: 1, maxH: 1 },
-  { i: "kanban", x: 0, y: 1, w: 8, h: 8, minW: 3, minH: 3 },
-  { i: "feed", x: 8, y: 1, w: 4, h: 4, minW: 2, minH: 2 },
-  { i: "backups", x: 8, y: 5, w: 2, h: 4, minW: 2, minH: 2 },
-  { i: "atera", x: 10, y: 5, w: 2, h: 4, minW: 2, minH: 2 },
-  { i: "activity_feed", x: 0, y: 12, w: 4, h: 4, minW: 2, minH: 2 },
-  { i: "emsisoft", x: 4, y: 12, w: 4, h: 4, minW: 2, minH: 2 },
-  { i: "emsisoft_alerts", x: 8, y: 12, w: 4, h: 4, minW: 2, minH: 3 },
-  { i: "omada", x: 0, y: 16, w: 4, h: 4, minW: 2, minH: 2 },
-  { i: "spotify", x: 4, y: 16, w: 3, h: 4, minW: 2, minH: 3 },
-  { i: "video_player", x: 3, y: 16, w: 6, h: 5, minW: 3, minH: 3 },
-  { i: "calendar", x: 9, y: 16, w: 3, h: 3, minW: 3, minH: 2 },
+  { i: "kanban", x: 0, y: 1, w: 12, h: 6, minW: 3, minH: 3 },
+  { i: "atera", x: 0, y: 7, w: 4, h: 4, minW: 2, minH: 2 },
+  { i: "backups", x: 4, y: 7, w: 4, h: 4, minW: 2, minH: 2 },
+  { i: "feed", x: 8, y: 7, w: 4, h: 4, minW: 2, minH: 2 },
+  { i: "activity_feed", x: 0, y: 11, w: 4, h: 4, minW: 2, minH: 2 },
+  { i: "emsisoft", x: 4, y: 11, w: 4, h: 4, minW: 2, minH: 2 },
+  { i: "emsisoft_alerts", x: 8, y: 11, w: 4, h: 4, minW: 2, minH: 3 },
+  { i: "omada", x: 0, y: 15, w: 4, h: 4, minW: 2, minH: 2 },
+  { i: "spotify", x: 4, y: 15, w: 3, h: 4, minW: 2, minH: 3 },
+  { i: "video_player", x: 7, y: 15, w: 5, h: 5, minW: 3, minH: 3 },
+  { i: "calendar", x: 0, y: 19, w: 4, h: 3, minW: 3, minH: 2 },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -269,6 +270,7 @@ export default function BoardScreenPage() {
   const [uiZoom, setUiZoom] = useState(100);
   const [calendarZoom, setCalendarZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [gridResetTrigger, setGridResetTrigger] = useState(0);
   const movingCountRef = useRef(0);
   const columnsSnapshotRef = useRef<BoardColumn[]>([]);
   const columnsRef = useRef(columns);
@@ -974,6 +976,15 @@ export default function BoardScreenPage() {
             </button>
           </div>
 
+          {/* Reset layout */}
+          <button
+            onClick={() => setGridResetTrigger((n) => n + 1)}
+            className="w-full flex items-center justify-center gap-2 py-3 mb-5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 text-base font-medium transition-colors"
+          >
+            <RotateCcw className="h-5 w-5" />
+            Réinitialiser la vue
+          </button>
+
           {/* Widgets section */}
           <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Widgets</h4>
           <p className="text-sm text-slate-500 mb-5">Glissez les widgets pour les réorganiser. Redimensionnez avec le coin bas-droit.</p>
@@ -1014,6 +1025,7 @@ export default function BoardScreenPage() {
               dark
               rowHeight={screenRowHeight}
               transformScale={uiZoom / 100}
+              resetTrigger={gridResetTrigger}
             />
           </div>
         </PullToRefresh>

@@ -35,6 +35,7 @@ interface Props {
   rowHeight?: number;
   className?: string;
   transformScale?: number;
+  resetTrigger?: number;
 }
 
 function WidgetContentArea({ children }: { children: ReactNode }) {
@@ -74,6 +75,7 @@ export default function DashboardGrid({
   rowHeight = 60,
   className,
   transformScale,
+  resetTrigger,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
@@ -98,6 +100,14 @@ export default function DashboardGrid({
     setReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (resetTrigger && resetTrigger > 0) {
+      setAllPositions([...defaultLayout]);
+      try { localStorage.removeItem(storageKey); } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetTrigger]);
 
   useEffect(() => {
     const el = ref.current;
@@ -134,7 +144,7 @@ export default function DashboardGrid({
   }
 
   return (
-    <div ref={ref} className={cn("relative w-full", className)}>
+    <div ref={ref} className={cn("relative w-full", className)} style={{ overscrollBehavior: "none" }}>
       {ready && w > 0 && (
         <GridLayout
           layout={activeLayout}
@@ -168,6 +178,7 @@ export default function DashboardGrid({
                     ? "gap-2.5 px-4 py-3 bg-slate-700/50 border-slate-600"
                     : "gap-2 px-3 py-2 bg-slate-50/80 border-slate-100",
                 )}
+                style={{ touchAction: "none" }}
               >
                 <GripHorizontal
                   className={cn(
