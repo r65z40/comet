@@ -62,41 +62,6 @@ function WidgetContentArea({ children }: { children: ReactNode }) {
   );
 }
 
-function useDragHandleTouchFix(containerRef: React.RefObject<HTMLDivElement | null>) {
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let dragging = false;
-
-    function onTouchStart(e: TouchEvent) {
-      const target = e.target as HTMLElement;
-      if (target.closest(".widget-drag-handle")) {
-        dragging = true;
-      }
-    }
-
-    function onTouchMove(e: TouchEvent) {
-      if (dragging) e.preventDefault();
-    }
-
-    function onTouchEnd() {
-      dragging = false;
-    }
-
-    container.addEventListener("touchstart", onTouchStart, { passive: true });
-    container.addEventListener("touchmove", onTouchMove, { passive: false });
-    container.addEventListener("touchend", onTouchEnd, { passive: true });
-    container.addEventListener("touchcancel", onTouchEnd, { passive: true });
-    return () => {
-      container.removeEventListener("touchstart", onTouchStart);
-      container.removeEventListener("touchmove", onTouchMove);
-      container.removeEventListener("touchend", onTouchEnd);
-      container.removeEventListener("touchcancel", onTouchEnd);
-    };
-  }, [containerRef]);
-}
-
 export default function DashboardGrid({
   widgets,
   defaultLayout,
@@ -111,8 +76,6 @@ export default function DashboardGrid({
   const [w, setW] = useState(0);
   const [allPositions, setAllPositions] = useState<LayoutItem[]>(defaultLayout);
   const [ready, setReady] = useState(false);
-
-  useDragHandleTouchFix(ref);
 
   useEffect(() => {
     try {
@@ -176,7 +139,7 @@ export default function DashboardGrid({
   }
 
   return (
-    <div ref={ref} className={cn("relative w-full", className)} style={{ overscrollBehavior: "none" }}>
+    <div ref={ref} className={cn("relative w-full", className)}>
       {ready && w > 0 && (
         <GridLayout
           layout={activeLayout}
@@ -210,7 +173,6 @@ export default function DashboardGrid({
                     ? "gap-2.5 px-4 py-3 bg-slate-700/50 border-slate-600"
                     : "gap-2 px-3 py-2 bg-slate-50/80 border-slate-100",
                 )}
-                style={{ touchAction: "manipulation" }}
               >
                 <GripHorizontal
                   className={cn(

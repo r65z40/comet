@@ -1393,7 +1393,6 @@ function PullToRefresh({ onRefresh, refreshing, children }: { onRefresh: () => v
         const dist = Math.min(dy * 0.4, 80);
         pullDistRef.current = dist;
         setPullDistance(dist);
-        e.preventDefault();
       } else {
         pullingRef.current = false;
         pullDistRef.current = 0;
@@ -1412,7 +1411,7 @@ function PullToRefresh({ onRefresh, refreshing, children }: { onRefresh: () => v
     }
 
     el.addEventListener("touchstart", handleTouchStart, { passive: true });
-    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    el.addEventListener("touchmove", handleTouchMove, { passive: true });
     el.addEventListener("touchend", handleTouchEnd, { passive: true });
     return () => {
       el.removeEventListener("touchstart", handleTouchStart);
