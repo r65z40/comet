@@ -73,7 +73,6 @@ function useDragHandleTouchFix(containerRef: React.RefObject<HTMLDivElement | nu
       const target = e.target as HTMLElement;
       if (target.closest(".widget-drag-handle")) {
         dragging = true;
-        e.preventDefault();
       }
     }
 
@@ -85,13 +84,15 @@ function useDragHandleTouchFix(containerRef: React.RefObject<HTMLDivElement | nu
       dragging = false;
     }
 
-    container.addEventListener("touchstart", onTouchStart, { passive: false });
+    container.addEventListener("touchstart", onTouchStart, { passive: true });
     container.addEventListener("touchmove", onTouchMove, { passive: false });
     container.addEventListener("touchend", onTouchEnd, { passive: true });
+    container.addEventListener("touchcancel", onTouchEnd, { passive: true });
     return () => {
       container.removeEventListener("touchstart", onTouchStart);
       container.removeEventListener("touchmove", onTouchMove);
       container.removeEventListener("touchend", onTouchEnd);
+      container.removeEventListener("touchcancel", onTouchEnd);
     };
   }, [containerRef]);
 }
@@ -209,7 +210,7 @@ export default function DashboardGrid({
                     ? "gap-2.5 px-4 py-3 bg-slate-700/50 border-slate-600"
                     : "gap-2 px-3 py-2 bg-slate-50/80 border-slate-100",
                 )}
-                style={{ touchAction: "none" }}
+                style={{ touchAction: "manipulation" }}
               >
                 <GripHorizontal
                   className={cn(
