@@ -116,3 +116,4 @@ body {
   border-right-color: rgba(96,165,250,0.8); border-bottom-color: rgba(96,165,250,0.8);
 }
 .react-grid-item > .react-resizable-handle-se { bottom: 0; right: 0; cursor: se-resize; touch-action: none; }
+.widget-drag-handle { touch-action: none; }
