@@ -23,16 +23,18 @@ export async function GET(req: NextRequest) {
     }
 
     const workspaces = await getWorkspaces(config);
-    const allIncidents = [];
-    for (const ws of workspaces) {
-      try {
+    const results = await Promise.allSettled(
+      workspaces.map(async (ws) => {
         const incidents = await getIncidents(ws.id, config);
-        allIncidents.push(
-          ...incidents
-            .filter((i) => status === "all" || i.status === status)
-            .map((i) => ({ ...i, workspaceId: ws.id, workspaceName: ws.name })),
-        );
-      } catch {}
+        return incidents
+          .filter((i) => status === "all" || i.status === status)
+          .map((i) => ({ ...i, workspaceId: ws.id, workspaceName: ws.name }));
+      }),
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allIncidents: any[] = [];
+    for (const r of results) {
+      if (r.status === "fulfilled") allIncidents.push(...r.value);
     }
 
     allIncidents.sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());

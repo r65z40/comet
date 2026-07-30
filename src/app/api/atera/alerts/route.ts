@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { cacheGet, cacheSet } from "@/lib/cache";
 
 const ATERA_BASE_URL = "https://app.atera.com/api/v3";
+const CACHE_TTL = 60_000;
 
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const limitParam = searchParams.get("limit") || "50";
+  const limit = parseInt(limitParam);
+  const cacheKey = `atera:alerts:${limit}`;
+
+  const cached = cacheGet<{ alerts: AteraAlert[]; total: number }>(cacheKey);
+  if (cached) return NextResponse.json(cached);
 
   const settings = await prisma.setting.findMany({
     where: { key: { in: ["atera_api_key", "atera_enabled"] } },
@@ -17,14 +27,9 @@ export async function GET(req: NextRequest) {
   if (!map.atera_api_key) return NextResponse.json({ error: "Clé API Atera non configurée" }, { status: 400 });
   if (map.atera_enabled !== "true") return NextResponse.json({ error: "Atera désactivé" }, { status: 400 });
 
-  const { searchParams } = new URL(req.url);
-  const pageParam = searchParams.get("page") || "1";
-  const limitParam = searchParams.get("limit") || "50";
-
   try {
     const alerts: AteraAlert[] = [];
-    let page = parseInt(pageParam);
-    const limit = parseInt(limitParam);
+    let page = 1;
     let hasMore = true;
 
     while (hasMore && alerts.length < limit) {
@@ -68,11 +73,10 @@ export async function GET(req: NextRequest) {
     }
 
     const open = alerts.filter((a) => !a.archived);
+    const result = { alerts: open, total: open.length };
+    cacheSet(cacheKey, result, CACHE_TTL);
 
-    return NextResponse.json({
-      alerts: open,
-      total: open.length,
-    });
+    return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(
       { error: "Erreur de connexion à Atera", details: String(err) },

@@ -121,12 +121,18 @@ export function parseIcs(
   return events;
 }
 
+const icsCache = new Map<string, { events: CalendarEvent[]; expiresAt: number }>();
+const ICS_CACHE_TTL = 120_000;
+
 export async function fetchIcsEvents(
   url: string,
   feedId: string,
   feedName: string,
   feedColor: string,
 ): Promise<CalendarEvent[]> {
+  const cached = icsCache.get(feedId);
+  if (cached && Date.now() < cached.expiresAt) return cached.events;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
 
@@ -137,7 +143,9 @@ export async function fetchIcsEvents(
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
-    return parseIcs(text, feedId, feedName, feedColor);
+    const events = parseIcs(text, feedId, feedName, feedColor);
+    icsCache.set(feedId, { events, expiresAt: Date.now() + ICS_CACHE_TTL });
+    return events;
   } finally {
     clearTimeout(timeout);
   }

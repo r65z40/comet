@@ -377,26 +377,23 @@ export async function getSites(config?: OmadaConfig): Promise<OmadaSite[]> {
     } else {
       // MSP controller: sites are under customers
       const customers = await getCustomers(cfg);
-      for (const customer of customers) {
-        try {
+      const custResults = await Promise.allSettled(
+        customers.map(async (customer) => {
           const custResult = await webSessionFetch(
             `/customers/${customer.customerId}/sites?currentPage=1&currentPageSize=100`,
             cfg,
           );
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const custSites = custResult.data || [];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          for (const s of custSites as any[]) {
-            allSites.push({
-              siteId: s.siteId || s.id || s.key,
-              name: `${customer.name} — ${s.name || "Site"}`,
-              region: s.region || "",
-              timeZone: s.timeZone || "",
-            });
-          }
-        } catch {
-          // Skip customers we can't access
-        }
+          return ((custResult.data || []) as any[]).map((s: any) => ({
+            siteId: s.siteId || s.id || s.key,
+            name: `${customer.name} — ${s.name || "Site"}`,
+            region: s.region || "",
+            timeZone: s.timeZone || "",
+          }));
+        }),
+      );
+      for (const r of custResults) {
+        if (r.status === "fulfilled") allSites.push(...r.value);
       }
     }
   } else {
@@ -460,15 +457,18 @@ export async function getOmadaSummary(config?: OmadaConfig): Promise<OmadaSummar
   if (!cfg.enabled) return { enabled: false, totalDevices: 0, onlineDevices: 0, offlineDevices: 0, siteCount: 0, sites: [], devices: [], offlineAlerts: [] };
 
   const sites = await getSites(cfg);
-  const allDevices: OmadaDevice[] = [];
-
-  for (const site of sites) {
-    const devices = await getDevices(site.siteId, cfg);
-    for (const d of devices) {
-      d.site = site.name;
-    }
-    allDevices.push(...devices);
-  }
+  const deviceResults = await Promise.allSettled(
+    sites.map(async (site) => {
+      const devices = await getDevices(site.siteId, cfg);
+      for (const d of devices) {
+        d.site = site.name;
+      }
+      return devices;
+    }),
+  );
+  const allDevices: OmadaDevice[] = deviceResults
+    .filter((r): r is PromiseFulfilledResult<OmadaDevice[]> => r.status === "fulfilled")
+    .flatMap((r) => r.value);
 
   const siteStats = sites.map((site) => {
     const siteDevices = allDevices.filter((d) => d.siteId === site.siteId);

@@ -190,9 +190,11 @@ export default function CriticalAlertOverlay({ dark }: { dark?: boolean }) {
   }, [soundEnabled, scheduleMinimize]);
 
   useEffect(() => {
-    checkAlerts();
+    const delay = setTimeout(() => {
+      checkAlerts();
+    }, 5_000);
     const interval = setInterval(checkAlerts, 60_000);
-    return () => clearInterval(interval);
+    return () => { clearTimeout(delay); clearInterval(interval); };
   }, [checkAlerts]);
 
   function acknowledge(alertId: string) {
