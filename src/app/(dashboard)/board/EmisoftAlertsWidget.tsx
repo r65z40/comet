@@ -78,17 +78,17 @@ export default function EmisoftAlertsWidget({ dark = false }: { dark?: boolean }
         (a: Finding, b: Finding) => (b.findingsLastMonth || 0) - (a.findingsLastMonth || 0),
       );
 
-      const allFindings: Finding[] = [];
-      for (const ws of sorted.slice(0, 3)) {
-        try {
+      const results = await Promise.allSettled(
+        sorted.slice(0, 3).map(async (ws) => {
           const res = await fetch(`/api/emsisoft/status?workspaceId=${ws.guid || ws.id}`);
-          if (res.ok) {
-            const data = await res.json();
-            const items = data.findings || [];
-            allFindings.push(...items.map((f: Finding) => ({ ...f, _wsName: ws.name })));
-          }
-        } catch {}
-      }
+          if (!res.ok) return [];
+          const data = await res.json();
+          return (data.findings || []).map((f: Finding) => ({ ...f, _wsName: ws.name }));
+        }),
+      );
+      const allFindings: Finding[] = results
+        .filter((r): r is PromiseFulfilledResult<Finding[]> => r.status === "fulfilled")
+        .flatMap((r) => r.value);
 
       allFindings.sort((a, b) => {
         const dA = new Date(findDate(a)).getTime() || 0;

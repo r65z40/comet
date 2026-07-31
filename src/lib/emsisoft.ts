@@ -186,9 +186,14 @@ export async function getDevices(workspaceId: string, config?: EmsisoftConfig): 
 }
 
 export async function getIncidents(workspaceId: string, config?: EmsisoftConfig): Promise<EmsisoftIncident[]> {
+  const cacheKey = `emsisoft:incidents:${workspaceId}`;
+  const cached = cacheGet<EmsisoftIncident[]>(cacheKey);
+  if (cached) return cached;
   const json = await emisoftFetch(`/workspaces/${workspaceId}/incidents`, config);
   const items = json.data || json.incidents || (Array.isArray(json) ? json : []);
-  return items.map(mapIncident);
+  const result = items.map(mapIncident);
+  cacheSet(cacheKey, result, 60_000);
+  return result;
 }
 
 export async function getThreats(workspaceId: string, config?: EmsisoftConfig) {
