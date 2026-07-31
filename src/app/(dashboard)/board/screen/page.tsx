@@ -280,7 +280,6 @@ export default function BoardScreenPage() {
     const scaled = { ...transform, x: transform.x / scale, y: transform.y / scale };
     if (draggingNodeRect && activatorEvent && "clientX" in activatorEvent) {
       const e = activatorEvent as PointerEvent;
-      if (e.pointerType === "touch") return scaled;
       const offsetX = (e.clientX - draggingNodeRect.left - draggingNodeRect.width / 2) / scale;
       const offsetY = (e.clientY - draggingNodeRect.top - draggingNodeRect.height / 2) / scale;
       return { ...scaled, x: scaled.x + offsetX, y: scaled.y + offsetY };

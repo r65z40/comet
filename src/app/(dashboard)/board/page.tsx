@@ -236,10 +236,19 @@ export default function BoardPage() {
   );
 
   const snapToCursor: Modifier = useCallback(({ activatorEvent, draggingNodeRect, transform }) => {
-    if (draggingNodeRect && activatorEvent && "clientX" in activatorEvent) {
-      const e = activatorEvent as PointerEvent;
-      const offsetX = e.clientX - draggingNodeRect.left - draggingNodeRect.width / 2;
-      const offsetY = e.clientY - draggingNodeRect.top - draggingNodeRect.height / 2;
+    if (!draggingNodeRect || !activatorEvent) return transform;
+    let cx: number | undefined;
+    let cy: number | undefined;
+    if ("clientX" in activatorEvent) {
+      cx = (activatorEvent as PointerEvent).clientX;
+      cy = (activatorEvent as PointerEvent).clientY;
+    } else if ("touches" in activatorEvent) {
+      const t = (activatorEvent as TouchEvent).touches[0];
+      if (t) { cx = t.clientX; cy = t.clientY; }
+    }
+    if (cx !== undefined && cy !== undefined) {
+      const offsetX = cx - draggingNodeRect.left - draggingNodeRect.width / 2;
+      const offsetY = cy - draggingNodeRect.top - draggingNodeRect.height / 2;
       return { ...transform, x: transform.x + offsetX, y: transform.y + offsetY };
     }
     return transform;
