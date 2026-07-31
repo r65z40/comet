@@ -17,6 +17,7 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type CollisionDetection,
+  type Modifier,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -233,6 +234,16 @@ export default function BoardPage() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
     useSensor(KeyboardSensor),
   );
+
+  const snapToCursor: Modifier = useCallback(({ activatorEvent, draggingNodeRect, transform }) => {
+    if (draggingNodeRect && activatorEvent && "clientX" in activatorEvent) {
+      const e = activatorEvent as PointerEvent;
+      const offsetX = e.clientX - draggingNodeRect.left - draggingNodeRect.width / 2;
+      const offsetY = e.clientY - draggingNodeRect.top - draggingNodeRect.height / 2;
+      return { ...transform, x: transform.x + offsetX, y: transform.y + offsetY };
+    }
+    return transform;
+  }, []);
 
   const columnIds = useMemo(() => new Set(columns.map(c => c.id)), [columns]);
 
@@ -1248,7 +1259,7 @@ export default function BoardPage() {
           defaultLayout={BOARD_DEFAULT_LAYOUT}
           storageKey="comet_board_grid"
         />
-        <DragOverlay>
+        <DragOverlay modifiers={[snapToCursor]}>
           {activeColumnId ? (
             <div className="opacity-80 rotate-1">
               {(() => {
