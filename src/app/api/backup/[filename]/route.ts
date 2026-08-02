@@ -27,9 +27,12 @@ export async function GET(
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const status = message.includes("ENOENT") ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+    const isNotFound = err instanceof Error && err.message.includes("ENOENT");
+    console.error("Backup download error:", err);
+    return NextResponse.json(
+      { error: isNotFound ? "Fichier de sauvegarde introuvable" : "Erreur lors du téléchargement" },
+      { status: isNotFound ? 404 : 500 },
+    );
   }
 }
 
@@ -48,8 +51,8 @@ export async function DELETE(
     await deleteBackup(filename);
     return NextResponse.json({ success: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Backup delete error:", err);
+    return NextResponse.json({ error: "Erreur lors de la suppression" }, { status: 500 });
   }
 }
 
@@ -68,7 +71,7 @@ export async function POST(
     await restoreBackup(filename);
     return NextResponse.json({ success: true, message: "Base de données restaurée avec succès" });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Backup restore error:", err);
+    return NextResponse.json({ error: "Erreur lors de la restauration" }, { status: 500 });
   }
 }

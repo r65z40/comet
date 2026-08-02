@@ -41,11 +41,15 @@ export async function POST(req: NextRequest) {
         await updateInstallationStatuses();
         result = { success: true, message: "Statuts mis à jour" };
         break;
-      case "full":
-        const productsResult = await syncProducts();
-        const clientsResult = await syncClients();
-        const contactsResult = await syncContacts();
-        const invoicesResult = await syncInvoices();
+      case "full": {
+        const [productsResult, clientsResult] = await Promise.all([
+          syncProducts(),
+          syncClients(),
+        ]);
+        const [contactsResult, invoicesResult] = await Promise.all([
+          syncContacts(),
+          syncInvoices(),
+        ]);
         const installationsResult = await generateInstallations();
         await updateInstallationStatuses();
         result = {
@@ -59,14 +63,16 @@ export async function POST(req: NextRequest) {
           },
         };
         break;
+      }
       default:
         return NextResponse.json({ error: "Type de sync invalide" }, { status: 400 });
     }
 
     return NextResponse.json(result);
   } catch (error) {
+    console.error("Sync error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur de synchronisation" },
+      { error: "Erreur de synchronisation" },
       { status: 500 }
     );
   }

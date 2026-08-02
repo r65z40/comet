@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { randomBytes } from "crypto";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const rl = checkRateLimit(`portal-forgot-password:${ip}`, 5, 15 * 60 * 1000);
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
     const { email } = await req.json();
 
     if (!email) {
@@ -85,7 +90,7 @@ export async function POST(req: NextRequest) {
       message: "Si cette adresse existe, un email de réinitialisation a été envoyé.",
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Erreur interne";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Portal forgot-password error:", err);
+    return NextResponse.json({ error: "Erreur interne" }, { status: 500 });
   }
 }

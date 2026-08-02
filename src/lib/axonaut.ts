@@ -35,6 +35,7 @@ async function rateLimitedFetch(url: string, apiKey: string): Promise<Response> 
   const res = await fetch(url, {
     headers: { "userApiKey": apiKey, "Content-Type": "application/json" },
     cache: "no-store",
+    signal: AbortSignal.timeout(15000),
   });
 
   // Retry avec backoff exponentiel en cas de 429
@@ -45,6 +46,7 @@ async function rateLimitedFetch(url: string, apiKey: string): Promise<Response> 
       const retry = await fetch(url, {
         headers: { "userApiKey": apiKey, "Content-Type": "application/json" },
         cache: "no-store",
+        signal: AbortSignal.timeout(15000),
       });
       if (retry.status !== 429) return retry;
     }

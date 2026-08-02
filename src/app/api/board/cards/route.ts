@@ -155,14 +155,18 @@ export async function PUT(req: NextRequest) {
   } else if (assigneeId !== undefined && assigneeId !== existingCard.assigneeId) {
     primaryAssigneeId = assigneeId;
     newAssigneeIds = assigneeId ? [assigneeId] : [];
-    const oldUser = existingCard.assigneeId ? await prisma.user.findUnique({ where: { id: existingCard.assigneeId }, select: { name: true } }) : null;
-    const newUser = assigneeId ? await prisma.user.findUnique({ where: { id: assigneeId }, select: { name: true } }) : null;
+    const [oldUser, newUser] = await Promise.all([
+      existingCard.assigneeId ? prisma.user.findUnique({ where: { id: existingCard.assigneeId }, select: { name: true } }) : null,
+      assigneeId ? prisma.user.findUnique({ where: { id: assigneeId }, select: { name: true } }) : null,
+    ]);
     changes.push({ field: "assignee", oldValue: oldUser?.name || null, newValue: newUser?.name || null });
   }
 
   if (clientId !== undefined && clientId !== existingCard.clientId) {
-    const oldClient = existingCard.clientId ? await prisma.client.findUnique({ where: { id: existingCard.clientId }, select: { name: true } }) : null;
-    const newClient = clientId ? await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } }) : null;
+    const [oldClient, newClient] = await Promise.all([
+      existingCard.clientId ? prisma.client.findUnique({ where: { id: existingCard.clientId }, select: { name: true } }) : null,
+      clientId ? prisma.client.findUnique({ where: { id: clientId }, select: { name: true } }) : null,
+    ]);
     changes.push({ field: "client", oldValue: oldClient?.name || null, newValue: newClient?.name || null });
   }
   if (dueDate !== undefined) {

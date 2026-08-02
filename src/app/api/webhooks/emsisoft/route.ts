@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { notifyAdmins } from "@/lib/notifications";
+import { getSettings } from "@/lib/settings";
 
 export async function POST(req: NextRequest) {
+  const settings = await getSettings(["webhook_secret"]);
+  const expectedSecret = settings.webhook_secret;
+  if (expectedSecret) {
+    const providedSecret = req.headers.get("x-webhook-secret");
+    if (providedSecret !== expectedSecret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   const body = await req.json();
 
   const eventType = body.type || body.eventType || "";

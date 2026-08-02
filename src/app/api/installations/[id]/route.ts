@@ -61,6 +61,7 @@ export async function PATCH(
 ) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
   const { id } = await params;
   const raw = await req.json();

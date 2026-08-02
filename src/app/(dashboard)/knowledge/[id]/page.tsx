@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { sanitizeHtml } from "@/lib/sanitize";
 import {
   ArrowLeft,
   Save,
@@ -282,7 +283,7 @@ export default function ArticlePage({ params }: { params: Promise<{ id: string }
           <div className="lg:col-span-2 space-y-4">
             <div className="rounded-xl border border-slate-200 bg-white p-6">
               {article.content ? (
-                <div className="prose prose-slate max-w-none text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: article.content }} />
+                <div className="prose prose-slate max-w-none text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }} />
               ) : (
                 <p className="text-sm text-slate-400 italic">Aucun contenu. Cliquez sur Éditer pour rédiger l&apos;article.</p>
               )}

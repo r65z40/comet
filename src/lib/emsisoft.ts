@@ -70,6 +70,7 @@ async function emisoftFetch(path: string, config?: EmsisoftConfig) {
       Accept: "application/json",
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!res.ok) {

@@ -34,6 +34,8 @@ export async function GET() {
       statusBreakdown,
       financialRaw,
       recentSyncLogs,
+      totalValueResult,
+      boardCards,
     ] = await Promise.all([
       prisma.installation.count(),
       prisma.installation.count({ where: { status: "EN_PARC" } }),
@@ -102,28 +104,36 @@ export async function GET() {
         orderBy: { endDate: "desc" },
         take: 10,
       }),
-      // Top clients by installation count
       prisma.installation.groupBy({
         by: ["clientId"],
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 10,
       }),
-      // Status breakdown
       prisma.installation.groupBy({
         by: ["status"],
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
       }),
-      // Financial data (avg duration, total value from invoice lines)
       prisma.installation.aggregate({
         _avg: { durationMonths: true },
         _count: { id: true },
       }),
-      // Recent sync logs
       prisma.syncLog.findMany({
         orderBy: { startedAt: "desc" },
         take: 10,
+      }),
+      prisma.invoiceLine.aggregate({ _sum: { totalPrice: true } }),
+      prisma.boardCard.findMany({
+        include: {
+          column: { select: { id: true, name: true, color: true } },
+          client: { select: { id: true, name: true } },
+          contact: { select: { id: true, firstName: true, lastName: true } },
+          tags: { include: { tag: true } },
+          _count: { select: { comments: true, attachments: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 12,
       }),
     ]);
 
@@ -145,23 +155,7 @@ export async function GET() {
     // Financial summary
     const totalCount = financialRaw._count.id || 1;
     const renewalRate = totalCount > 0 ? (renouvele / totalCount) * 100 : 0;
-
-    // Get total invoice value
-    const totalValueResult = await prisma.invoiceLine.aggregate({ _sum: { totalPrice: true } });
     const totalValue = totalValueResult._sum.totalPrice || 0;
-
-    // Board cards for dashboard
-    const boardCards = await prisma.boardCard.findMany({
-      include: {
-        column: { select: { id: true, name: true, color: true } },
-        client: { select: { id: true, name: true } },
-        contact: { select: { id: true, firstName: true, lastName: true } },
-        tags: { include: { tag: true } },
-        _count: { select: { comments: true, attachments: true } },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 12,
-    });
 
     // Recent activity from sync logs
     const recentActivity = recentSyncLogs.map((log) => ({
@@ -210,7 +204,7 @@ export async function GET() {
   } catch (error) {
     console.error("Dashboard stats error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur" },
+      { error: "Erreur lors du chargement des statistiques" },
       { status: 500 }
     );
   }

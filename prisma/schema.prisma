@@ -253,6 +253,7 @@ model Installation {
 
   deletedAt       DateTime?
   @@index([clientId])
+  @@index([productId])
   @@index([status])
   @@index([endDate])
   @@index([status, endDate])
@@ -543,6 +544,7 @@ model KbArticle {
   updatedAt DateTime @updatedAt
 
   @@index([categoryId])
+  @@index([authorId])
   @@index([published])
   @@index([visibility])
   @@map("kb_articles")

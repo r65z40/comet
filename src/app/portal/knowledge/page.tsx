@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { usePortal } from "../layout";
 import {
   BookOpen,
@@ -54,9 +55,9 @@ function fileIcon(type: string) {
 
 // Render content: supports HTML (from rich editor) and plain text fallback
 function renderContent(text: string) {
-  // If content looks like HTML (contains tags), render as HTML
+  // If content looks like HTML (contains tags), render as sanitized HTML
   if (text.includes("<") && text.includes(">")) {
-    return <div dangerouslySetInnerHTML={{ __html: text }} />;
+    return <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }} />;
   }
   // Fallback: simple markdown-like rendering for old content
   return text.split("\n").map((line, i) => {

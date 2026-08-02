@@ -71,7 +71,7 @@ export async function DELETE(req: NextRequest) {
       deleted: results,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Data delete error:", err);
+    return NextResponse.json({ error: "Erreur lors de la suppression des données" }, { status: 500 });
   }
 }

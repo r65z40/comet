@@ -1,9 +1,12 @@
 import { boardEvents } from "@/lib/board-events";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const session = await auth();
+  if (!session) return new Response("Non autorisé", { status: 401 });
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({

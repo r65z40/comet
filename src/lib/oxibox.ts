@@ -52,6 +52,7 @@ async function oxiboxFetch(path: string, token: string) {
       Accept: "application/json",
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!res.ok) {

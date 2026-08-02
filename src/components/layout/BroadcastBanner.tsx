@@ -2,21 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-
-function sanitizeHtml(html: string): string {
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  // Remove script tags and event handlers
-  div.querySelectorAll("script, iframe, object, embed, form").forEach((el) => el.remove());
-  div.querySelectorAll("*").forEach((el) => {
-    for (const attr of Array.from(el.attributes)) {
-      if (attr.name.startsWith("on") || attr.name === "srcdoc" || (attr.name === "href" && attr.value.trimStart().startsWith("javascript:"))) {
-        el.removeAttribute(attr.name);
-      }
-    }
-  });
-  return div.innerHTML;
-}
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export default function BroadcastBanner() {
   const [message, setMessage] = useState("");

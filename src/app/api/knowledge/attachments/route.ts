@@ -9,7 +9,26 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "knowledge");
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+const ALLOWED_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.ms-excel",
+  "application/vnd.ms-powerpoint",
+  "text/plain",
+  "text/csv",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  "application/zip",
+  "application/x-7z-compressed",
+]);
 
 // POST /api/knowledge/attachments — upload attachment
 export async function POST(req: NextRequest) {
@@ -25,7 +44,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json({ error: "Fichier trop volumineux (max 500 Mo)" }, { status: 400 });
+    return NextResponse.json({ error: "Fichier trop volumineux (max 50 Mo)" }, { status: 400 });
+  }
+
+  if (!ALLOWED_TYPES.has(file.type)) {
+    return NextResponse.json({ error: "Type de fichier non autorisé" }, { status: 400 });
   }
 
   const article = await prisma.kbArticle.findUnique({ where: { id: articleId } });

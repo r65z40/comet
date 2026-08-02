@@ -26,6 +26,7 @@ async function ateraFetch(path: string, options: RequestInit = {}) {
 
   const res = await fetch(`${ATERA_BASE_URL}${path}`, {
     ...options,
+    signal: options.signal ?? AbortSignal.timeout(15000),
     headers: {
       "X-API-KEY": config.apiKey,
       "Content-Type": "application/json",
