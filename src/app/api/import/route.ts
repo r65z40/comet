@@ -260,14 +260,26 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Create or update installation if we have warranty info
-        const warrantyEnd = parseDate(warrantyEndStr);
-        if (product && warrantyEnd) {
+        // Create installation for every line that has a product
+        if (product) {
+          const warrantyEnd = parseDate(warrantyEndStr);
           const startDate = invoiceDate;
-          const durationMonths = Math.max(
-            1,
-            Math.round((warrantyEnd.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44))
-          );
+          let endDate: Date;
+          let durationMonths: number;
+
+          if (warrantyEnd) {
+            endDate = warrantyEnd;
+            durationMonths = Math.max(
+              1,
+              Math.round((warrantyEnd.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44))
+            );
+          } else {
+            durationMonths = product.durationMonths && product.durationMonths > 0
+              ? product.durationMonths
+              : 12;
+            endDate = new Date(startDate);
+            endDate.setMonth(endDate.getMonth() + durationMonths);
+          }
 
           const status = renew ? "RENOUVELE" : "EN_PARC";
 
@@ -282,7 +294,7 @@ export async function POST(req: NextRequest) {
               quantity,
               startDate,
               durationMonths,
-              endDate: warrantyEnd,
+              endDate,
               status,
               alwaysInFleet: inPark,
               comParc: comParc || null,

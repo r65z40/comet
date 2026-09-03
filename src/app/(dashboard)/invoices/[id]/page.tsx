@@ -125,6 +125,30 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     invoice.installations.map((inst) => inst.invoiceLineId).filter(Boolean)
   );
 
+  const uninstalledLines = invoice.lines.filter(
+    (line) => line.product && !installedLineIds.has(line.id)
+  );
+
+  async function createAllInstallations() {
+    if (uninstalledLines.length === 0) return;
+    setCreatingInstall("all");
+    try {
+      for (const line of uninstalledLines) {
+        await fetch("/api/installations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invoiceLineId: line.id }),
+        });
+      }
+      const refreshRes = await fetch(`/api/invoices/${id}`);
+      const data = await refreshRes.json();
+      setInvoice(data);
+    } catch {
+      alert("Erreur lors de la création des installations");
+    }
+    setCreatingInstall(null);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -171,8 +195,20 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <div className="lg:col-span-2 space-y-6">
           {/* Lignes de facture */}
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <h3 className="text-sm font-medium text-slate-900">Lignes de facture ({invoice.lines.length})</h3>
+              {uninstalledLines.length > 0 && (
+                <button
+                  onClick={createAllInstallations}
+                  disabled={creatingInstall === "all"}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50"
+                >
+                  <Plus className="h-3 w-3" />
+                  {creatingInstall === "all"
+                    ? "Création en cours..."
+                    : `Créer ${uninstalledLines.length} installation${uninstalledLines.length > 1 ? "s" : ""}`}
+                </button>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -230,7 +266,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                           <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
                             Créée
                           </span>
-                        ) : line.product && !line.product.durationMonths ? (
+                        ) : line.product ? (
                           <button
                             onClick={(e) => { e.stopPropagation(); createInstallation(line.id); }}
                             disabled={creatingInstall === line.id}
@@ -239,10 +275,6 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                             <Plus className="h-3 w-3" />
                             {creatingInstall === line.id ? "Création..." : "Créer installation"}
                           </button>
-                        ) : line.product?.durationMonths ? (
-                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-                            Auto
-                          </span>
                         ) : (
                           <span className="text-slate-400 text-xs">—</span>
                         )}
