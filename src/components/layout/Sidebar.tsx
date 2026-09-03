@@ -112,6 +112,9 @@ export default function Sidebar() {
           <LogOut className="h-4 w-4" />
           Déconnexion
         </Link>
+        <p className="mt-2 px-3 text-[10px] text-slate-400 select-all">
+          v{process.env.NEXT_PUBLIC_APP_VERSION}{process.env.NEXT_PUBLIC_GIT_HASH ? ` · ${process.env.NEXT_PUBLIC_GIT_HASH}` : ""}
+        </p>
       </div>
     </>
   );

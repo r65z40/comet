@@ -100,7 +100,8 @@ export async function GET() {
     }));
 
     const enGarantie = stats.find((s) => s.status === "EN_PARC")?._count ?? 0;
-    const horsGarantie = stats.find((s) => s.status === "HORS_PARC")?._count ?? 0;
+    const horsGarantie = (stats.find((s) => s.status === "HORS_PARC")?._count ?? 0)
+      + (stats.find((s) => s.status === "EN_PARC_HORS_GARANTIE")?._count ?? 0);
 
     return NextResponse.json({
       expiring,
@@ -116,7 +117,7 @@ export async function GET() {
   } catch (error) {
     console.error("Screen feed error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur" },
+      { error: "Erreur lors du chargement du flux" },
       { status: 500 }
     );
   }
