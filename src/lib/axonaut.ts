@@ -579,8 +579,17 @@ async function generateInstallationForLine(
   product: NonNullable<Awaited<ReturnType<typeof resolveProduct>>>,
   quantity: number,
 ): Promise<"created" | "merged" | "skipped"> {
-  const existing = await prisma.installation.findUnique({ where: { invoiceLineId: lineId } });
+  // Check for existing active installation — skip if found
+  const existing = await prisma.installation.findFirst({
+    where: { invoiceLineId: lineId, deletedAt: null },
+  });
   if (existing) return "skipped";
+
+  // If a soft-deleted installation exists for this line, remove it first (unique constraint)
+  const softDeleted = await prisma.installation.findUnique({ where: { invoiceLineId: lineId } });
+  if (softDeleted && softDeleted.deletedAt) {
+    await prisma.installation.delete({ where: { id: softDeleted.id } });
+  }
 
   const duration = (product.durationMonths && product.durationMonths > 0) ? product.durationMonths : 12;
   const startDate = new Date(invoiceDate);

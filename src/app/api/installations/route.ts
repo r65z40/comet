@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       where.status = { in: ["EN_PARC", "EN_PARC_GARANTIE"] };
     } else if (status === "HORS_PARC") {
       where.status = { in: ["HORS_PARC", "EN_PARC_HORS_GARANTIE"] };
+      delete where.deletedAt;
     } else {
       where.status = status;
     }
@@ -128,12 +129,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Aucun produit lié à cette ligne" }, { status: 400 });
   }
 
-  // Check if installation already exists for this line
-  const existing = await prisma.installation.findUnique({
-    where: { invoiceLineId },
+  // Check if an active installation already exists for this line
+  const existing = await prisma.installation.findFirst({
+    where: { invoiceLineId, deletedAt: null },
   });
   if (existing) {
     return NextResponse.json({ error: "Une installation existe déjà pour cette ligne" }, { status: 409 });
+  }
+
+  // Remove soft-deleted installation if present (unique constraint on invoiceLineId)
+  const softDeleted = await prisma.installation.findUnique({ where: { invoiceLineId } });
+  if (softDeleted) {
+    await prisma.installation.delete({ where: { id: softDeleted.id } });
   }
 
   const startDate = invoiceLine.invoice.invoiceDate;
