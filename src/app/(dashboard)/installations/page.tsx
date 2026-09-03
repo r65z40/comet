@@ -33,8 +33,11 @@ function readSaved(): Record<string, string> {
   } catch { return {}; }
 }
 
-function init(searchParams: URLSearchParams, key: string, fallback: string = ""): string {
-  return searchParams.get(key) || readSaved()[key] || fallback;
+function init(searchParams: URLSearchParams, hasUrlParams: boolean, key: string, fallback: string = ""): string {
+  const urlVal = searchParams.get(key);
+  if (urlVal) return urlVal;
+  if (hasUrlParams) return fallback;
+  return readSaved()[key] || fallback;
 }
 
 export default function InstallationsPage() {
@@ -42,18 +45,19 @@ export default function InstallationsPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const mountRef = useRef(false);
+  const hasUrlParams = searchParams.toString().length > 0;
 
   const [installations, setInstallations] = useState<Installation[]>([]);
-  const [page, setPage] = useState(() => parseInt(init(searchParams, "page", "1")) || 1);
+  const [page, setPage] = useState(() => parseInt(init(searchParams, hasUrlParams, "page", "1")) || 1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState(() => init(searchParams, "search"));
-  const [statusFilter, setStatusFilter] = useState(() => init(searchParams, "status"));
-  const [familyFilter, setFamilyFilter] = useState(() => init(searchParams, "family"));
-  const [supplierFilter, setSupplierFilter] = useState(() => init(searchParams, "supplier"));
-  const [expiringFilter, setExpiringFilter] = useState(() => init(searchParams, "expiring"));
-  const [monthFilter, setMonthFilter] = useState(() => init(searchParams, "month"));
-  const [perPage, setPerPage] = useState(() => parseInt(init(searchParams, "perPage", "40")) || 40);
+  const [search, setSearch] = useState(() => init(searchParams, hasUrlParams, "search"));
+  const [statusFilter, setStatusFilter] = useState(() => init(searchParams, hasUrlParams, "status"));
+  const [familyFilter, setFamilyFilter] = useState(() => init(searchParams, hasUrlParams, "family"));
+  const [supplierFilter, setSupplierFilter] = useState(() => init(searchParams, hasUrlParams, "supplier"));
+  const [expiringFilter, setExpiringFilter] = useState(() => init(searchParams, hasUrlParams, "expiring"));
+  const [monthFilter, setMonthFilter] = useState(() => init(searchParams, hasUrlParams, "month"));
+  const [perPage, setPerPage] = useState(() => parseInt(init(searchParams, hasUrlParams, "perPage", "40")) || 40);
   const debouncedSearch = useDebounce(search);
   const debouncedFamily = useDebounce(familyFilter);
   const debouncedSupplier = useDebounce(supplierFilter);

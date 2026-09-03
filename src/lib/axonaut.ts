@@ -579,14 +579,13 @@ async function generateInstallationForLine(
   product: NonNullable<Awaited<ReturnType<typeof resolveProduct>>>,
   quantity: number,
 ): Promise<"created" | "merged" | "skipped"> {
-  if (!product.durationMonths || product.durationMonths <= 0) return "skipped";
-
   const existing = await prisma.installation.findUnique({ where: { invoiceLineId: lineId } });
   if (existing) return "skipped";
 
+  const duration = (product.durationMonths && product.durationMonths > 0) ? product.durationMonths : 12;
   const startDate = new Date(invoiceDate);
   const endDate = new Date(startDate);
-  endDate.setMonth(endDate.getMonth() + product.durationMonths);
+  endDate.setMonth(endDate.getMonth() + duration);
 
   // Search for an orphan installation to re-link
   const normStr = (s: string | null | undefined) => (s || "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -639,7 +638,7 @@ async function generateInstallationForLine(
       family: product.family,
       quantity,
       startDate,
-      durationMonths: product.durationMonths,
+      durationMonths: duration,
       endDate,
       status: "EN_PARC",
       importSource: "axonaut",
@@ -780,7 +779,7 @@ export async function generateInstallations() {
     });
 
     for (const line of invoiceLines) {
-      if (!line.product || !line.product.durationMonths || line.product.durationMonths <= 0 || !line.invoice?.client) {
+      if (!line.product || !line.invoice?.client) {
         skipped++;
         continue;
       }

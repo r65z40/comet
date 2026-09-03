@@ -29,9 +29,10 @@ export async function GET(req: NextRequest) {
   if (!includeDeleted) where.deletedAt = null;
 
   if (status) {
-    // Backward compat: EN_PARC also matches old EN_PARC_GARANTIE/EN_PARC_HORS_GARANTIE
     if (status === "EN_PARC") {
-      where.status = { in: ["EN_PARC", "EN_PARC_GARANTIE", "EN_PARC_HORS_GARANTIE"] };
+      where.status = { in: ["EN_PARC", "EN_PARC_GARANTIE"] };
+    } else if (status === "HORS_PARC") {
+      where.status = { in: ["HORS_PARC", "EN_PARC_HORS_GARANTIE"] };
     } else {
       where.status = status;
     }
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
       const future = new Date(now);
       future.setDate(future.getDate() + days);
       where.endDate = { gte: now, lte: future };
-      where.status = { not: "RENOUVELE" };
+      if (!status) where.status = { not: "RENOUVELE" };
       where.alwaysInFleet = { not: true };
     }
   }
