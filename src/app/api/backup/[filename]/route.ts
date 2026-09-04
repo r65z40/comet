@@ -68,8 +68,19 @@ export async function POST(
 
   try {
     const { filename } = await params;
-    await restoreBackup(filename);
-    return NextResponse.json({ success: true, message: "Base de données restaurée avec succès" });
+    const { clearedSecrets } = await restoreBackup(filename);
+    const secretLabels: Record<string, string> = {
+      axonaut_api_key: "Clé API Axonaut",
+      atera_api_key: "Clé API Atera",
+      smtp_pass: "Mot de passe SMTP",
+      cloud_s3_secret_key: "Clé secrète S3",
+      cloud_ftp_password: "Mot de passe FTP",
+    };
+    return NextResponse.json({
+      success: true,
+      message: "Base de données restaurée avec succès",
+      clearedSecrets: clearedSecrets.map((k) => secretLabels[k] || k),
+    });
   } catch (err) {
     console.error("Backup restore error:", err);
     return NextResponse.json({ error: "Erreur lors de la restauration" }, { status: 500 });

@@ -170,7 +170,15 @@ export default function BackupPage() {
       const res = await fetch(`/api/backup/${encodeURIComponent(filename)}`, { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        setMessage({ type: "success", text: "Base de données restaurée avec succès" });
+        const secrets = data.clearedSecrets as string[] | undefined;
+        if (secrets && secrets.length > 0) {
+          setMessage({
+            type: "success",
+            text: `Base de données restaurée. Secrets à re-saisir dans Paramètres : ${secrets.join(", ")}`,
+          });
+        } else {
+          setMessage({ type: "success", text: "Base de données restaurée avec succès" });
+        }
       } else {
         setMessage({ type: "error", text: data.error || "Erreur lors de la restauration" });
       }
@@ -600,7 +608,7 @@ export default function BackupPage() {
                   La restauration remplace toutes les données actuelles. Un backup de sécurité est créé automatiquement avant la restauration.
                 </p>
                 <p className="mt-1">
-                  <strong>Migration vers une nouvelle machine :</strong> copiez le fichier <code className="bg-amber-100 px-1 rounded">.env</code> de l&apos;ancienne machine (surtout <code className="bg-amber-100 px-1 rounded">ENCRYPTION_KEY</code>), sinon les mots de passe chiffrés (SMTP, S3, FTP) ne pourront pas être déchiffrés.
+                  Les mots de passe chiffrés (SMTP, S3, FTP, clés API) sont automatiquement réinitialisés après la restauration. Vous devrez les re-saisir dans Paramètres.
                 </p>
               </div>
             </div>
@@ -858,18 +866,18 @@ export default function BackupPage() {
             },
             {
               step: "3",
-              title: "Copier le fichier .env",
-              desc: "Copiez le fichier .env de l'ancienne machine vers la nouvelle. La variable ENCRYPTION_KEY doit être identique pour déchiffrer les mots de passe stockés (SMTP, S3, FTP). Les variables AUTH_SECRET et CRON_SECRET doivent aussi être conservées.",
+              title: "Installer sur la nouvelle machine",
+              desc: "Lancez setup.sh ou docker compose up -d. L'application démarre avec une base vide et un compte admin par défaut. Pas besoin de copier le .env — le script en génère un nouveau.",
             },
             {
               step: "4",
-              title: "Installer sur la nouvelle machine",
-              desc: "Lancez setup.sh ou docker compose up -d. L'application démarre avec une base vide et un compte admin par défaut.",
+              title: "Importer et restaurer le backup",
+              desc: "Connectez-vous avec le compte admin par défaut, allez dans /backup, importez le fichier .tar.gz, puis cliquez sur « Restaurer ». Toutes les données, paramètres et comptes utilisateurs seront restaurés.",
             },
             {
               step: "5",
-              title: "Importer et restaurer le backup",
-              desc: "Allez dans /backup, importez le fichier .tar.gz, puis cliquez sur « Restaurer ». Toutes les données, paramètres et comptes utilisateurs seront restaurés.",
+              title: "Re-saisir les mots de passe",
+              desc: "Les mots de passe chiffrés (SMTP, clés API, cloud) sont automatiquement réinitialisés. Allez dans Paramètres pour les re-saisir.",
             },
           ].map((item) => (
             <div key={item.step} className="flex gap-3">
@@ -886,12 +894,12 @@ export default function BackupPage() {
 
         <div className="mt-4 rounded-lg bg-violet-50 border border-violet-100 p-3">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-violet-600 mt-0.5 shrink-0" />
+            <CheckCircle2 className="h-4 w-4 text-violet-600 mt-0.5 shrink-0" />
             <div className="text-xs text-violet-700">
               <p className="font-medium">Données incluses dans le backup</p>
               <p className="mt-1">
                 Base de données complète (clients, factures, produits, installations, paramètres, comptes utilisateurs, historique d&apos;activité)
-                + fichiers uploadés (logos, pièces jointes). Seul le fichier .env (secrets) doit être copié manuellement.
+                + fichiers uploadés (logos, pièces jointes). Aucun fichier à copier manuellement — seuls les mots de passe chiffrés sont à re-saisir après restauration.
               </p>
             </div>
           </div>

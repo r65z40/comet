@@ -268,7 +268,12 @@ export async function getBackupPath(filename: string): Promise<string> {
   }
 }
 
-export async function restoreBackup(filename: string): Promise<void> {
+const ENCRYPTED_SETTING_KEYS = [
+  "axonaut_api_key", "atera_api_key", "smtp_pass",
+  "cloud_s3_secret_key", "cloud_ftp_password",
+];
+
+export async function restoreBackup(filename: string): Promise<{ clearedSecrets: string[] }> {
   const filepath = await getBackupPath(filename);
   const dbUrl = getDbUrlForPgDump();
   if (!dbUrl) throw new Error("DATABASE_URL non configurée");
@@ -314,13 +319,37 @@ export async function restoreBackup(filename: string): Promise<void> {
     });
   }
 
+  // Clear encrypted settings that can't be decrypted with a different ENCRYPTION_KEY
+  const clearedSecrets: string[] = [];
+  try {
+    const encryptedSettings = await prisma.setting.findMany({
+      where: { key: { in: ENCRYPTED_SETTING_KEYS } },
+    });
+    for (const s of encryptedSettings) {
+      if (s.value && s.value.startsWith("enc:")) {
+        await prisma.setting.update({
+          where: { key: s.key },
+          data: { value: "" },
+        });
+        clearedSecrets.push(s.key);
+      }
+    }
+  } catch {
+    // Non-fatal — settings may not exist
+  }
+
+  const secretsLabel = clearedSecrets.length > 0
+    ? ` — ${clearedSecrets.length} secret(s) réinitialisé(s)`
+    : "";
   await prisma.activityLog.create({
     data: {
       action: "RESTORE",
       entity: "system",
-      details: `Base de données restaurée depuis: ${path.basename(filepath)}`,
+      details: `Base de données restaurée depuis: ${path.basename(filepath)}${secretsLabel}`,
     },
   }).catch(() => {});
+
+  return { clearedSecrets };
 }
 
 export async function rotateBackups(retention: number): Promise<number> {
