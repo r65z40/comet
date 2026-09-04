@@ -6,12 +6,17 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  // Get all invoice line IDs that have an active (non-deleted) installation
+  // Count active installations per invoice line
   const activeInstallations = await prisma.installation.findMany({
     where: { invoiceLineId: { not: null }, deletedAt: null },
     select: { invoiceLineId: true },
   });
-  const installedLineIds = new Set(activeInstallations.map((i) => i.invoiceLineId));
+  const installCountByLine = new Map<string, number>();
+  for (const inst of activeInstallations) {
+    if (inst.invoiceLineId) {
+      installCountByLine.set(inst.invoiceLineId, (installCountByLine.get(inst.invoiceLineId) || 0) + 1);
+    }
+  }
 
   // Get all invoice lines with a product
   const invoiceLines = await prisma.invoiceLine.findMany({
@@ -30,8 +35,12 @@ export async function GET() {
     orderBy: { invoice: { invoiceDate: "desc" } },
   });
 
-  // Filter to only lines without an active installation
-  const missingLines = invoiceLines.filter((line) => !installedLineIds.has(line.id));
+  // Filter to lines where installed count < required unit count
+  const missingLines = invoiceLines.filter((line) => {
+    const unitCount = Math.max(1, Math.round(line.quantity));
+    const installed = installCountByLine.get(line.id) || 0;
+    return installed < unitCount;
+  });
 
   // Group by invoice
   const invoiceMap = new Map<string, {
@@ -39,12 +48,19 @@ export async function GET() {
     invoiceNumber: string | null;
     invoiceDate: string;
     client: { id: string; name: string };
-    lines: { id: string; productName: string; quantity: number; durationMonths: number | null }[];
+    lines: { id: string; productName: string; quantity: number; installed: number; durationMonths: number | null }[];
   }>();
+
+  let totalMissing = 0;
 
   for (const line of missingLines) {
     if (!line.invoice) continue;
     const inv = line.invoice;
+    const unitCount = Math.max(1, Math.round(line.quantity));
+    const installed = installCountByLine.get(line.id) || 0;
+    const missing = unitCount - installed;
+    totalMissing += missing;
+
     if (!invoiceMap.has(inv.id)) {
       invoiceMap.set(inv.id, {
         id: inv.id,
@@ -57,13 +73,13 @@ export async function GET() {
     invoiceMap.get(inv.id)!.lines.push({
       id: line.id,
       productName: line.product?.name || "—",
-      quantity: line.quantity,
+      quantity: unitCount,
+      installed,
       durationMonths: line.product?.durationMonths || null,
     });
   }
 
   const invoices = Array.from(invoiceMap.values());
-  const totalMissing = missingLines.length;
 
   return NextResponse.json({ invoices, totalMissing });
 }
@@ -72,12 +88,17 @@ export async function POST() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  // Get active installation line IDs
+  // Count active installations per invoice line
   const activeInstallations = await prisma.installation.findMany({
     where: { invoiceLineId: { not: null }, deletedAt: null },
     select: { invoiceLineId: true },
   });
-  const installedLineIds = new Set(activeInstallations.map((i) => i.invoiceLineId));
+  const installCountByLine = new Map<string, number>();
+  for (const inst of activeInstallations) {
+    if (inst.invoiceLineId) {
+      installCountByLine.set(inst.invoiceLineId, (installCountByLine.get(inst.invoiceLineId) || 0) + 1);
+    }
+  }
 
   // Get all invoice lines with products
   const invoiceLines = await prisma.invoiceLine.findMany({
@@ -93,16 +114,16 @@ export async function POST() {
 
   for (const line of invoiceLines) {
     if (!line.product || !line.invoice) continue;
-    if (installedLineIds.has(line.id)) continue;
+
+    const unitCount = Math.max(1, Math.round(line.quantity));
+    const existingCount = installCountByLine.get(line.id) || 0;
+    if (existingCount >= unitCount) continue;
 
     try {
-      // Remove soft-deleted installation if present (unique constraint)
-      const softDeleted = await prisma.installation.findUnique({
-        where: { invoiceLineId: line.id },
+      // Remove soft-deleted installations for this line
+      await prisma.installation.deleteMany({
+        where: { invoiceLineId: line.id, deletedAt: { not: null } },
       });
-      if (softDeleted) {
-        await prisma.installation.delete({ where: { id: softDeleted.id } });
-      }
 
       const duration =
         line.product.durationMonths && line.product.durationMonths > 0
@@ -112,22 +133,25 @@ export async function POST() {
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + duration);
 
-      await prisma.installation.create({
-        data: {
-          clientId: line.invoice.clientId,
-          productId: line.product.id,
-          invoiceId: line.invoice.id,
-          invoiceLineId: line.id,
-          supplier: line.product.supplier || null,
-          family: line.product.family || null,
-          quantity: line.quantity,
-          startDate,
-          durationMonths: duration,
-          endDate,
-          status: "EN_PARC",
-        },
-      });
-      created++;
+      const toCreate = unitCount - existingCount;
+      for (let i = 0; i < toCreate; i++) {
+        await prisma.installation.create({
+          data: {
+            clientId: line.invoice.clientId,
+            productId: line.product.id,
+            invoiceId: line.invoice.id,
+            invoiceLineId: line.id,
+            supplier: line.product.supplier || null,
+            family: line.product.family || null,
+            quantity: 1,
+            startDate,
+            durationMonths: duration,
+            endDate,
+            status: "EN_PARC",
+          },
+        });
+        created++;
+      }
     } catch {
       errors++;
     }

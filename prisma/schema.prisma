@@ -234,7 +234,7 @@ model Installation {
   product         Product            @relation(fields: [productId], references: [id])
   invoiceId       String?
   invoice         Invoice?           @relation(fields: [invoiceId], references: [id])
-  invoiceLineId   String?            @unique
+  invoiceLineId   String?
   supplier        String?
   family          String?
   quantity        Float              @default(1)
@@ -258,6 +258,7 @@ model Installation {
   @@index([endDate])
   @@index([status, endDate])
   @@index([deletedAt])
+  @@index([invoiceLineId])
   @@map("installations")
 }
 

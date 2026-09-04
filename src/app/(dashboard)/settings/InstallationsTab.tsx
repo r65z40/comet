@@ -10,6 +10,7 @@ interface MissingLine {
   id: string;
   productName: string;
   quantity: number;
+  installed: number;
   durationMonths: number | null;
 }
 
@@ -143,7 +144,7 @@ export default function InstallationsTab({ isAdmin }: SettingsTabProps) {
                       <span className="text-xs text-slate-400">{formatDate(inv.invoiceDate)}</span>
                     </div>
                     <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                      {inv.lines.length} manquante{inv.lines.length > 1 ? "s" : ""}
+                      {inv.lines.reduce((sum, l) => sum + (l.quantity - l.installed), 0)} manquante{inv.lines.reduce((sum, l) => sum + (l.quantity - l.installed), 0) > 1 ? "s" : ""}
                     </span>
                   </div>
                   <div className="divide-y divide-slate-100">
@@ -154,7 +155,7 @@ export default function InstallationsTab({ isAdmin }: SettingsTabProps) {
                           <span className="text-slate-700 truncate">{line.productName}</span>
                         </div>
                         <div className="flex items-center gap-3 shrink-0 text-xs text-slate-400">
-                          <span>Qté: {line.quantity}</span>
+                          <span>{line.installed}/{line.quantity} créées</span>
                           <span>{line.durationMonths ? `${line.durationMonths} mois` : "12 mois (défaut)"}</span>
                         </div>
                       </div>

@@ -260,7 +260,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Create installation for every line that has a product
+        // Create one installation per unit for every line that has a product
         if (product) {
           const warrantyEnd = parseDate(warrantyEndStr);
           const startDate = invoiceDate;
@@ -282,26 +282,29 @@ export async function POST(req: NextRequest) {
           }
 
           const status = renew ? "RENOUVELE" : "EN_PARC";
+          const unitCount = Math.max(1, Math.round(quantity));
 
-          await prisma.installation.create({
-            data: {
-              clientId: client.id,
-              productId: product.id,
-              invoiceId: invoice.id,
-              invoiceLineId: invoiceLine.id,
-              supplier: supplier || null,
-              family: family || null,
-              quantity,
-              startDate,
-              durationMonths,
-              endDate,
-              status,
-              alwaysInFleet: inPark,
-              comParc: comParc || null,
-              importSource,
-              importDetails,
-            },
-          });
+          for (let u = 0; u < unitCount; u++) {
+            await prisma.installation.create({
+              data: {
+                clientId: client.id,
+                productId: product.id,
+                invoiceId: invoice.id,
+                invoiceLineId: invoiceLine.id,
+                supplier: supplier || null,
+                family: family || null,
+                quantity: 1,
+                startDate,
+                durationMonths,
+                endDate,
+                status,
+                alwaysInFleet: inPark,
+                comParc: comParc || null,
+                importSource,
+                importDetails,
+              },
+            });
+          }
         }
 
         results.created++;

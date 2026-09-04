@@ -129,19 +129,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Aucun produit lié à cette ligne" }, { status: 400 });
   }
 
-  // Check if an active installation already exists for this line
-  const existing = await prisma.installation.findFirst({
+  // Count existing active installations for this line
+  const existingCount = await prisma.installation.count({
     where: { invoiceLineId, deletedAt: null },
   });
-  if (existing) {
-    return NextResponse.json({ error: "Une installation existe déjà pour cette ligne" }, { status: 409 });
+  const unitCount = Math.max(1, Math.round(invoiceLine.quantity));
+  if (existingCount >= unitCount) {
+    return NextResponse.json({ error: "Toutes les installations sont déjà créées pour cette ligne" }, { status: 409 });
   }
 
-  // Remove soft-deleted installation if present (unique constraint on invoiceLineId)
-  const softDeleted = await prisma.installation.findUnique({ where: { invoiceLineId } });
-  if (softDeleted) {
-    await prisma.installation.delete({ where: { id: softDeleted.id } });
-  }
+  // Remove soft-deleted installations
+  await prisma.installation.deleteMany({
+    where: { invoiceLineId, deletedAt: { not: null } },
+  });
 
   const startDate = invoiceLine.invoice.invoiceDate;
   let computedEndDate: Date;
@@ -162,30 +162,34 @@ export async function POST(req: NextRequest) {
     computedEndDate = new Date(startDate);
     computedEndDate.setMonth(computedEndDate.getMonth() + computedDuration);
   } else {
-    // Default 12 months
     computedDuration = 12;
     computedEndDate = new Date(startDate);
     computedEndDate.setMonth(computedEndDate.getMonth() + 12);
   }
 
-  const installation = await prisma.installation.create({
-    data: {
-      clientId: invoiceLine.invoice.clientId,
-      productId: invoiceLine.product.id,
-      invoiceId: invoiceLine.invoice.id,
-      invoiceLineId: invoiceLine.id,
-      supplier: invoiceLine.product.supplier || null,
-      family: invoiceLine.product.family || null,
-      quantity: invoiceLine.quantity,
-      startDate: new Date(startDate),
-      durationMonths: computedDuration,
-      endDate: computedEndDate,
-      status: "EN_PARC",
-    },
-    include: {
-      product: { select: { id: true, name: true } },
-    },
-  });
+  const toCreate = unitCount - existingCount;
+  const created = [];
+  for (let i = 0; i < toCreate; i++) {
+    const inst = await prisma.installation.create({
+      data: {
+        clientId: invoiceLine.invoice.clientId,
+        productId: invoiceLine.product.id,
+        invoiceId: invoiceLine.invoice.id,
+        invoiceLineId: invoiceLine.id,
+        supplier: invoiceLine.product.supplier || null,
+        family: invoiceLine.product.family || null,
+        quantity: 1,
+        startDate: new Date(startDate),
+        durationMonths: computedDuration,
+        endDate: computedEndDate,
+        status: "EN_PARC",
+      },
+      include: {
+        product: { select: { id: true, name: true } },
+      },
+    });
+    created.push(inst);
+  }
 
-  return NextResponse.json(installation, { status: 201 });
+  return NextResponse.json(created.length === 1 ? created[0] : created, { status: 201 });
 }

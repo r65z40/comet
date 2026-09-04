@@ -134,13 +134,20 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const installedLineIds = new Set(
-    invoice.installations.map((inst) => inst.invoiceLineId).filter(Boolean)
-  );
+  // Count installations per invoice line
+  const installCountByLine = new Map<string, number>();
+  for (const inst of invoice.installations) {
+    if (inst.invoiceLineId) {
+      installCountByLine.set(inst.invoiceLineId, (installCountByLine.get(inst.invoiceLineId) || 0) + 1);
+    }
+  }
 
-  const uninstalledLines = invoice.lines.filter(
-    (line) => line.product && !installedLineIds.has(line.id)
-  );
+  const uninstalledLines = invoice.lines.filter((line) => {
+    if (!line.product) return false;
+    const unitCount = Math.max(1, Math.round(line.quantity));
+    const installed = installCountByLine.get(line.id) || 0;
+    return installed < unitCount;
+  });
 
   async function createAllInstallations() {
     if (uninstalledLines.length === 0) return;
@@ -210,18 +217,25 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <h3 className="text-sm font-medium text-slate-900">Lignes de facture ({invoice.lines.length})</h3>
-              {uninstalledLines.length > 0 && (
-                <button
-                  onClick={createAllInstallations}
-                  disabled={creatingInstall === "all"}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50"
-                >
-                  <Plus className="h-3 w-3" />
-                  {creatingInstall === "all"
-                    ? "Création en cours..."
-                    : `Créer ${uninstalledLines.length} installation${uninstalledLines.length > 1 ? "s" : ""}`}
-                </button>
-              )}
+              {uninstalledLines.length > 0 && (() => {
+                const totalMissing = uninstalledLines.reduce((sum, line) => {
+                  const unitCount = Math.max(1, Math.round(line.quantity));
+                  const installed = installCountByLine.get(line.id) || 0;
+                  return sum + (unitCount - installed);
+                }, 0);
+                return (
+                  <button
+                    onClick={createAllInstallations}
+                    disabled={creatingInstall === "all"}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {creatingInstall === "all"
+                      ? "Création en cours..."
+                      : `Créer ${totalMissing} installation${totalMissing > 1 ? "s" : ""}`}
+                  </button>
+                );
+              })()}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -275,22 +289,34 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-center">
-                        {installedLineIds.has(line.id) ? (
-                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
-                            Créée
-                          </span>
-                        ) : line.product ? (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); createInstallation(line.id); }}
-                            disabled={creatingInstall === line.id}
-                            className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-100 transition-colors disabled:opacity-50"
-                          >
-                            <Plus className="h-3 w-3" />
-                            {creatingInstall === line.id ? "Création..." : "Créer installation"}
-                          </button>
-                        ) : (
-                          <span className="text-slate-400 text-xs">—</span>
-                        )}
+                        {(() => {
+                          if (!line.product) return <span className="text-slate-400 text-xs">—</span>;
+                          const unitCount = Math.max(1, Math.round(line.quantity));
+                          const installed = installCountByLine.get(line.id) || 0;
+                          if (installed >= unitCount) {
+                            return (
+                              <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                                {unitCount > 1 ? `${installed}/${unitCount} créées` : "Créée"}
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); createInstallation(line.id); }}
+                              disabled={creatingInstall === line.id}
+                              className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-100 transition-colors disabled:opacity-50"
+                            >
+                              <Plus className="h-3 w-3" />
+                              {creatingInstall === line.id
+                                ? "Création..."
+                                : installed > 0
+                                  ? `Créer ${unitCount - installed} restante${unitCount - installed > 1 ? "s" : ""}`
+                                  : unitCount > 1
+                                    ? `Créer ${unitCount} installations`
+                                    : "Créer installation"}
+                            </button>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}

@@ -561,7 +561,7 @@ async function upsertInvoiceLines(
   // Delete extra lines that no longer exist in Axonaut (only if they have no linked installation)
   for (const existing of existingLines) {
     if (!usedExistingIds.has(existing.id)) {
-      const hasInstallation = await prisma.installation.findUnique({ where: { invoiceLineId: existing.id } });
+      const hasInstallation = await prisma.installation.findFirst({ where: { invoiceLineId: existing.id } });
       if (!hasInstallation) {
         await prisma.invoiceLine.delete({ where: { id: existing.id } });
       }
@@ -579,82 +579,49 @@ async function generateInstallationForLine(
   product: NonNullable<Awaited<ReturnType<typeof resolveProduct>>>,
   quantity: number,
 ): Promise<"created" | "merged" | "skipped"> {
-  // Check for existing active installation — skip if found
-  const existing = await prisma.installation.findFirst({
+  const unitCount = Math.max(1, Math.round(quantity));
+
+  // Count existing active installations for this line
+  const existingCount = await prisma.installation.count({
     where: { invoiceLineId: lineId, deletedAt: null },
   });
-  if (existing) return "skipped";
+  if (existingCount >= unitCount) return "skipped";
 
-  // If a soft-deleted installation exists for this line, remove it first (unique constraint)
-  const softDeleted = await prisma.installation.findUnique({ where: { invoiceLineId: lineId } });
-  if (softDeleted && softDeleted.deletedAt) {
-    await prisma.installation.delete({ where: { id: softDeleted.id } });
-  }
+  // Remove soft-deleted installations for this line
+  await prisma.installation.deleteMany({
+    where: { invoiceLineId: lineId, deletedAt: { not: null } },
+  });
 
   const duration = (product.durationMonths && product.durationMonths > 0) ? product.durationMonths : 12;
   const startDate = new Date(invoiceDate);
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + duration);
 
-  // Search for an orphan installation to re-link
-  const normStr = (s: string | null | undefined) => (s || "").trim().toLowerCase().replace(/\s+/g, " ");
-  const startMin = new Date(startDate); startMin.setDate(startMin.getDate() - 3);
-  const startMax = new Date(startDate); startMax.setDate(startMax.getDate() + 3);
-  const endMin = new Date(endDate); endMin.setDate(endMin.getDate() - 3);
-  const endMax = new Date(endDate); endMax.setDate(endMax.getDate() + 3);
+  const toCreate = unitCount - existingCount;
+  let createdCount = 0;
 
-  const orphanCandidates = await prisma.installation.findMany({
-    where: {
-      clientId,
-      invoiceLineId: null,
-      deletedAt: null,
-      startDate: { gte: startMin, lte: startMax },
-      endDate: { gte: endMin, lte: endMax },
-    },
-    include: { product: { select: { name: true, supplier: true } } },
-  });
-
-  const productNameNorm = normStr(product.name);
-  const productSupplierNorm = normStr(product.supplier);
-  const orphan = orphanCandidates.find(
-    (o) =>
-      normStr(o.product.name) === productNameNorm &&
-      normStr(o.product.supplier) === productSupplierNorm &&
-      Math.abs(o.quantity - quantity) < 0.0001,
-  );
-
-  if (orphan) {
-    await prisma.installation.update({
-      where: { id: orphan.id },
+  for (let i = 0; i < toCreate; i++) {
+    await prisma.installation.create({
       data: {
+        clientId,
+        productId: product.id,
         invoiceId,
         invoiceLineId: lineId,
-        supplier: product.supplier ?? orphan.supplier,
-        family: product.family ?? orphan.family,
-        quantity,
+        supplier: product.supplier,
+        family: product.family,
+        quantity: 1,
+        startDate,
+        durationMonths: duration,
+        endDate,
+        status: "EN_PARC",
+        importSource: "axonaut",
+        importDetails: axonautImportDetails(),
       },
     });
-    return "merged";
+    createdCount++;
   }
 
-  await prisma.installation.create({
-    data: {
-      clientId,
-      productId: product.id,
-      invoiceId,
-      invoiceLineId: lineId,
-      supplier: product.supplier,
-      family: product.family,
-      quantity,
-      startDate,
-      durationMonths: duration,
-      endDate,
-      status: "EN_PARC",
-      importSource: "axonaut",
-      importDetails: axonautImportDetails(),
-    },
-  });
-  return "created";
+  return createdCount > 0 ? "created" : "skipped";
 }
 
 export async function syncInvoices() {
