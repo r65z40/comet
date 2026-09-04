@@ -55,10 +55,23 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [creatingInstall, setCreatingInstall] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/invoices/${id}`)
-      .then((r) => r.json())
-      .then((data) => setInvoice(data))
-      .finally(() => setLoading(false));
+    async function load() {
+      try {
+        // Auto-generate missing installations
+        await fetch(`/api/invoices/${id}/generate-installations`, { method: "POST" });
+        const res = await fetch(`/api/invoices/${id}`);
+        const data = await res.json();
+        setInvoice(data);
+      } catch {
+        // Fallback: load invoice without generating
+        const res = await fetch(`/api/invoices/${id}`);
+        const data = await res.json();
+        setInvoice(data);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, [id]);
 
   async function refreshFromAxonaut() {

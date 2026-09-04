@@ -1044,6 +1044,14 @@ export default function BoardScreenPage() {
           cardId={selectedCardId}
           users={users}
           dark
+          onArchive={() => {
+            setColumns((prev) =>
+              prev.map((col) => ({
+                ...col,
+                cards: col.cards.filter((c: BoardCard) => c.id !== selectedCardId),
+              }))
+            );
+          }}
           onClose={() => {
             setSelectedCardId(null);
             fetchColumns();

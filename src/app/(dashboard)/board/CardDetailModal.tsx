@@ -96,6 +96,7 @@ interface Props {
   cardId: string;
   users: { id: string; name: string }[];
   onClose: () => void;
+  onArchive?: () => void;
   dark?: boolean;
 }
 
@@ -105,7 +106,7 @@ const PRIORITY_CONFIG: Record<number, { label: string; color: string; darkColor:
   3: { label: "Basse", color: "bg-slate-50 text-slate-600 border-slate-200", darkColor: "bg-slate-700 text-slate-300 border-slate-600" },
 };
 
-export default function CardDetailModal({ cardId, users, onClose, dark = false }: Props) {
+export default function CardDetailModal({ cardId, users, onClose, onArchive, dark = false }: Props) {
   const [card, setCard] = useState<CardDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -265,6 +266,7 @@ export default function CardDetailModal({ cardId, users, onClose, dark = false }
       body: JSON.stringify({ id: cardId, archived: newArchived }),
     });
     if (newArchived) {
+      onArchive?.();
       onClose();
     } else {
       fetchCard();

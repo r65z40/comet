@@ -7,6 +7,7 @@ interface Column<T> {
   key: string;
   label: string;
   sortable?: boolean;
+  sortKey?: string;
   width?: string;
   render?: (item: T) => React.ReactNode;
 }
@@ -69,9 +70,10 @@ export default function DataTable<T extends { id: string }>({
 
   const sortedData = useMemo(() => {
     if (!sortKey) return data;
+    const resolvedKey = columns.find((c) => c.key === sortKey)?.sortKey || sortKey;
     return [...data].sort((a, b) => {
-      const valA = getNestedValue(a, sortKey);
-      const valB = getNestedValue(b, sortKey);
+      const valA = getNestedValue(a, resolvedKey);
+      const valB = getNestedValue(b, resolvedKey);
       const strA = valA != null ? String(valA).toLowerCase() : "";
       const strB = valB != null ? String(valB).toLowerCase() : "";
       const numA = Number(valA);

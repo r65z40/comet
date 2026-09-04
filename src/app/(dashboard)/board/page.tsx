@@ -1301,7 +1301,19 @@ export default function BoardPage() {
 
       {/* Card Detail Modal */}
       {selectedCardId && (
-        <CardDetailModal cardId={selectedCardId} users={users} onClose={closeCard} />
+        <CardDetailModal
+          cardId={selectedCardId}
+          users={users}
+          onArchive={() => {
+            setColumns((prev) =>
+              prev.map((col) => ({
+                ...col,
+                cards: col.cards.filter((c) => c.id !== selectedCardId),
+              }))
+            );
+          }}
+          onClose={closeCard}
+        />
       )}
       </>
       )}

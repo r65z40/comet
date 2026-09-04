@@ -182,6 +182,7 @@ export default function InstallationsPage() {
     {
       key: "countdown",
       label: "Compte à rebours",
+      sortKey: "endDate",
       render: (i: Installation) => (
         <span className={`text-xs font-bold ${i.alwaysInFleet ? "text-amber-600" : getCountdownColor(i.endDate)}`}>
           {i.alwaysInFleet ? "Toujours en parc" : formatCountdown(i.endDate)}
