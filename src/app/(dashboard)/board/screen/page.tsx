@@ -395,7 +395,12 @@ export default function BoardScreenPage() {
     };
   }, [fetchColumns, fetchFeed, fetchCyberNews, fetchUsers]);
 
-  useBoardSync(fetchColumns);
+  const fetchAll = useCallback(() => {
+    fetchColumns();
+    fetchFeed();
+  }, [fetchColumns, fetchFeed]);
+
+  useBoardSync(fetchAll);
 
   const [extVideoUrl, setExtVideoUrl] = useState<string | undefined>();
   const [extVideoCmd, setExtVideoCmd] = useState<VideoExternalCommand | undefined>();

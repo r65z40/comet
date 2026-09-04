@@ -29,6 +29,7 @@ export async function GET(
         orderBy: { lastName: "asc" },
       },
       boardCards: {
+        where: { archived: false },
         include: {
           column: { select: { id: true, name: true, color: true } },
           contact: { select: { id: true, firstName: true, lastName: true } },
