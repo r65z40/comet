@@ -597,7 +597,10 @@ export default function BackupPage() {
               <div className="text-xs text-amber-700">
                 <p className="font-medium">Attention lors de la restauration</p>
                 <p className="mt-1">
-                  La restauration remplace les données actuelles. Créez un backup avant de restaurer.
+                  La restauration remplace toutes les données actuelles. Un backup de sécurité est créé automatiquement avant la restauration.
+                </p>
+                <p className="mt-1">
+                  <strong>Migration vers une nouvelle machine :</strong> copiez le fichier <code className="bg-amber-100 px-1 rounded">.env</code> de l&apos;ancienne machine (surtout <code className="bg-amber-100 px-1 rounded">ENCRYPTION_KEY</code>), sinon les mots de passe chiffrés (SMTP, S3, FTP) ne pourront pas être déchiffrés.
                 </p>
               </div>
             </div>
@@ -829,6 +832,71 @@ export default function BackupPage() {
         </div>
       </div>
 
+      {/* Guide de migration */}
+      <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="rounded-lg bg-violet-100 p-2">
+            <HardDrive className="h-4 w-4 text-violet-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-slate-900">Migration vers une nouvelle machine</h3>
+            <p className="text-xs text-slate-400">Procédure pour transférer toutes les données</p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {[
+            {
+              step: "1",
+              title: "Créer un backup sur l'ancienne machine",
+              desc: "Cliquez sur « Créer un backup » ci-dessus. Le fichier .tar.gz contient la base de données complète et les fichiers uploadés.",
+            },
+            {
+              step: "2",
+              title: "Télécharger le backup",
+              desc: "Téléchargez le fichier .tar.gz sur votre poste. Si le stockage cloud est configuré, le backup y est aussi disponible.",
+            },
+            {
+              step: "3",
+              title: "Copier le fichier .env",
+              desc: "Copiez le fichier .env de l'ancienne machine vers la nouvelle. La variable ENCRYPTION_KEY doit être identique pour déchiffrer les mots de passe stockés (SMTP, S3, FTP). Les variables AUTH_SECRET et CRON_SECRET doivent aussi être conservées.",
+            },
+            {
+              step: "4",
+              title: "Installer sur la nouvelle machine",
+              desc: "Lancez setup.sh ou docker compose up -d. L'application démarre avec une base vide et un compte admin par défaut.",
+            },
+            {
+              step: "5",
+              title: "Importer et restaurer le backup",
+              desc: "Allez dans /backup, importez le fichier .tar.gz, puis cliquez sur « Restaurer ». Toutes les données, paramètres et comptes utilisateurs seront restaurés.",
+            },
+          ].map((item) => (
+            <div key={item.step} className="flex gap-3">
+              <div className="shrink-0 w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center">
+                <span className="text-xs font-bold text-violet-700">{item.step}</span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-800">{item.title}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-lg bg-violet-50 border border-violet-100 p-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-violet-600 mt-0.5 shrink-0" />
+            <div className="text-xs text-violet-700">
+              <p className="font-medium">Données incluses dans le backup</p>
+              <p className="mt-1">
+                Base de données complète (clients, factures, produits, installations, paramètres, comptes utilisateurs, historique d&apos;activité)
+                + fichiers uploadés (logos, pièces jointes). Seul le fichier .env (secrets) doit être copié manuellement.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
