@@ -13,10 +13,14 @@ echo "╚═══════════════════════�
 echo ""
 
 # Check prerequisites
-for cmd in docker; do
+for cmd in docker curl; do
   if ! command -v "$cmd" &> /dev/null; then
     echo "ERREUR: '$cmd' n'est pas installé."
-    echo "Installez Docker: https://docs.docker.com/get-docker/"
+    if [ "$cmd" = "docker" ]; then
+      echo "Installez Docker: https://docs.docker.com/get-docker/"
+    else
+      echo "Installez-le avec: sudo apt install $cmd"
+    fi
     exit 1
   fi
 done
@@ -42,6 +46,8 @@ if [ ! -f .env ]; then
   CRON_SECRET=$(openssl rand -base64 16 2>/dev/null || head -c 16 /dev/urandom | base64)
   ENCRYPTION_KEY=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p -c 64)
   POSTGRES_PASSWORD=$(openssl rand -base64 24 2>/dev/null || head -c 24 /dev/urandom | base64)
+  # Strip URL-unsafe characters that would corrupt DATABASE_URL
+  POSTGRES_PASSWORD=$(echo "$POSTGRES_PASSWORD" | tr -d '+/=@#')
 
   # Replace placeholders
   sed -i "s|change-me-use-a-strong-password|${POSTGRES_PASSWORD}|g" .env

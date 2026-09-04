@@ -21,6 +21,14 @@ if [ "$CRON_SECRET" = "comet_cron_secret_2024" ]; then
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   echo ""
 fi
+if echo "$DATABASE_URL" | grep -q "comet_secure_2024"; then
+  echo ""
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "  WARNING: POSTGRES_PASSWORD is set to the default!"
+  echo "  Run setup.sh or change it in your .env file."
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo ""
+fi
 if [ -z "$ENCRYPTION_KEY" ]; then
   echo ""
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
