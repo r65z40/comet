@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Settings2, Plug, Mail, FileText, Users } from "lucide-react";
+import { Settings2, Plug, Mail, FileText, Users, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 import GeneralTab from "./GeneralTab";
 import IntegrationsTab from "./IntegrationsTab";
 import EmailTab from "./EmailTab";
 import ReportsTab from "./ReportsTab";
 import AdminTab from "./AdminTab";
+import InstallationsTab from "./InstallationsTab";
 
 const SETTINGS_TABS = [
   { id: "general", label: "Général", icon: Settings2 },
   { id: "integrations", label: "Intégrations", icon: Plug },
   { id: "email", label: "Email & Alertes", icon: Mail },
   { id: "reports", label: "Rapports", icon: FileText },
+  { id: "installations", label: "Installations", icon: Monitor },
   { id: "admin", label: "Administration", icon: Users },
 ];
 
@@ -110,6 +112,7 @@ export default function SettingsPage() {
           {activeTab === "integrations" && <IntegrationsTab {...tabProps} />}
           {activeTab === "email" && <EmailTab {...tabProps} />}
           {activeTab === "reports" && <ReportsTab {...tabProps} />}
+          {activeTab === "installations" && <InstallationsTab {...tabProps} />}
           {activeTab === "admin" && isAdmin && <AdminTab {...tabProps} />}
         </div>
       </div>
