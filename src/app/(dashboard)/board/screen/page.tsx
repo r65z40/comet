@@ -71,7 +71,7 @@ import SpotifyWidget, { SpotifyExternalCommand } from "../SpotifyWidget";
 import VideoPlayerWidget, { VideoExternalCommand } from "../VideoPlayerWidget";
 import { useBoardSync } from "@/lib/hooks/useBoardSync";
 import { useMediaSync, MediaCommand } from "@/lib/hooks/useMediaSync";
-import { TouchKeyboardProvider, TouchKeyboardToggle } from "@/components/ui/TouchKeyboard";
+import { TouchKeyboardProvider } from "@/components/ui/TouchKeyboard";
 
 interface CardTag {
   id: string;
@@ -836,9 +836,6 @@ export default function BoardScreenPage() {
             <RefreshCw className="h-4 w-4" />
             {lastRefresh.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </div>
-
-          {/* Touch keyboard toggle */}
-          <TouchKeyboardToggle className="min-h-[52px] min-w-[52px] rounded-xl" />
 
           {/* Widget visibility settings */}
           <div className="relative">
