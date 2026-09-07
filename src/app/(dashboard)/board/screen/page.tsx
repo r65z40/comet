@@ -71,7 +71,7 @@ import SpotifyWidget, { SpotifyExternalCommand } from "../SpotifyWidget";
 import VideoPlayerWidget, { VideoExternalCommand } from "../VideoPlayerWidget";
 import { useBoardSync } from "@/lib/hooks/useBoardSync";
 import { useMediaSync, MediaCommand } from "@/lib/hooks/useMediaSync";
-import TouchKeyboard, { TouchKeyboardToggle } from "@/components/ui/TouchKeyboard";
+import { TouchKeyboardProvider, TouchKeyboardToggle } from "@/components/ui/TouchKeyboard";
 
 interface CardTag {
   id: string;
@@ -746,7 +746,12 @@ export default function BoardScreenPage() {
   ];
 
   return (
+    <TouchKeyboardProvider>
     <>
+    {/* Floating keyboard toggle */}
+    <div className="fixed bottom-4 right-4 z-[10001]">
+      <TouchKeyboardToggle className="w-12 h-12 rounded-full shadow-lg bg-slate-800/90 backdrop-blur-sm border border-slate-700" />
+    </div>
     {/* Fixed zoom controls — outside the zoomed container so they don't shift */}
     {screenTab === "board" && <div className="fixed bottom-4 left-4 z-[10001] flex items-center gap-1 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-xl px-2 py-1 shadow-lg">
       <button
@@ -1068,6 +1073,7 @@ export default function BoardScreenPage() {
       )}
     </div>
     </>
+    </TouchKeyboardProvider>
   );
 }
 
@@ -1462,7 +1468,6 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated }: { column:
   const [newTitle, setNewTitle] = useState("");
   const [newPriority, setNewPriority] = useState(3);
   const [creating, setCreating] = useState(false);
-  const [showKeyboard, setShowKeyboard] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1521,26 +1526,15 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated }: { column:
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setShowForm(false); setNewTitle(""); } }}
-                placeholder="Titre de la carte..."
-                className="flex-1 bg-slate-700/60 border border-slate-600 rounded-lg px-4 py-3 text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
-              />
-              <TouchKeyboardToggle onClick={() => setShowKeyboard((s) => !s)} />
-            </div>
-            {showKeyboard && (
-              <TouchKeyboard
-                value={newTitle}
-                onChange={setNewTitle}
-                onSubmit={handleCreate}
-                onClose={() => setShowKeyboard(false)}
-              />
-            )}
+            <input
+              ref={inputRef}
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setShowForm(false); setNewTitle(""); } }}
+              placeholder="Titre de la carte..."
+              className="w-full bg-slate-700/60 border border-slate-600 rounded-lg px-4 py-3 text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+            />
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 mr-1">Priorité</span>
               {([
