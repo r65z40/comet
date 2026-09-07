@@ -71,6 +71,7 @@ import SpotifyWidget, { SpotifyExternalCommand } from "../SpotifyWidget";
 import VideoPlayerWidget, { VideoExternalCommand } from "../VideoPlayerWidget";
 import { useBoardSync } from "@/lib/hooks/useBoardSync";
 import { useMediaSync, MediaCommand } from "@/lib/hooks/useMediaSync";
+import TouchKeyboard, { TouchKeyboardToggle } from "@/components/ui/TouchKeyboard";
 
 interface CardTag {
   id: string;
@@ -1461,6 +1462,7 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated }: { column:
   const [newTitle, setNewTitle] = useState("");
   const [newPriority, setNewPriority] = useState(3);
   const [creating, setCreating] = useState(false);
+  const [showKeyboard, setShowKeyboard] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1519,15 +1521,26 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated }: { column:
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
           >
-            <input
-              ref={inputRef}
-              type="text"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setShowForm(false); setNewTitle(""); } }}
-              placeholder="Titre de la carte..."
-              className="w-full bg-slate-700/60 border border-slate-600 rounded-lg px-4 py-3 text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setShowForm(false); setNewTitle(""); } }}
+                placeholder="Titre de la carte..."
+                className="flex-1 bg-slate-700/60 border border-slate-600 rounded-lg px-4 py-3 text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+              />
+              <TouchKeyboardToggle onClick={() => setShowKeyboard((s) => !s)} />
+            </div>
+            {showKeyboard && (
+              <TouchKeyboard
+                value={newTitle}
+                onChange={setNewTitle}
+                onSubmit={handleCreate}
+                onClose={() => setShowKeyboard(false)}
+              />
+            )}
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 mr-1">Priorité</span>
               {([
