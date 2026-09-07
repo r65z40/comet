@@ -343,10 +343,6 @@ export default function BoardPage() {
     fetchViews();
   }, [fetchBoard, fetchUsers, fetchNote, fetchTags, fetchViews]);
 
-  useEffect(() => {
-    fetchBoard();
-  }, [filters.showArchived, fetchBoard]);
-
   useBoardSync(fetchBoard);
 
   useEffect(() => {
@@ -397,6 +393,7 @@ export default function BoardPage() {
   }
 
   const enrichedColumns = useMemo(() => {
+    const userMap = new Map(users.map((u) => [u.id, u.name]));
     return columns.map((col) => ({
       ...col,
       cards: col.cards.map((card) => {
@@ -406,9 +403,7 @@ export default function BoardPage() {
         } else if (card.assigneeId) {
           ids = [card.assigneeId];
         }
-        const names = ids
-          .map((uid) => users.find((u) => u.id === uid)?.name)
-          .filter(Boolean) as string[];
+        const names = ids.map((uid) => userMap.get(uid)).filter(Boolean) as string[];
         return { ...card, assigneeNames: names };
       }),
     }));
@@ -421,13 +416,13 @@ export default function BoardPage() {
       { name: "Attente retour client", color: "#f59e0b" },
       { name: "Terminée", color: "#10b981" },
     ];
-    for (const col of defaults) {
-      await fetch("/api/board/columns", {
+    await Promise.all(defaults.map((col) =>
+      fetch("/api/board/columns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(col),
-      });
-    }
+      })
+    ));
     fetchBoard();
   }
 
@@ -686,7 +681,7 @@ export default function BoardPage() {
 
   const hasActiveFilters = filters.search || filters.priority !== null || filters.clientId || filters.assigneeId || filters.tagIds.length > 0;
 
-  const filteredColumns = enrichedColumns.map((col) => ({
+  const filteredColumns = useMemo(() => enrichedColumns.map((col) => ({
     ...col,
     cards: col.cards.filter((card) => {
       if (filters.search) {
@@ -715,7 +710,7 @@ export default function BoardPage() {
       }
       return true;
     }),
-  }));
+  })), [enrichedColumns, filters]);
 
   const totalCards = columns.reduce((sum, col) => sum + col.cards.length, 0);
 

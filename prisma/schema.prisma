@@ -327,6 +327,7 @@ model BoardColumn {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
+  @@index([position])
   @@map("board_columns")
 }
 
@@ -443,6 +444,7 @@ model CardChecklistItem {
   createdAt DateTime  @default(now())
 
   @@index([cardId])
+  @@index([cardId, checked])
   @@map("card_checklist_items")
 }
 

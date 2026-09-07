@@ -375,7 +375,7 @@ export default function BoardScreenPage() {
       refreshIntervalRef.current = setInterval(() => {
         fetchColumns();
         fetchFeed();
-      }, 30000);
+      }, 300000);
     }
     function stopPolling() {
       if (refreshIntervalRef.current) {

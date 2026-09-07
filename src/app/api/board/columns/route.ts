@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
               checklist: true,
             },
           },
-          checklist: { where: { checked: true }, select: { id: true } },
+          checklist: { select: { checked: true } },
         },
       },
     },
