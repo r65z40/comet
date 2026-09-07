@@ -748,10 +748,6 @@ export default function BoardScreenPage() {
   return (
     <TouchKeyboardProvider>
     <>
-    {/* Floating keyboard toggle */}
-    <div className="fixed bottom-4 right-4 z-[10001]">
-      <TouchKeyboardToggle className="w-12 h-12 rounded-full shadow-lg bg-slate-800/90 backdrop-blur-sm border border-slate-700" />
-    </div>
     {/* Fixed zoom controls — outside the zoomed container so they don't shift */}
     {screenTab === "board" && <div className="fixed bottom-4 left-4 z-[10001] flex items-center gap-1 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-xl px-2 py-1 shadow-lg">
       <button
@@ -840,6 +836,9 @@ export default function BoardScreenPage() {
             <RefreshCw className="h-4 w-4" />
             {lastRefresh.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </div>
+
+          {/* Touch keyboard toggle */}
+          <TouchKeyboardToggle className="min-h-[52px] min-w-[52px] rounded-xl" />
 
           {/* Widget visibility settings */}
           <div className="relative">
