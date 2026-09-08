@@ -204,7 +204,7 @@ export default function GeneralTab({
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <img src="/logo.png" alt="Logo par défaut" className="h-16 w-16 rounded-lg bg-white p-1 border border-slate-200 object-contain" />
+                <img src="/logo.svg" alt="Logo par défaut" className="h-16 w-16 rounded-lg bg-white p-1 border border-slate-200 object-contain" />
                 <span className="text-xs text-slate-400">Logo par défaut</span>
               </div>
             )}

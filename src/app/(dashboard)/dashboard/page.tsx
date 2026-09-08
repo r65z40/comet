@@ -867,7 +867,7 @@ export default function DashboardPage() {
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [cometExploding, setCometExploding] = useState(false);
   const [showCedelia, setShowCedelia] = useState(false);
-  const [siteLogo, setSiteLogo] = useState<string>("");
+  const [siteLogo, setSiteLogo] = useState<string>("/logo.svg");
   const layoutLoaded = useRef(false);
 
   const triggerCometExplosion = useCallback(() => {
@@ -1182,7 +1182,7 @@ export default function DashboardPage() {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={siteLogo || "/logo.png"}
+                src={siteLogo || "/logo.svg"}
                 alt="COMET Logo"
                 className="h-10 w-10 rounded-lg object-contain drop-shadow-md"
               />

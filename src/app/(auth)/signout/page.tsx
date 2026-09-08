@@ -6,7 +6,7 @@ import { Loader2, LogOut } from "lucide-react";
 
 export default function SignOutPage() {
   const [loading, setLoading] = useState(false);
-  const [siteLogo, setSiteLogo] = useState("");
+  const [siteLogo, setSiteLogo] = useState("/logo.svg");
 
   useEffect(() => {
     fetch("/api/branding")
@@ -24,7 +24,7 @@ export default function SignOutPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
       <div className="w-full max-w-md space-y-8 px-4 text-center">
         <div>
-          <img src={siteLogo || "/logo.png"} alt="COMET" width={56} height={56} className="mx-auto h-14 w-14 rounded-lg" />
+          <img src={siteLogo || "/logo.svg"} alt="COMET" width={56} height={56} className="mx-auto h-14 w-14 rounded-lg" />
           <h1 className="mt-6 text-2xl font-bold text-slate-900">
             COMET <span className="font-light text-primary-600">- CEDELIA</span>
           </h1>

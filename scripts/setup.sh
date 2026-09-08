@@ -69,7 +69,10 @@ echo "Laisser vide pour http://localhost:3000"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 read -r -p "> " APP_URL
 if [ -n "$APP_URL" ]; then
-  sed -i "s|^AUTH_URL=.*|AUTH_URL=\"${APP_URL}\"|" .env
+  # Strip trailing slashes and whitespace
+  APP_URL=$(echo "$APP_URL" | sed 's|/*$||' | tr -d '[:space:]')
+  # Write without extra quotes — the .env already has the quoting structure
+  sed -i "s|^AUTH_URL=.*|AUTH_URL=${APP_URL}|" .env
   echo "  AUTH_URL mis à jour: ${APP_URL}"
 fi
 echo ""
