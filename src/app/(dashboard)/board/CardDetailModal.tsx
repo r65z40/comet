@@ -97,6 +97,8 @@ interface Props {
   users: { id: string; name: string }[];
   onClose: () => void;
   onArchive?: () => void;
+  onDelete?: () => void;
+  onUpdate?: () => void;
   dark?: boolean;
 }
 
@@ -106,7 +108,7 @@ const PRIORITY_CONFIG: Record<number, { label: string; color: string; darkColor:
   3: { label: "Basse", color: "bg-slate-50 text-slate-600 border-slate-200", darkColor: "bg-slate-700 text-slate-300 border-slate-600" },
 };
 
-export default function CardDetailModal({ cardId, users, onClose, onArchive, dark = false }: Props) {
+export default function CardDetailModal({ cardId, users, onClose, onArchive, onDelete, onUpdate, dark = false }: Props) {
   const [card, setCard] = useState<CardDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -250,11 +252,13 @@ export default function CardDetailModal({ cardId, users, onClose, onArchive, dar
     setEditing(false);
     fetchCard();
     fetchHistory();
+    onUpdate?.();
   }
 
   async function deleteCard() {
     if (!confirm("Supprimer cette carte ?")) return;
     await fetch(`/api/board/cards?id=${cardId}`, { method: "DELETE" });
+    onDelete?.();
     onClose();
   }
 

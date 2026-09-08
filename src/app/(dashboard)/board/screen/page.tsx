@@ -47,7 +47,7 @@ import {
   Tv,
   Plus,
   Send,
-  Eye,
+  GripVertical,
   Maximize,
   Minimize,
   ZoomIn,
@@ -1061,9 +1061,17 @@ export default function BoardScreenPage() {
               }))
             );
           }}
+          onDelete={() => {
+            setColumns((prev) =>
+              prev.map((col) => ({
+                ...col,
+                cards: col.cards.filter((c: BoardCard) => c.id !== selectedCardId),
+              }))
+            );
+          }}
+          onUpdate={fetchColumns}
           onClose={() => {
             setSelectedCardId(null);
-            fetchColumns();
           }}
         />
       )}
@@ -1587,22 +1595,6 @@ function ScreenCard({ card, isDraggingOverlay, onOpen }: { card: BoardCard; isDr
   const style = { transform: CSS.Transform.toString(transform), transition };
   const priorityColors: Record<number, string> = { 1: "border-l-red-500", 2: "border-l-orange-500", 3: "border-l-slate-600" };
   const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  // Two-finger tap opens card detail
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el || !onOpen) return;
-    function handleTwoFingerTap(e: TouchEvent) {
-      if (e.touches.length >= 2) {
-        e.preventDefault();
-        e.stopPropagation();
-        onOpen!();
-      }
-    }
-    el.addEventListener("touchstart", handleTwoFingerTap, { passive: false });
-    return () => el.removeEventListener("touchstart", handleTwoFingerTap);
-  }, [onOpen]);
 
   if (isDragging) {
     return (
@@ -1616,51 +1608,52 @@ function ScreenCard({ card, isDraggingOverlay, onOpen }: { card: BoardCard; isDr
 
   return (
     <div
-      ref={(node) => { setNodeRef(node); (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
+      ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
       className={cn(
-        "group relative bg-slate-700/40 rounded-xl border-l-[3px] hover:bg-slate-700/60 active:bg-slate-700/80 transition-colors cursor-grab active:cursor-grabbing touch-none select-none min-h-[56px]",
+        "group relative bg-slate-700/40 rounded-xl border-l-[3px] hover:bg-slate-700/60 transition-colors select-none min-h-[56px]",
         priorityColors[card.priority] || "border-l-slate-600",
       )}
     >
-      {/* Open button — discreet, visible on hover or touch */}
-      {onOpen && (
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          onClick={onOpen}
-          className="absolute top-1.5 right-1.5 z-10 p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md opacity-30 group-hover:opacity-100 hover:!opacity-100 hover:bg-blue-600/90 text-slate-400 hover:text-white transition-all"
-          title="Ouvrir la carte"
-        >
-          <Eye className="h-4 w-4" />
-        </button>
-      )}
-      {card.client && (
-        <div className="flex items-center gap-2.5 px-4 py-2 bg-blue-500/10 border-b border-blue-500/20 rounded-t-xl">
-          {card.client.logoUrl && <img src={card.client.logoUrl} alt="" className="h-5 w-5 rounded-full object-cover" />}
-          <span className="text-sm font-bold text-blue-300 truncate">{card.client.name}</span>
-        </div>
-      )}
-      <div className="px-4 py-3">
-        <p className="text-base font-medium text-white line-clamp-2 leading-snug">{card.title}</p>
-        {(card.tags.length > 0 || card.dueDate) && (
-          <div className="flex items-center gap-2.5 mt-2 flex-wrap">
-            {card.tags.slice(0, 3).map((t) => (
-              <span key={t.id} className="text-xs px-2 py-1 rounded-md font-medium" style={{ backgroundColor: t.tag.color + "30", color: t.tag.color }}>
-                {t.tag.name}
-              </span>
-            ))}
-            {card.dueDate && (
-              <span className={cn("text-xs px-2 py-1 rounded-md flex items-center gap-1.5 font-medium", isOverdue ? "bg-red-500/20 text-red-400" : "bg-slate-600/50 text-slate-400")}>
-                <Clock className="h-3.5 w-3.5" />
-                {formatDate(card.dueDate)}
-              </span>
-            )}
+      {/* Drag handle — left strip */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute left-0 top-0 bottom-0 w-8 cursor-grab active:cursor-grabbing touch-none z-10 flex items-center justify-center opacity-0 group-hover:opacity-60 transition-opacity"
+        title="Glisser pour déplacer"
+      >
+        <GripVertical className="h-4 w-4 text-slate-500" />
+      </div>
+
+      {/* Tappable area — opens card detail */}
+      <div
+        onClick={onOpen}
+        className="cursor-pointer"
+      >
+        {card.client && (
+          <div className="flex items-center gap-2.5 px-4 py-2 bg-blue-500/10 border-b border-blue-500/20 rounded-t-xl">
+            {card.client.logoUrl && <img src={card.client.logoUrl} alt="" className="h-5 w-5 rounded-full object-cover" />}
+            <span className="text-sm font-bold text-blue-300 truncate">{card.client.name}</span>
           </div>
         )}
+        <div className="px-4 py-3">
+          <p className="text-base font-medium text-white line-clamp-2 leading-snug">{card.title}</p>
+          {(card.tags.length > 0 || card.dueDate) && (
+            <div className="flex items-center gap-2.5 mt-2 flex-wrap">
+              {card.tags.slice(0, 3).map((t) => (
+                <span key={t.id} className="text-xs px-2 py-1 rounded-md font-medium" style={{ backgroundColor: t.tag.color + "30", color: t.tag.color }}>
+                  {t.tag.name}
+                </span>
+              ))}
+              {card.dueDate && (
+                <span className={cn("text-xs px-2 py-1 rounded-md flex items-center gap-1.5 font-medium", isOverdue ? "bg-red-500/20 text-red-400" : "bg-slate-600/50 text-slate-400")}>
+                  <Clock className="h-3.5 w-3.5" />
+                  {formatDate(card.dueDate)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1307,6 +1307,15 @@ export default function BoardPage() {
               }))
             );
           }}
+          onDelete={() => {
+            setColumns((prev) =>
+              prev.map((col) => ({
+                ...col,
+                cards: col.cards.filter((c) => c.id !== selectedCardId),
+              }))
+            );
+          }}
+          onUpdate={fetchBoard}
           onClose={closeCard}
         />
       )}
