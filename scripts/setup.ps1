@@ -102,13 +102,15 @@ if (-not (Test-Path ".env")) {
 
 # Prompt for external URL
 Write-Host "--------------------------------------------" -ForegroundColor DarkGray
-Write-Host "URL d acces (ex: https://comet.mondomaine.fr)"
+Write-Host "URL d acces -- exemple: https://comet.mondomaine.fr"
 Write-Host "Laisser vide pour http://localhost:3000"
 Write-Host "--------------------------------------------" -ForegroundColor DarkGray
 $appUrl = Read-Host ">"
 if ($appUrl) {
+    # Strip whitespace, quotes, parentheses, trailing slashes
+    $appUrl = $appUrl.Trim().Trim('"', "'", '(', ')').TrimEnd('/')
     $envContent = Get-Content ".env" -Raw -Encoding UTF8
-    $envContent = $envContent -replace 'AUTH_URL="[^"]*"', ('AUTH_URL="' + $appUrl + '"')
+    $envContent = $envContent -replace '(?m)^AUTH_URL=.*$', ('AUTH_URL=' + $appUrl)
     [System.IO.File]::WriteAllText((Resolve-Path ".env").Path, $envContent)
     Write-Host "  AUTH_URL mis a jour: $appUrl" -ForegroundColor Green
 }

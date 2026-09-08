@@ -64,15 +64,17 @@ fi
 
 # Prompt for external URL
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "URL d'accès (ex: https://comet.mondomaine.fr)"
+echo "URL d'accès — exemple: https://comet.mondomaine.fr"
 echo "Laisser vide pour http://localhost:3000"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 read -r -p "> " APP_URL
 if [ -n "$APP_URL" ]; then
-  # Strip trailing slashes and whitespace
-  APP_URL=$(echo "$APP_URL" | sed 's|/*$||' | tr -d '[:space:]')
-  # Write without extra quotes — the .env already has the quoting structure
-  sed -i "s|^AUTH_URL=.*|AUTH_URL=${APP_URL}|" .env
+  # Strip trailing slashes, whitespace, and accidental parentheses/quotes
+  APP_URL=$(echo "$APP_URL" | tr -d '[:space:]"'"'"'()' | sed 's|/*$||')
+  # Use grep+printf to avoid sed metacharacter issues with user input
+  grep -q '^AUTH_URL=' .env && \
+    sed -i '/^AUTH_URL=/d' .env
+  printf 'AUTH_URL=%s\n' "$APP_URL" >> .env
   echo "  AUTH_URL mis à jour: ${APP_URL}"
 fi
 echo ""
