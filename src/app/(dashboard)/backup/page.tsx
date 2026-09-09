@@ -170,11 +170,10 @@ export default function BackupPage() {
       const res = await fetch(`/api/backup/${encodeURIComponent(filename)}`, { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        const secrets = data.clearedSecrets as string[] | undefined;
-        if (secrets && secrets.length > 0) {
+        if (data.needsRestart) {
           setMessage({
             type: "success",
-            text: `Base de données restaurée. Secrets à re-saisir dans Paramètres : ${secrets.join(", ")}`,
+            text: "Restauration complète ! Les clés de chiffrement ont été restaurées. Redémarrez l'application (docker compose restart app) pour les appliquer. Tous les mots de passe et clés API seront alors fonctionnels.",
           });
         } else {
           setMessage({ type: "success", text: "Base de données restaurée avec succès" });
@@ -608,7 +607,7 @@ export default function BackupPage() {
                   La restauration remplace toutes les données actuelles. Un backup de sécurité est créé automatiquement avant la restauration.
                 </p>
                 <p className="mt-1">
-                  Les mots de passe chiffrés (SMTP, S3, FTP, clés API) sont automatiquement réinitialisés après la restauration. Vous devrez les re-saisir dans Paramètres.
+                  Les clés de chiffrement et mots de passe sont inclus dans le backup. Après restauration, redémarrez l&apos;application (<code className="bg-amber-100 px-1 rounded">docker compose restart app</code>) pour les appliquer.
                 </p>
               </div>
             </div>
@@ -857,7 +856,7 @@ export default function BackupPage() {
             {
               step: "1",
               title: "Créer un backup sur l'ancienne machine",
-              desc: "Cliquez sur « Créer un backup » ci-dessus. Le fichier .tar.gz contient la base de données complète et les fichiers uploadés.",
+              desc: "Cliquez sur « Créer un backup » ci-dessus. Le fichier .tar.gz contient la base de données complète, les fichiers uploadés, et les clés de chiffrement.",
             },
             {
               step: "2",
@@ -867,17 +866,17 @@ export default function BackupPage() {
             {
               step: "3",
               title: "Installer sur la nouvelle machine",
-              desc: "Lancez setup.sh ou docker compose up -d. L'application démarre avec une base vide et un compte admin par défaut. Pas besoin de copier le .env — le script en génère un nouveau.",
+              desc: "Lancez setup.sh ou docker compose up -d. L'application démarre avec une base vide et un compte admin par défaut.",
             },
             {
               step: "4",
               title: "Importer et restaurer le backup",
-              desc: "Connectez-vous avec le compte admin par défaut, allez dans /backup, importez le fichier .tar.gz, puis cliquez sur « Restaurer ». Toutes les données, paramètres et comptes utilisateurs seront restaurés.",
+              desc: "Connectez-vous avec le compte admin par défaut, allez dans /backup, importez le fichier .tar.gz, puis cliquez sur « Restaurer ». Toutes les données, paramètres, comptes et mots de passe seront restaurés.",
             },
             {
               step: "5",
-              title: "Re-saisir les mots de passe",
-              desc: "Les mots de passe chiffrés (SMTP, clés API, cloud) sont automatiquement réinitialisés. Allez dans Paramètres pour les re-saisir.",
+              title: "Redémarrer l'application",
+              desc: "Exécutez « docker compose restart app » pour appliquer les clés de chiffrement restaurées. Tous les mots de passe chiffrés (SMTP, clés API, cloud) seront alors fonctionnels — rien à re-saisir.",
             },
           ].map((item) => (
             <div key={item.step} className="flex gap-3">
@@ -899,7 +898,7 @@ export default function BackupPage() {
               <p className="font-medium">Données incluses dans le backup</p>
               <p className="mt-1">
                 Base de données complète (clients, factures, produits, installations, paramètres, comptes utilisateurs, historique d&apos;activité)
-                + fichiers uploadés (logos, pièces jointes). Aucun fichier à copier manuellement — seuls les mots de passe chiffrés sont à re-saisir après restauration.
+                + fichiers uploadés (logos, pièces jointes) + clés de chiffrement (ENCRYPTION_KEY, AUTH_SECRET). Restauration complète sans rien à re-saisir — il suffit de redémarrer l&apos;application après restauration.
               </p>
             </div>
           </div>

@@ -101,7 +101,14 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
       throw new Error(`Le fichier de backup SQL est trop petit (${sqlStat.size} octets) — probablement vide ou corrompu`);
     }
 
-    // 2. Check if uploads exist and copy them
+    // 2. Save critical env vars so restore can bring them along
+    const envSnapshot: Record<string, string> = {};
+    for (const k of ["ENCRYPTION_KEY", "AUTH_SECRET", "CRON_SECRET"]) {
+      if (process.env[k]) envSnapshot[k] = process.env[k]!;
+    }
+    await fs.writeFile(path.join(tmpDir, "env.json"), JSON.stringify(envSnapshot));
+
+    // 3. Check if uploads exist and copy them
     const hasUploads = await uploadsExist();
     if (hasUploads) {
       await execAsync(`cp -r "${UPLOADS_DIR}" "${path.join(tmpDir, "uploads")}"`, {
@@ -109,7 +116,7 @@ export async function createBackup(type: "auto" | "manual" = "manual"): Promise<
       });
     }
 
-    // 3. Create a tar.gz archive
+    // 4. Create a tar.gz archive
     const filename = `backup_${type}_${timestamp}.tar.gz`;
     const filepath = path.join(BACKUP_DIR, filename);
 
@@ -268,12 +275,9 @@ export async function getBackupPath(filename: string): Promise<string> {
   }
 }
 
-const ENCRYPTED_SETTING_KEYS = [
-  "axonaut_api_key", "atera_api_key", "smtp_pass",
-  "cloud_s3_secret_key", "cloud_ftp_password",
-];
+const ENV_RESTORED_PATH = path.join(BACKUP_DIR, ".env.restored");
 
-export async function restoreBackup(filename: string): Promise<{ clearedSecrets: string[] }> {
+export async function restoreBackup(filename: string): Promise<{ needsRestart: boolean; hasEnvKeys: boolean }> {
   const filepath = await getBackupPath(filename);
   const dbUrl = getDbUrlForPgDump();
   if (!dbUrl) throw new Error("DATABASE_URL non configurée");
@@ -285,12 +289,16 @@ export async function restoreBackup(filename: string): Promise<{ clearedSecrets:
     console.error("Pre-restore safety backup failed:", err);
   }
 
+  let hasEnvKeys = false;
+
   if (filepath.endsWith(".tar.gz")) {
-    // New format: tar.gz with database.sql.gz + uploads/
     const tmpDir = path.join(BACKUP_DIR, `_restore_${Date.now()}`);
     await fs.mkdir(tmpDir, { recursive: true });
 
     try {
+      // Verify archive integrity before extracting
+      await execAsync(`gzip -t "${filepath}"`, { timeout: 60000 });
+
       await execAsync(`tar -xzf "${filepath}" -C "${tmpDir}"`, { timeout: 300000 });
 
       // Restore database
@@ -300,56 +308,50 @@ export async function restoreBackup(filename: string): Promise<{ clearedSecrets:
         await execAsync(`gunzip -c "${sqlFile}" | psql --single-transaction "${dbUrl}"`, { timeout: 600000 });
       }
 
-      // Restore uploads if present
+      // Restore env keys (ENCRYPTION_KEY, AUTH_SECRET, CRON_SECRET)
+      const envFile = path.join(tmpDir, "env.json");
+      const envExists = await fs.access(envFile).then(() => true).catch(() => false);
+      if (envExists) {
+        const envData = JSON.parse(await fs.readFile(envFile, "utf-8"));
+        if (Object.keys(envData).length > 0) {
+          // Write a shell-sourceable file that entrypoint.sh will pick up on restart
+          const lines = Object.entries(envData)
+            .map(([k, v]) => `export ${k}="${String(v).replace(/"/g, '\\"')}"`)
+            .join("\n");
+          await fs.writeFile(ENV_RESTORED_PATH, lines + "\n", "utf-8");
+          hasEnvKeys = true;
+        }
+      }
+
+      // Clean existing uploads and restore from backup
       const uploadsBackup = path.join(tmpDir, "uploads");
-      try {
-        await fs.access(uploadsBackup);
+      const uploadsBackupExists = await fs.access(uploadsBackup).then(() => true).catch(() => false);
+      if (uploadsBackupExists) {
+        // Remove existing uploads so we get an exact copy
+        await fs.rm(UPLOADS_DIR, { recursive: true, force: true }).catch(() => {});
         await fs.mkdir(UPLOADS_DIR, { recursive: true });
-        await execAsync(`cp -r "${uploadsBackup}/"* "${UPLOADS_DIR}/"`, { timeout: 120000 });
-      } catch {
-        // No uploads in this backup
+        await execAsync(`cp -r "${uploadsBackup}/"* "${UPLOADS_DIR}/" 2>/dev/null || true`, { timeout: 120000 });
       }
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     }
   } else {
-    // Legacy format: .sql.gz
+    // Legacy format: .sql.gz (no env keys or uploads)
     await execAsync(`gunzip -c "${filepath}" | psql --single-transaction "${dbUrl}"`, {
       timeout: 600000,
     });
   }
 
-  // Clear encrypted settings that can't be decrypted with a different ENCRYPTION_KEY
-  const clearedSecrets: string[] = [];
-  try {
-    const encryptedSettings = await prisma.setting.findMany({
-      where: { key: { in: ENCRYPTED_SETTING_KEYS } },
-    });
-    for (const s of encryptedSettings) {
-      if (s.value && s.value.startsWith("enc:")) {
-        await prisma.setting.update({
-          where: { key: s.key },
-          data: { value: "" },
-        });
-        clearedSecrets.push(s.key);
-      }
-    }
-  } catch {
-    // Non-fatal — settings may not exist
-  }
-
-  const secretsLabel = clearedSecrets.length > 0
-    ? ` — ${clearedSecrets.length} secret(s) réinitialisé(s)`
-    : "";
+  const envLabel = hasEnvKeys ? " — clés de chiffrement incluses (redémarrage nécessaire)" : "";
   await prisma.activityLog.create({
     data: {
       action: "RESTORE",
       entity: "system",
-      details: `Base de données restaurée depuis: ${path.basename(filepath)}${secretsLabel}`,
+      details: `Restauration complète depuis: ${path.basename(filepath)}${envLabel}`,
     },
   }).catch(() => {});
 
-  return { clearedSecrets };
+  return { needsRestart: hasEnvKeys, hasEnvKeys };
 }
 
 export async function rotateBackups(retention: number): Promise<number> {

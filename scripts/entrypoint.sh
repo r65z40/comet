@@ -89,5 +89,14 @@ const prisma = new PrismaClient();
 "
 fi
 
+# Apply restored env vars from a backup restore (ENCRYPTION_KEY, AUTH_SECRET, etc.)
+ENV_RESTORED="/app/backups/.env.restored"
+if [ -f "$ENV_RESTORED" ]; then
+  echo "=== Applying restored environment keys ==="
+  . "$ENV_RESTORED"
+  rm -f "$ENV_RESTORED"
+  echo "Restored keys applied and file removed."
+fi
+
 echo "=== Starting application ==="
 exec node server.js
