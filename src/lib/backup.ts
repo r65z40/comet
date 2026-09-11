@@ -277,7 +277,44 @@ export async function getBackupPath(filename: string): Promise<string> {
 
 const ENV_RESTORED_PATH = path.join(BACKUP_DIR, ".env.restored");
 
-export async function restoreBackup(filename: string): Promise<{ needsRestart: boolean; hasEnvKeys: boolean }> {
+export interface RestoreResult {
+  needsRestart: boolean;
+  hasEnvKeys: boolean;
+  summary: {
+    users: number;
+    clients: number;
+    invoices: number;
+    tickets: number;
+    boardCards: number;
+    settings: number;
+    uploads: boolean;
+  };
+}
+
+async function getRestoreSummary(dbUrl: string): Promise<RestoreResult["summary"]> {
+  const counts = { users: 0, clients: 0, invoices: 0, tickets: 0, boardCards: 0, settings: 0, uploads: false };
+  const queries: [keyof typeof counts, string][] = [
+    ["users", "SELECT COUNT(*) FROM users"],
+    ["clients", "SELECT COUNT(*) FROM clients"],
+    ["invoices", "SELECT COUNT(*) FROM invoices"],
+    ["tickets", "SELECT COUNT(*) FROM tickets"],
+    ["boardCards", "SELECT COUNT(*) FROM board_cards"],
+    ["settings", "SELECT COUNT(*) FROM settings"],
+  ];
+  for (const [key, sql] of queries) {
+    try {
+      const { stdout } = await execAsync(`psql "${dbUrl}" -t -c "${sql}"`, { timeout: 10000 });
+      (counts as Record<string, number | boolean>)[key] = parseInt(stdout.trim()) || 0;
+    } catch { /* table may not exist */ }
+  }
+  try {
+    const entries = await fs.readdir(UPLOADS_DIR, { recursive: true });
+    counts.uploads = entries.length > 0;
+  } catch { /* no uploads */ }
+  return counts;
+}
+
+export async function restoreBackup(filename: string): Promise<RestoreResult> {
   const filepath = await getBackupPath(filename);
   const dbUrl = getDbUrlForPgDump();
   if (!dbUrl) throw new Error("DATABASE_URL non configurée");
@@ -301,11 +338,34 @@ export async function restoreBackup(filename: string): Promise<{ needsRestart: b
 
       await execAsync(`tar -xzf "${filepath}" -C "${tmpDir}"`, { timeout: 300000 });
 
-      // Restore database
+      // Restore database — NO --single-transaction: it causes silent rollback
+      // if any statement fails (e.g. DROP on a nonexistent extension).
+      // Instead, use ON_ERROR_STOP so psql stops on real errors.
       const sqlFile = path.join(tmpDir, "database.sql.gz");
       const sqlExists = await fs.access(sqlFile).then(() => true).catch(() => false);
       if (sqlExists) {
-        await execAsync(`gunzip -c "${sqlFile}" | psql --single-transaction "${dbUrl}"`, { timeout: 600000 });
+        try {
+          const { stderr } = await execAsync(
+            `gunzip -c "${sqlFile}" | psql --set ON_ERROR_STOP=1 "${dbUrl}"`,
+            { timeout: 600000 },
+          );
+          if (stderr) console.warn("[restore] psql warnings:", stderr.slice(0, 2000));
+        } catch (psqlErr) {
+          // ON_ERROR_STOP makes psql exit non-zero on error.
+          // Check if it was a non-fatal error (like "table already exists" warnings)
+          // vs a real failure by checking if data was actually restored.
+          const errMsg = psqlErr instanceof Error ? psqlErr.message : String(psqlErr);
+          console.error("[restore] psql error:", errMsg.slice(0, 2000));
+
+          // Retry without ON_ERROR_STOP to be more permissive — some errors
+          // (duplicate key, extension not available) are non-fatal in practice.
+          console.log("[restore] Retrying without ON_ERROR_STOP...");
+          const { stderr: stderr2 } = await execAsync(
+            `gunzip -c "${sqlFile}" | psql "${dbUrl}"`,
+            { timeout: 600000 },
+          );
+          if (stderr2) console.warn("[restore] psql retry warnings:", stderr2.slice(0, 2000));
+        }
       }
 
       // Restore env keys (ENCRYPTION_KEY, AUTH_SECRET, CRON_SECRET)
@@ -314,7 +374,6 @@ export async function restoreBackup(filename: string): Promise<{ needsRestart: b
       if (envExists) {
         const envData = JSON.parse(await fs.readFile(envFile, "utf-8"));
         if (Object.keys(envData).length > 0) {
-          // Write a shell-sourceable file that entrypoint.sh will pick up on restart
           const lines = Object.entries(envData)
             .map(([k, v]) => `export ${k}="${String(v).replace(/"/g, '\\"')}"`)
             .join("\n");
@@ -327,7 +386,6 @@ export async function restoreBackup(filename: string): Promise<{ needsRestart: b
       const uploadsBackup = path.join(tmpDir, "uploads");
       const uploadsBackupExists = await fs.access(uploadsBackup).then(() => true).catch(() => false);
       if (uploadsBackupExists) {
-        // Remove existing uploads so we get an exact copy
         await fs.rm(UPLOADS_DIR, { recursive: true, force: true }).catch(() => {});
         await fs.mkdir(UPLOADS_DIR, { recursive: true });
         await execAsync(`cp -r "${uploadsBackup}/"* "${UPLOADS_DIR}/" 2>/dev/null || true`, { timeout: 120000 });
@@ -336,22 +394,41 @@ export async function restoreBackup(filename: string): Promise<{ needsRestart: b
       await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     }
   } else {
-    // Legacy format: .sql.gz (no env keys or uploads)
-    await execAsync(`gunzip -c "${filepath}" | psql --single-transaction "${dbUrl}"`, {
-      timeout: 600000,
-    });
+    // Legacy format: .sql.gz
+    try {
+      await execAsync(
+        `gunzip -c "${filepath}" | psql --set ON_ERROR_STOP=1 "${dbUrl}"`,
+        { timeout: 600000 },
+      );
+    } catch {
+      await execAsync(
+        `gunzip -c "${filepath}" | psql "${dbUrl}"`,
+        { timeout: 600000 },
+      );
+    }
   }
 
-  const envLabel = hasEnvKeys ? " — clés de chiffrement incluses (redémarrage nécessaire)" : "";
+  // Count what was actually restored
+  const summary = await getRestoreSummary(dbUrl);
+
+  // Verify restore actually worked — if users table is empty, something went wrong
+  if (summary.users === 0) {
+    throw new Error(
+      "La restauration a échoué : la base de données est vide après l'import. " +
+      "Vérifiez que le fichier de backup est valide et que les versions de PostgreSQL sont compatibles."
+    );
+  }
+
+  const envLabel = hasEnvKeys ? " — clés de chiffrement incluses" : "";
   await prisma.activityLog.create({
     data: {
       action: "RESTORE",
       entity: "system",
-      details: `Restauration complète depuis: ${path.basename(filepath)}${envLabel}`,
+      details: `Restauration depuis ${path.basename(filepath)}${envLabel} — ${summary.users} utilisateur(s), ${summary.clients} client(s), ${summary.invoices} facture(s)`,
     },
   }).catch(() => {});
 
-  return { needsRestart: hasEnvKeys, hasEnvKeys };
+  return { needsRestart: hasEnvKeys, hasEnvKeys, summary };
 }
 
 export async function rotateBackups(retention: number): Promise<number> {

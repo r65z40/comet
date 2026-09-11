@@ -170,14 +170,26 @@ export default function BackupPage() {
       const res = await fetch(`/api/backup/${encodeURIComponent(filename)}`, { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        if (data.needsRestart) {
-          setMessage({
-            type: "success",
-            text: "Restauration complète ! Les clés de chiffrement ont été restaurées. Redémarrez l'application (docker compose restart app) pour les appliquer. Tous les mots de passe et clés API seront alors fonctionnels.",
-          });
-        } else {
-          setMessage({ type: "success", text: "Base de données restaurée avec succès" });
+        const s = data.summary as { users: number; clients: number; invoices: number; tickets: number; boardCards: number; settings: number; uploads: boolean } | undefined;
+        const summaryParts: string[] = [];
+        if (s) {
+          if (s.users) summaryParts.push(`${s.users} utilisateur(s)`);
+          if (s.clients) summaryParts.push(`${s.clients} client(s)`);
+          if (s.invoices) summaryParts.push(`${s.invoices} facture(s)`);
+          if (s.tickets) summaryParts.push(`${s.tickets} ticket(s)`);
+          if (s.boardCards) summaryParts.push(`${s.boardCards} carte(s) board`);
+          if (s.settings) summaryParts.push(`${s.settings} paramètre(s)`);
+          if (s.uploads) summaryParts.push("fichiers uploadés");
         }
+        const summaryText = summaryParts.length > 0 ? ` — ${summaryParts.join(", ")}` : "";
+        const restartText = data.needsRestart
+          ? " Redémarrez l'application (docker compose restart app) pour appliquer les clés de chiffrement."
+          : "";
+        setMessage({
+          type: "success",
+          text: `Restauration réussie${summaryText}.${restartText}`,
+        });
+        await loadBackups();
       } else {
         setMessage({ type: "error", text: data.error || "Erreur lors de la restauration" });
       }

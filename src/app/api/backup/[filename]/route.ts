@@ -68,17 +68,19 @@ export async function POST(
 
   try {
     const { filename } = await params;
-    const { needsRestart, hasEnvKeys } = await restoreBackup(filename);
+    const { needsRestart, hasEnvKeys, summary } = await restoreBackup(filename);
     return NextResponse.json({
       success: true,
       needsRestart,
       hasEnvKeys,
+      summary,
       message: needsRestart
         ? "Restauration complète. Redémarrez l'application pour appliquer les clés de chiffrement."
         : "Base de données restaurée avec succès",
     });
   } catch (err) {
     console.error("Backup restore error:", err);
-    return NextResponse.json({ error: "Erreur lors de la restauration" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "Erreur lors de la restauration";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
