@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/db";
 import { sendEmail, getSmtpConfig, getNotificationConfig } from "@/lib/email";
+import { escapeHtml } from "@/lib/utils";
 import { cloudUpload, cloudDelete, cloudList, getCloudConfig } from "@/lib/backup-cloud";
 import { getSettings } from "@/lib/settings";
 
@@ -472,7 +473,7 @@ export async function sendBackupFailureNotification(error: string): Promise<void
       <h2 style="color:#ef4444">⚠ Échec du backup automatique</h2>
       <p style="color:#64748b">Le backup automatique de la base de données COMET CEDELIA a échoué.</p>
       <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0">
-        <p style="color:#991b1b;margin:0;font-family:monospace;font-size:13px">${error}</p>
+        <p style="color:#991b1b;margin:0;font-family:monospace;font-size:13px">${escapeHtml(error)}</p>
       </div>
       <p style="color:#64748b;font-size:13px">
         Date: ${new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}

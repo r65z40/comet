@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { executeCronJob } from "@/lib/cron-scheduler";
 
 /**
@@ -15,8 +16,10 @@ export async function GET(req: NextRequest) {
     console.error("[cron] CRON_SECRET not configured — endpoint disabled for security");
     return NextResponse.json({ error: "Endpoint non configuré" }, { status: 503 });
   }
-  const secret = req.headers.get("x-cron-secret");
-  if (secret !== cronSecret) {
+  const secret = req.headers.get("x-cron-secret") || "";
+  const secretBuf = Buffer.from(secret);
+  const expectedBuf = Buffer.from(cronSecret);
+  if (secretBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(secretBuf, expectedBuf)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 

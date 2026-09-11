@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { createHash } from "crypto";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // GET: Validate token
 export async function GET(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const { allowed, retryAfterMs } = checkRateLimit(`reset-password:${ip}`, 5, 60_000);
+  if (!allowed) return rateLimitResponse(retryAfterMs);
+
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
 
@@ -11,8 +17,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ valid: false, error: "Token manquant" }, { status: 400 });
   }
 
+  // Hash the incoming token to match against stored hash
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+
   const reset = await prisma.passwordReset.findUnique({
-    where: { token },
+    where: { token: tokenHash },
     include: { user: { select: { name: true, email: true } } },
   });
 
@@ -31,6 +40,10 @@ export async function GET(req: NextRequest) {
 
 // POST: Reset password
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const { allowed, retryAfterMs } = checkRateLimit(`reset-password:${ip}`, 5, 60_000);
+  if (!allowed) return rateLimitResponse(retryAfterMs);
+
   try {
     const { token, password } = await req.json();
 
@@ -42,8 +55,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères" }, { status: 400 });
     }
 
+    // Hash the incoming token to match against stored hash
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+
     const reset = await prisma.passwordReset.findUnique({
-      where: { token },
+      where: { token: tokenHash },
     });
 
     if (!reset || reset.used || reset.expiresAt < new Date()) {

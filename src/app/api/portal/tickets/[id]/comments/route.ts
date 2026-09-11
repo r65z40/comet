@@ -4,6 +4,7 @@ import { verifyPortalToken } from "@/lib/portal-auth";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
 import { notifyAdmins } from "@/lib/notifications";
 import { addAteraTicketComment } from "@/lib/atera";
+import { escapeHtml } from "@/lib/utils";
 
 // POST: Client adds a comment to their ticket
 export async function POST(
@@ -79,10 +80,10 @@ export async function POST(
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px">
             <h2 style="color:#1e293b;margin-top:0">Nouvelle réponse client</h2>
-            <p style="color:#475569"><strong>${payload.name}</strong> (${ticket.client.name}) a répondu au ticket :</p>
+            <p style="color:#475569"><strong>${escapeHtml(payload.name)}</strong> (${escapeHtml(ticket.client.name)}) a répondu au ticket :</p>
             <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0">
-              <p style="color:#64748b;font-size:13px;margin:0 0 8px">Ticket : <strong>${ticket.title}</strong></p>
-              <div style="color:#1e293b">${content}</div>
+              <p style="color:#64748b;font-size:13px;margin:0 0 8px">Ticket : <strong>${escapeHtml(ticket.title)}</strong></p>
+              <div style="color:#1e293b">${escapeHtml(content)}</div>
             </div>
           </div>
         </div>
@@ -90,7 +91,7 @@ export async function POST(
 
       sendEmail(
         adminEmails,
-        `[Ticket] Réponse : ${ticket.title} — ${ticket.client.name}`,
+        `[Ticket] Réponse : ${ticket.title.replace(/[<>]/g, "")} — ${ticket.client.name.replace(/[<>]/g, "")}`,
         html
       ).catch((err) => console.error("Email notification error:", err));
     }

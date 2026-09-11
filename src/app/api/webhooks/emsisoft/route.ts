@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/db";
 import { notifyAdmins } from "@/lib/notifications";
 import { getSettings } from "@/lib/settings";
@@ -6,11 +7,14 @@ import { getSettings } from "@/lib/settings";
 export async function POST(req: NextRequest) {
   const settings = await getSettings(["webhook_secret"]);
   const expectedSecret = settings.webhook_secret;
-  if (expectedSecret) {
-    const providedSecret = req.headers.get("x-webhook-secret");
-    if (providedSecret !== expectedSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!expectedSecret) {
+    return NextResponse.json({ error: "Webhook non configuré" }, { status: 503 });
+  }
+  const providedSecret = req.headers.get("x-webhook-secret") || "";
+  const providedBuf = Buffer.from(providedSecret);
+  const expectedBuf = Buffer.from(expectedSecret);
+  if (providedBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(providedBuf, expectedBuf)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = await req.json();

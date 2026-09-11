@@ -14,10 +14,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_GIT_HASH: gitHash,
   },
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "**" },
-      { protocol: "http", hostname: "**" },
-    ],
+    remotePatterns: [],
   },
   experimental: {
     serverActions: {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
+import { validateFileExtension } from "@/lib/upload-validation";
 
 // Allow large uploads (500MB)
 export const runtime = "nodejs";
@@ -25,9 +26,7 @@ const ALLOWED_TYPES = new Set([
   "image/png",
   "image/gif",
   "image/webp",
-  "image/svg+xml",
   "application/zip",
-  "application/x-7z-compressed",
 ]);
 
 // POST /api/knowledge/attachments — upload attachment
@@ -56,8 +55,14 @@ export async function POST(req: NextRequest) {
 
   await mkdir(UPLOAD_DIR, { recursive: true });
 
-  const ext = path.extname(file.name);
-  const baseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
+  // Validate file extension
+  const ext = validateFileExtension(file.name);
+  if (!ext) {
+    return NextResponse.json({ error: "Extension de fichier non autorisée" }, { status: 400 });
+  }
+
+  const rawExt = path.extname(file.name);
+  const baseName = path.basename(file.name, rawExt).replace(/[^a-zA-Z0-9_-]/g, "_");
   const uniqueName = `${Date.now()}-${baseName}${ext}`;
   const filePath = path.join(UPLOAD_DIR, uniqueName);
 

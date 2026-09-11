@@ -4,6 +4,7 @@ import { verifyPortalToken } from "@/lib/portal-auth";
 import { syncTicketToAtera, getAteraConfig } from "@/lib/atera";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
 import { notifyAdmins } from "@/lib/notifications";
+import { escapeHtml } from "@/lib/utils";
 
 // GET: List client's tickets
 export async function GET(req: NextRequest) {
@@ -99,14 +100,14 @@ export async function POST(req: NextRequest) {
           <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
             <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px">
               <h2 style="color:#1e293b;margin-top:0">Nouveau ticket client</h2>
-              <p style="color:#475569"><strong>${payload.name}</strong> (${client?.name || "Client"}) a ouvert un ticket :</p>
+              <p style="color:#475569"><strong>${escapeHtml(payload.name)}</strong> (${escapeHtml(client?.name || "Client")}) a ouvert un ticket :</p>
               <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0">
-                <p style="margin:0 0 8px"><strong style="color:#1e293b">${title}</strong></p>
+                <p style="margin:0 0 8px"><strong style="color:#1e293b">${escapeHtml(title)}</strong></p>
                 <p style="color:#64748b;font-size:13px;margin:0 0 4px">
-                  Priorité : <span style="color:${priorityColors[priority] || "#64748b"};font-weight:bold">${priority || "Medium"}</span>
-                  &nbsp;—&nbsp;Type : ${type || "Incident"}
+                  Priorité : <span style="color:${priorityColors[priority] || "#64748b"};font-weight:bold">${escapeHtml(priority || "Medium")}</span>
+                  &nbsp;—&nbsp;Type : ${escapeHtml(type || "Incident")}
                 </p>
-                <div style="color:#475569;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0">${description}</div>
+                <div style="color:#475569;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0">${escapeHtml(description)}</div>
               </div>
             </div>
           </div>
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
 
         sendEmail(
           adminEmails,
-          `[Ticket] ${title} — ${client?.name || "Client"}`,
+          `[Ticket] ${title.replace(/[<>]/g, "")} — ${(client?.name || "Client").replace(/[<>]/g, "")}`,
           html
         ).catch((err) => console.error("Email notification error:", err));
       }

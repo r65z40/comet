@@ -5,6 +5,7 @@ import { getValidToken } from "@/lib/spotify";
 export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (session.user?.role !== "ADMIN") return NextResponse.json({ error: "Accès interdit" }, { status: 403 });
 
   try {
     const token = await getValidToken();

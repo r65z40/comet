@@ -3,31 +3,34 @@ set -e
 
 echo "=== Comet startup ==="
 
-# Warn if default secrets are still in use
+# Block startup if default secrets are still in use
 if [ "$AUTH_SECRET" = "defaultsecret_changeme_in_production" ]; then
   echo ""
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-  echo "  WARNING: AUTH_SECRET is set to the default value!"
+  echo "  ERROR: AUTH_SECRET is set to the default value!"
   echo "  Generate a secure secret: openssl rand -base64 32"
   echo "  Set it in your .env or docker-compose.yml"
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   echo ""
+  exit 1
 fi
 if [ "$CRON_SECRET" = "comet_cron_secret_2024" ]; then
   echo ""
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-  echo "  WARNING: CRON_SECRET is set to the default value!"
+  echo "  ERROR: CRON_SECRET is set to the default value!"
   echo "  Generate a secure secret: openssl rand -base64 16"
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   echo ""
+  exit 1
 fi
 if echo "$DATABASE_URL" | grep -q "comet_secure_2024"; then
   echo ""
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-  echo "  WARNING: POSTGRES_PASSWORD is set to the default!"
+  echo "  ERROR: POSTGRES_PASSWORD is set to the default!"
   echo "  Run setup.sh or change it in your .env file."
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   echo ""
+  exit 1
 fi
 if [ -z "$ENCRYPTION_KEY" ]; then
   echo ""

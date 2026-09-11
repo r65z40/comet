@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { escapeHtml } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,23 +37,22 @@ export async function POST(req: NextRequest) {
         data: { used: true },
       });
 
+      // Generate secure token — store SHA-256 hash in DB, send raw token in email
       const token = randomBytes(32).toString("hex");
+      const tokenHash = createHash("sha256").update(token).digest("hex");
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
       await prisma.clientPasswordReset.create({
         data: {
           clientUserId: clientUser.id,
-          token,
+          token: tokenHash,
           expiresAt,
         },
       });
 
-      const baseUrl = req.headers.get("origin") || req.headers.get("x-forwarded-host") || "http://localhost:3000";
-      const protocol = req.headers.get("x-forwarded-proto") || "http";
-      const host = req.headers.get("host") || "localhost:3000";
-      const resetUrl = req.headers.get("origin")
-        ? `${baseUrl}/portal/reset-password?token=${token}`
-        : `${protocol}://${host}/portal/reset-password?token=${token}`;
+      // Build reset URL from server-side config to prevent host header injection
+      const baseUrl = (process.env.AUTH_URL || "http://localhost:3000").replace(/\/+$/, "");
+      const resetUrl = `${baseUrl}/portal/reset-password?token=${token}`;
 
       const html = `
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
@@ -61,18 +61,18 @@ export async function POST(req: NextRequest) {
           </div>
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:32px">
             <h2 style="color:#1e293b;margin-top:0">Réinitialisation de mot de passe</h2>
-            <p style="color:#475569">Bonjour <strong>${clientUser.name}</strong>,</p>
-            <p style="color:#475569">Vous avez demandé la réinitialisation de votre mot de passe pour l'espace client <strong>${clientUser.client.name}</strong>.</p>
+            <p style="color:#475569">Bonjour <strong>${escapeHtml(clientUser.name)}</strong>,</p>
+            <p style="color:#475569">Vous avez demandé la réinitialisation de votre mot de passe pour l'espace client <strong>${escapeHtml(clientUser.client.name)}</strong>.</p>
             <p style="color:#475569">Cliquez sur le bouton ci-dessous :</p>
             <div style="text-align:center;margin:32px 0">
-              <a href="${resetUrl}" style="background:#2563eb;color:white;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">
+              <a href="${escapeHtml(resetUrl)}" style="background:#2563eb;color:white;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">
                 Réinitialiser mon mot de passe
               </a>
             </div>
             <p style="color:#94a3b8;font-size:13px">Ce lien expire dans <strong>1 heure</strong>.</p>
             <p style="color:#94a3b8;font-size:13px">Si vous n'avez pas fait cette demande, ignorez cet email.</p>
             <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0" />
-            <p style="color:#cbd5e1;font-size:11px">Lien direct : ${resetUrl}</p>
+            <p style="color:#cbd5e1;font-size:11px">Lien direct : ${escapeHtml(resetUrl)}</p>
           </div>
         </div>
       `;

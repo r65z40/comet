@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { validateImageExtension } from "@/lib/upload-validation";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "knowledge", "images");
 
@@ -27,8 +28,14 @@ export async function POST(req: NextRequest) {
 
   await mkdir(UPLOAD_DIR, { recursive: true });
 
-  const ext = path.extname(file.name) || ".png";
-  const baseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
+  // Validate image extension (reject .svg and other dangerous types)
+  const ext = validateImageExtension(file.name);
+  if (!ext) {
+    return NextResponse.json({ error: "Extension de fichier non autorisée" }, { status: 400 });
+  }
+
+  const rawExt = path.extname(file.name);
+  const baseName = path.basename(file.name, rawExt).replace(/[^a-zA-Z0-9_-]/g, "_");
   const uniqueName = `${Date.now()}-${baseName}${ext}`;
   const filePath = path.join(UPLOAD_DIR, uniqueName);
 

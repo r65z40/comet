@@ -4,11 +4,12 @@ import { auth } from "@/lib/auth";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
 import { boardEvents } from "@/lib/board-events";
+import { validateFileExtension } from "@/lib/upload-validation";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "board");
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
-  "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+  "image/jpeg", "image/png", "image/gif", "image/webp",
   "application/pdf",
   "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -41,9 +42,15 @@ export async function POST(req: NextRequest) {
 
   await mkdir(UPLOAD_DIR, { recursive: true });
 
+  // Validate file extension
+  const ext = validateFileExtension(file.name);
+  if (!ext) {
+    return NextResponse.json({ error: "Extension de fichier non autorisée" }, { status: 400 });
+  }
+
   // Generate unique filename
-  const ext = path.extname(file.name);
-  const baseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
+  const rawExt = path.extname(file.name);
+  const baseName = path.basename(file.name, rawExt).replace(/[^a-zA-Z0-9_-]/g, "_");
   const uniqueName = `${Date.now()}-${baseName}${ext}`;
   const filePath = path.join(UPLOAD_DIR, uniqueName);
 

@@ -3,13 +3,17 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { randomBytes } from "crypto";
 import { sendEmail } from "@/lib/email";
+import { escapeHtml } from "@/lib/utils";
 
 function buildInviteEmailHtml(userName: string, clientName: string, inviteUrl: string, companyLogo?: string | null, clientLogo?: string | null): string {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || "COMET";
+  const appName = escapeHtml(process.env.NEXT_PUBLIC_APP_NAME || "COMET");
+  const safeUserName = escapeHtml(userName);
+  const safeClientName = escapeHtml(clientName);
+  const safeInviteUrl = escapeHtml(inviteUrl);
   const logosHtml = (companyLogo || clientLogo)
     ? `<div style="text-align: center; margin-bottom: 24px;">
-        ${companyLogo ? `<img src="${companyLogo}" alt="${appName}" style="max-height: 32px; max-width: 120px; object-fit: contain; margin: 0 8px;" />` : ""}
-        ${clientLogo ? `<img src="${clientLogo}" alt="${clientName}" style="max-height: 32px; max-width: 120px; object-fit: contain; margin: 0 8px;" />` : ""}
+        ${companyLogo ? `<img src="${escapeHtml(companyLogo)}" alt="${appName}" style="max-height: 32px; max-width: 120px; object-fit: contain; margin: 0 8px;" />` : ""}
+        ${clientLogo ? `<img src="${escapeHtml(clientLogo)}" alt="${safeClientName}" style="max-height: 32px; max-width: 120px; object-fit: contain; margin: 0 8px;" />` : ""}
       </div>`
     : "";
   return `
@@ -19,15 +23,15 @@ function buildInviteEmailHtml(userName: string, clientName: string, inviteUrl: s
         <h1 style="color: #1e293b; font-size: 24px; margin: 0;">${appName}</h1>
       </div>
       <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px;">
-        <h2 style="color: #1e293b; font-size: 20px; margin: 0 0 16px;">Bonjour ${userName},</h2>
+        <h2 style="color: #1e293b; font-size: 20px; margin: 0 0 16px;">Bonjour ${safeUserName},</h2>
         <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
-          Vous avez été invité(e) à accéder à l'espace client de <strong>${clientName}</strong>.
+          Vous avez été invité(e) à accéder à l'espace client de <strong>${safeClientName}</strong>.
         </p>
         <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
           Cliquez sur le bouton ci-dessous pour créer votre mot de passe et activer votre compte :
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${inviteUrl}" style="display: inline-block; background: #3b82f6; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 600;">
+          <a href="${safeInviteUrl}" style="display: inline-block; background: #3b82f6; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 600;">
             Activer mon compte
           </a>
         </div>
@@ -37,7 +41,7 @@ function buildInviteEmailHtml(userName: string, clientName: string, inviteUrl: s
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0 16px;" />
         <p style="color: #94a3b8; font-size: 11px; margin: 0;">
           Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br />
-          <a href="${inviteUrl}" style="color: #3b82f6; word-break: break-all;">${inviteUrl}</a>
+          <a href="${safeInviteUrl}" style="color: #3b82f6; word-break: break-all;">${safeInviteUrl}</a>
         </p>
       </div>
     </div>
@@ -70,7 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     data: { inviteToken: token, inviteTokenExpiry: expiry },
   });
 
-  const origin = req.headers.get("origin") || req.nextUrl.origin;
+  const origin = (process.env.AUTH_URL || "http://localhost:3000").replace(/\/+$/, "");
   const inviteUrl = `${origin}/portal/setup?token=${token}`;
 
   // Fetch company logo for email branding
