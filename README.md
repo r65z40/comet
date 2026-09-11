@@ -48,9 +48,9 @@ docker compose logs app | grep -A3 "Admin"
 
 **Changer le mot de passe immediatement** : Parametres > Utilisateurs.
 
-### 4. Reverse proxy HTTPS (recommande)
+### 4. HTTPS avec Caddy (recommande)
 
-**Caddy** (le plus simple, HTTPS automatique) :
+Caddy obtient et renouvelle automatiquement les certificats Let's Encrypt :
 
 ```bash
 sudo apt install -y caddy
@@ -60,9 +60,17 @@ echo 'comet.mondomaine.fr {
 sudo systemctl restart caddy
 ```
 
-**Nginx** :
+C'est tout. Caddy gere le HTTPS, la redirection HTTP→HTTPS et le renouvellement.
+
+<details>
+<summary><strong>Alternative : Nginx + Certbot</strong></summary>
+
+```bash
+sudo apt install -y nginx certbot python3-certbot-nginx
+```
 
 ```nginx
+# /etc/nginx/sites-available/comet
 server {
     listen 80;
     server_name comet.mondomaine.fr;
@@ -72,10 +80,35 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
         client_max_body_size 500M;
     }
 }
 ```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/comet /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d comet.mondomaine.fr
+```
+
+Certbot ajoute automatiquement la config SSL et programme le renouvellement.
+
+</details>
+
+### 5. Changer le port (optionnel)
+
+Par defaut l'application ecoute sur le port **3000**. Pour changer :
+
+```bash
+# Dans .env
+APP_PORT=8080
+```
+
+Puis redemarrer : `docker compose up -d`
+
+L'app sera accessible sur `http://localhost:8080`. Adapter le `reverse_proxy` en consequence.
 
 ---
 
@@ -207,8 +240,18 @@ Depuis l'interface : Parametres > Sauvegarde > cliquer sur un backup > Restaurer
 La restauration :
 1. Cree un backup de securite de l'etat actuel avant de restaurer
 2. Decompresse l'archive
-3. Restaure la base dans une transaction unique (`--single-transaction`)
+3. Restaure la base de donnees (avec verification du nombre d'enregistrements importes)
 4. Restaure les fichiers uploades si presents dans l'archive
+5. Affiche un resume : nombre d'utilisateurs, clients, factures, tickets importes
+
+### Migration vers un autre serveur
+
+1. Creer un backup depuis Parametres > Sauvegarde
+2. Telecharger le fichier `.tar.gz`
+3. Installer Comet sur le nouveau serveur (`bash scripts/setup.sh`)
+4. Uploader le backup dans Parametres > Sauvegarde
+5. Cliquer sur Restaurer — les cles de chiffrement sont incluses dans le backup
+6. Redemarrer l'application : `docker compose restart app`
 
 ### Backup/restauration en ligne de commande
 
@@ -384,7 +427,7 @@ prisma/
 |----------|----------|
 | L'app ne demarre pas | `docker compose logs app` — verifier les erreurs |
 | Erreur connexion DB | Verifier que `POSTGRES_PASSWORD` correspond dans `DATABASE_URL` |
-| Port 3000 occupe | Changer `APP_PORT` dans `.env` |
+| Port 3000 occupe | Changer `APP_PORT` dans `.env` puis `docker compose up -d` |
 | Migrations echouent | `docker compose logs app` — verifier l'acces DB |
 | Emails ne partent pas | Parametres > Alertes Email > tester la config SMTP |
 | HTTPS ne fonctionne pas | Verifier le DNS (A record) et le reverse proxy |
