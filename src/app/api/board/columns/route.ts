@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const { name, color } = body;
+  const { name, color, redCardEnabled } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Le nom est requis" }, { status: 400 });
@@ -51,7 +51,12 @@ export async function POST(req: NextRequest) {
   const position = (maxPos._max.position ?? -1) + 1;
 
   const column = await prisma.boardColumn.create({
-    data: { name: name.trim(), color: color || "#3b82f6", position },
+    data: {
+      name: name.trim(),
+      color: color || "#3b82f6",
+      position,
+      ...(redCardEnabled !== undefined && { redCardEnabled: !!redCardEnabled }),
+    },
   });
 
   boardEvents.emit({ type: "column:create", columnId: column.id, userId: session.user?.id });
@@ -79,7 +84,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
-  const { id, name, color, position } = body;
+  const { id, name, color, position, redCardEnabled, redCardCount } = body;
 
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
@@ -89,6 +94,8 @@ export async function PUT(req: NextRequest) {
       ...(name !== undefined && { name: name.trim() }),
       ...(color !== undefined && { color }),
       ...(position !== undefined && { position }),
+      ...(redCardEnabled !== undefined && { redCardEnabled: !!redCardEnabled }),
+      ...(redCardCount !== undefined && { redCardCount: Math.max(0, Math.min(5, Number(redCardCount))) }),
     },
   });
 

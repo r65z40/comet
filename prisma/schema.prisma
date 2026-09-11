@@ -319,13 +319,15 @@ model Setting {
 // ─── Tableau de communication (Board) ───────────────────────────
 
 model BoardColumn {
-  id        String      @id @default(cuid())
-  name      String
-  color     String      @default("#3b82f6")
-  position  Int         @default(0)
-  cards     BoardCard[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id             String      @id @default(cuid())
+  name           String
+  color          String      @default("#3b82f6")
+  position       Int         @default(0)
+  redCardEnabled Boolean     @default(false)
+  redCardCount   Int         @default(0)
+  cards          BoardCard[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   @@index([position])
   @@map("board_columns")

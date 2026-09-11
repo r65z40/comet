@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, MoreHorizontal, Pencil, Trash2, X, Check, Search, Building2, User, UserCheck, GripVertical } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, X, Check, Search, Building2, User, UserCheck, GripVertical, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
+import RedCardSquare, { RedCardAnimation } from "@/components/board/RedCardSquare";
 
 interface CardTag {
   id: string;
@@ -37,6 +38,8 @@ interface BoardColumn {
   name: string;
   color: string;
   position: number;
+  redCardEnabled: boolean;
+  redCardCount: number;
   cards: BoardCard[];
 }
 
@@ -44,7 +47,7 @@ interface Props {
   column: BoardColumn;
   users: { id: string; name: string }[];
   onDeleteColumn: (id: string) => void;
-  onUpdateColumn: (id: string, data: { name?: string; color?: string }) => void;
+  onUpdateColumn: (id: string, data: { name?: string; color?: string; redCardEnabled?: boolean; redCardCount?: number }) => void;
   onCardClick: (cardId: string) => void;
   onCardCreated: () => void;
 }
@@ -61,6 +64,7 @@ export default function KanbanColumn({
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(column.name);
   const [editColor, setEditColor] = useState(column.color);
+  const [editRedCard, setEditRedCard] = useState(column.redCardEnabled);
   const [showAddCard, setShowAddCard] = useState(false);
   const [newCardTitle, setNewCardTitle] = useState("");
   const [newCardPriority, setNewCardPriority] = useState(3);
@@ -79,6 +83,9 @@ export default function KanbanColumn({
 
   // Assignees for new card (multi-select)
   const [newCardAssigneeIds, setNewCardAssigneeIds] = useState<string[]>([]);
+
+  // Red card
+  const [showRedCardAnimation, setShowRedCardAnimation] = useState(false);
 
   // Column is both a sortable item (for reordering) and a droppable container (for cards)
   const {
@@ -165,8 +172,21 @@ export default function KanbanColumn({
   }
 
   function saveColumnEdit() {
-    onUpdateColumn(column.id, { name: editName.trim(), color: editColor });
+    onUpdateColumn(column.id, { name: editName.trim(), color: editColor, redCardEnabled: editRedCard });
     setEditing(false);
+  }
+
+  function addRedCardBar() {
+    if (column.redCardCount >= 5) return;
+    const newCount = column.redCardCount + 1;
+    onUpdateColumn(column.id, { redCardCount: newCount });
+    if (newCount === 5) {
+      setShowRedCardAnimation(true);
+    }
+  }
+
+  function resetRedCard() {
+    onUpdateColumn(column.id, { redCardCount: 0 });
   }
 
   function selectClient(client: { id: string; name: string }) {
@@ -197,27 +217,38 @@ export default function KanbanColumn({
       {/* Column Header */}
       <div className="p-3 flex items-center justify-between">
         {editing ? (
-          <div className="flex items-center gap-1.5 flex-1">
-            <input
-              type="color"
-              value={editColor}
-              onChange={(e) => setEditColor(e.target.value)}
-              className="w-6 h-6 rounded cursor-pointer border-0"
-            />
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && saveColumnEdit()}
-              className="flex-1 px-2 py-1 text-sm font-medium border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-              autoFocus
-            />
-            <button onClick={saveColumnEdit} className="text-emerald-600 hover:text-emerald-700">
-              <Check className="h-4 w-4" />
-            </button>
-            <button onClick={() => setEditing(false)} className="text-slate-400 hover:text-slate-600">
-              <X className="h-4 w-4" />
-            </button>
+          <div className="flex-1 space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="color"
+                value={editColor}
+                onChange={(e) => setEditColor(e.target.value)}
+                className="w-6 h-6 rounded cursor-pointer border-0"
+              />
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveColumnEdit()}
+                className="flex-1 px-2 py-1 text-sm font-medium border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                autoFocus
+              />
+              <button onClick={saveColumnEdit} className="text-emerald-600 hover:text-emerald-700">
+                <Check className="h-4 w-4" />
+              </button>
+              <button onClick={() => setEditing(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={editRedCard}
+                onChange={(e) => setEditRedCard(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-slate-300 text-red-600 focus:ring-red-500"
+              />
+              <span className="text-xs text-slate-600">😡 Potentiel victime de carton rouge</span>
+            </label>
           </div>
         ) : (
           <>
@@ -238,6 +269,26 @@ export default function KanbanColumn({
               <span className="text-xs text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded-full">
                 {column.cards.length}
               </span>
+              {column.redCardEnabled && (
+                <div className="flex items-center gap-1 ml-1">
+                  <button
+                    onClick={addRedCardBar}
+                    className="hover:scale-110 transition-transform"
+                    title={column.redCardCount >= 5 ? "Carton rouge !" : `Ajouter une barre (${column.redCardCount}/5)`}
+                  >
+                    <RedCardSquare count={column.redCardCount} size={28} />
+                  </button>
+                  {column.redCardCount > 0 && (
+                    <button
+                      onClick={resetRedCard}
+                      className="text-slate-400 hover:text-slate-600 transition-colors"
+                      title="Réinitialiser"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <div className="relative">
               <button
@@ -460,6 +511,13 @@ export default function KanbanColumn({
           </button>
         )}
       </div>
+
+      {showRedCardAnimation && (
+        <RedCardAnimation
+          columnName={column.name}
+          onDone={() => setShowRedCardAnimation(false)}
+        />
+      )}
     </div>
   );
 }

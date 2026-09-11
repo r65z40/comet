@@ -72,6 +72,7 @@ import VideoPlayerWidget, { VideoExternalCommand } from "../VideoPlayerWidget";
 import { useBoardSync } from "@/lib/hooks/useBoardSync";
 import { useMediaSync, MediaCommand } from "@/lib/hooks/useMediaSync";
 import { TouchKeyboardProvider } from "@/components/ui/TouchKeyboard";
+import RedCardSquare, { RedCardAnimation } from "@/components/board/RedCardSquare";
 
 interface CardTag {
   id: string;
@@ -103,6 +104,8 @@ interface BoardColumn {
   name: string;
   color: string;
   position: number;
+  redCardEnabled: boolean;
+  redCardCount: number;
   cards: BoardCard[];
 }
 
@@ -336,6 +339,15 @@ export default function BoardScreenPage() {
       const res = await fetch("/api/board/columns");
       if (res.ok) setColumns(await res.json());
     } catch {}
+  }, []);
+
+  const updateRedCard = useCallback(async (columnId: string, count: number) => {
+    setColumns(prev => prev.map(c => c.id === columnId ? { ...c, redCardCount: count } : c));
+    await fetch("/api/board/columns", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: columnId, redCardCount: count }),
+    });
   }, []);
 
   const fetchFeed = useCallback(async () => {
@@ -659,6 +671,7 @@ export default function BoardScreenPage() {
           activeCard={activeCard}
           onCardOpen={setSelectedCardId}
           onCardCreated={fetchColumns}
+          onRedCardUpdate={updateRedCard}
           snapModifier={snapToCursor}
         />
       ),
@@ -1206,6 +1219,7 @@ function KanbanContent({
   activeCard,
   onCardOpen,
   onCardCreated,
+  onRedCardUpdate,
   snapModifier,
 }: {
   columns: BoardColumn[];
@@ -1217,6 +1231,7 @@ function KanbanContent({
   activeCard: BoardCard | null;
   onCardOpen: (cardId: string) => void;
   onCardCreated: () => void;
+  onRedCardUpdate: (columnId: string, count: number) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   snapModifier: (args: any) => any;
 }) {
@@ -1290,7 +1305,7 @@ function KanbanContent({
             className="flex gap-4 overflow-x-auto p-4 h-full snap-x snap-mandatory scroll-smooth"
           >
             {columns.map((column) => (
-              <ScreenColumn key={column.id} column={column} colCount={columns.length} onCardOpen={onCardOpen} onCardCreated={onCardCreated} />
+              <ScreenColumn key={column.id} column={column} colCount={columns.length} onCardOpen={onCardOpen} onCardCreated={onCardCreated} onRedCardUpdate={onRedCardUpdate} />
             ))}
           </div>
         </SwipeContainer>
@@ -1466,12 +1481,13 @@ function PullToRefresh({ onRefresh, refreshing, children }: { onRefresh: () => v
 }
 
 /* Screen column */
-function ScreenColumn({ column, colCount, onCardOpen, onCardCreated }: { column: BoardColumn; colCount: number; onCardOpen: (id: string) => void; onCardCreated: () => void }) {
+function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUpdate }: { column: BoardColumn; colCount: number; onCardOpen: (id: string) => void; onCardCreated: () => void; onRedCardUpdate: (id: string, count: number) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const [showForm, setShowForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newPriority, setNewPriority] = useState(3);
   const [creating, setCreating] = useState(false);
+  const [showRedCardAnim, setShowRedCardAnim] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1507,8 +1523,36 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated }: { column:
       <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-700/50">
         <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
         <h2 className="font-semibold text-base truncate">{column.name}</h2>
+        {column.redCardEnabled && (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                if (column.redCardCount >= 5) return;
+                const next = column.redCardCount + 1;
+                onRedCardUpdate(column.id, next);
+                if (next === 5) setShowRedCardAnim(true);
+              }}
+              className="hover:scale-110 transition-transform"
+              title={column.redCardCount >= 5 ? "Carton rouge !" : `Ajouter une barre (${column.redCardCount}/5)`}
+            >
+              <RedCardSquare count={column.redCardCount} size={32} dark />
+            </button>
+            {column.redCardCount > 0 && (
+              <button
+                onClick={() => onRedCardUpdate(column.id, 0)}
+                className="text-slate-500 hover:text-slate-300 transition-colors"
+                title="Réinitialiser"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
         <span className="ml-auto text-sm text-slate-500 bg-slate-700/50 px-2.5 py-1 rounded-full font-medium">{column.cards.length}</span>
       </div>
+      {showRedCardAnim && (
+        <RedCardAnimation columnName={column.name} onDone={() => setShowRedCardAnim(false)} />
+      )}
       <div
         ref={setNodeRef}
         className={cn("flex-1 overflow-y-auto p-3 space-y-3 scrollbar-touch min-h-[80px] transition-colors", isOver && "bg-slate-700/30")}

@@ -122,6 +122,8 @@ interface BoardColumn {
   name: string;
   color: string;
   position: number;
+  redCardEnabled: boolean;
+  redCardCount: number;
   cards: BoardCard[];
 }
 
@@ -188,6 +190,7 @@ export default function BoardPage() {
   const [showRemote, setShowRemote] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnColor, setNewColumnColor] = useState("#3b82f6");
+  const [newColumnRedCard, setNewColumnRedCard] = useState(false);
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
 
   // Filters
@@ -431,10 +434,11 @@ export default function BoardPage() {
     await fetch("/api/board/columns", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newColumnName.trim(), color: newColumnColor }),
+      body: JSON.stringify({ name: newColumnName.trim(), color: newColumnColor, redCardEnabled: newColumnRedCard }),
     });
     setNewColumnName("");
     setNewColumnColor("#3b82f6");
+    setNewColumnRedCard(false);
     setShowAddColumn(false);
     fetchBoard();
   }
@@ -450,7 +454,11 @@ export default function BoardPage() {
     fetchBoard();
   }
 
-  async function updateColumn(id: string, data: { name?: string; color?: string }) {
+  async function updateColumn(id: string, data: { name?: string; color?: string; redCardEnabled?: boolean; redCardCount?: number }) {
+    // Optimistic update for redCardCount to avoid flicker
+    if (data.redCardCount !== undefined) {
+      setColumns(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+    }
     await fetch("/api/board/columns", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1242,9 +1250,13 @@ export default function BoardPage() {
       <>
       {/* Add column form */}
       {showAddColumn && (
-        <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-slate-200">
+        <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-slate-200 flex-wrap">
           <input type="text" placeholder="Nom de la colonne" value={newColumnName} onChange={(e) => setNewColumnName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addColumn()} className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500" autoFocus />
           <input type="color" value={newColumnColor} onChange={(e) => setNewColumnColor(e.target.value)} className="w-10 h-10 rounded border border-slate-200 cursor-pointer" />
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={newColumnRedCard} onChange={(e) => setNewColumnRedCard(e.target.checked)} className="h-3.5 w-3.5 rounded border-slate-300 text-red-600 focus:ring-red-500" />
+            <span className="text-xs text-slate-600 whitespace-nowrap">😡 Carton rouge</span>
+          </label>
           <button onClick={addColumn} className="px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">Ajouter</button>
           <button onClick={() => setShowAddColumn(false)} className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700">Annuler</button>
         </div>
