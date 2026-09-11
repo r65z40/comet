@@ -88,6 +88,8 @@ export async function PUT(req: NextRequest) {
 
   if (!id) return NextResponse.json({ error: "ID requis" }, { status: 400 });
 
+  const isRedCardCountOnly = redCardCount !== undefined && name === undefined && color === undefined && position === undefined && redCardEnabled === undefined;
+
   const column = await prisma.boardColumn.update({
     where: { id },
     data: {
@@ -99,7 +101,9 @@ export async function PUT(req: NextRequest) {
     },
   });
 
-  boardEvents.emit({ type: "column:update", columnId: id, userId: session.user?.id });
+  if (!isRedCardCountOnly) {
+    boardEvents.emit({ type: "column:update", columnId: id, userId: session.user?.id });
+  }
 
   return NextResponse.json(column);
 }

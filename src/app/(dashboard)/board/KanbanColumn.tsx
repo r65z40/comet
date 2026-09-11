@@ -301,6 +301,9 @@ export default function KanbanColumn({
                 <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 w-36">
                   <button
                     onClick={() => {
+                      setEditName(column.name);
+                      setEditColor(column.color);
+                      setEditRedCard(column.redCardEnabled);
                       setEditing(true);
                       setShowMenu(false);
                     }}

@@ -455,16 +455,17 @@ export default function BoardPage() {
   }
 
   async function updateColumn(id: string, data: { name?: string; color?: string; redCardEnabled?: boolean; redCardCount?: number }) {
-    // Optimistic update for redCardCount to avoid flicker
-    if (data.redCardCount !== undefined) {
-      setColumns(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
-    }
+    // Optimistic update
+    setColumns(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
     await fetch("/api/board/columns", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, ...data }),
     });
-    fetchBoard();
+    // Only full-refresh for non-redCard changes (name, color, etc.)
+    if (data.redCardCount === undefined) {
+      fetchBoard();
+    }
   }
 
   function handleDragStart(event: DragStartEvent) {
