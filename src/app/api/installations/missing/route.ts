@@ -86,7 +86,7 @@ export async function GET() {
 
 export async function POST() {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   // Count active installations per invoice line
   const activeInstallations = await prisma.installation.findMany({

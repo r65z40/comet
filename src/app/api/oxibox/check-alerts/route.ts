@@ -127,7 +127,7 @@ export async function POST() {
     }).catch(() => {});
 
     return NextResponse.json(
-      { error: "Erreur lors de la vérification des alertes", details: String(err) },
+      { error: "Erreur lors de la vérification des alertes", details: "Erreur interne" },
       { status: 500 },
     );
   }

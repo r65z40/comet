@@ -67,6 +67,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sanitizeHtml } from "@/lib/sanitize";
 import KanbanColumn from "./KanbanColumn";
 import KanbanCard from "./KanbanCard";
 import CardDetailModal from "./CardDetailModal";
@@ -306,10 +307,11 @@ export default function BoardPage() {
       const res = await fetch("/api/board/notes");
       if (res.ok) {
         const data = await res.json();
-        setNoteContent(data.content || "");
+        const cleanContent = sanitizeHtml(data.content || "");
+        setNoteContent(cleanContent);
         setNoteLastUpdatedBy(data.updatedBy || null);
-        if (editorRef.current && data.content) {
-          editorRef.current.innerHTML = data.content;
+        if (editorRef.current && cleanContent) {
+          editorRef.current.innerHTML = cleanContent;
         }
       }
     } catch {}

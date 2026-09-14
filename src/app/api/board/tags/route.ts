@@ -17,7 +17,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
   const { name, color } = body;
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

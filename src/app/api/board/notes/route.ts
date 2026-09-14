@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export async function GET() {
   const session = await auth();
@@ -19,17 +20,17 @@ export async function PUT(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const { content } = body;
+  const sanitizedContent = sanitizeHtml(body.content || "");
 
   let note = await prisma.boardNote.findFirst();
   if (!note) {
     note = await prisma.boardNote.create({
-      data: { content: content || "", updatedBy: session.user?.name || null },
+      data: { content: sanitizedContent, updatedBy: session.user?.name || null },
     });
   } else {
     note = await prisma.boardNote.update({
       where: { id: note.id },
-      data: { content: content || "", updatedBy: session.user?.name || null },
+      data: { content: sanitizedContent, updatedBy: session.user?.name || null },
     });
   }
 

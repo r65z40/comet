@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { createHash } from "crypto";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { validatePassword, passwordErrorMessage } from "@/lib/password";
 
 // GET: Validate token
 export async function GET(req: NextRequest) {
@@ -51,8 +52,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Token et mot de passe requis" }, { status: 400 });
     }
 
-    if (password.length < 8) {
-      return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères" }, { status: 400 });
+    const validation = validatePassword(password);
+    if (!validation.valid) {
+      return NextResponse.json({ error: passwordErrorMessage(validation) }, { status: 400 });
     }
 
     // Hash the incoming token to match against stored hash

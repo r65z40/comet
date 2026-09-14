@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
   const { name, color, redCardEnabled } = body;
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
 

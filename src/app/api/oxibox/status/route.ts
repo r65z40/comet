@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json(
-      { error: "Erreur de connexion à Oxibox", details: String(err) },
+      { error: "Erreur de connexion à Oxibox", details: "Erreur interne" },
       { status: 502 },
     );
   }

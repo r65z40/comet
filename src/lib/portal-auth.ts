@@ -22,6 +22,7 @@ export async function createPortalToken(payload: PortalPayload): Promise<string>
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
+    .setAudience("portal")
     .sign(getSecret());
 }
 
@@ -30,7 +31,7 @@ export async function verifyPortalToken(): Promise<PortalPayload | null> {
     const cookieStore = await cookies();
     const token = cookieStore.get(PORTAL_COOKIE)?.value;
     if (!token) return null;
-    const { payload } = await jwtVerify(token, getSecret());
+    const { payload } = await jwtVerify(token, getSecret(), { audience: "portal" });
     return payload as unknown as PortalPayload;
   } catch {
     return null;

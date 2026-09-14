@@ -27,7 +27,7 @@ export async function GET() {
 // POST /api/knowledge/categories
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { name } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Nom requis" }, { status: 400 });
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 // PUT /api/knowledge/categories
 export async function PUT(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { id, name } = await req.json();
   if (!id || !name?.trim()) return NextResponse.json({ error: "ID et nom requis" }, { status: 400 });
@@ -69,7 +69,7 @@ export async function PUT(req: NextRequest) {
 // DELETE /api/knowledge/categories
 export async function DELETE(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

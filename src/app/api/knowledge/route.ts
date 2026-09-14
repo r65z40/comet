@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 // POST /api/knowledge — create article
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
   const { title, content, categoryId, visibility, published, clientIds } = body;
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
 // PUT /api/knowledge — update article
 export async function PUT(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
   const { id, title, content, categoryId, visibility, published, clientIds } = body;

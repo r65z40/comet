@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { validatePassword, passwordErrorMessage } from "@/lib/password";
 
 // POST - create a portal user for a client
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -26,8 +27,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Password is optional - if not provided, user will set it via invite link
   const data: { clientId: string; name: string; email: string; password?: string } = { clientId: id, name, email };
   if (password) {
-    if (password.length < 8) {
-      return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères" }, { status: 400 });
+    const validation = validatePassword(password);
+    if (!validation.valid) {
+      return NextResponse.json({ error: passwordErrorMessage(validation) }, { status: 400 });
     }
     data.password = await bcrypt.hash(password, 10);
   }

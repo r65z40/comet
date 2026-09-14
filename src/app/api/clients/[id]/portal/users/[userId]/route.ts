@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { validatePassword, passwordErrorMessage } from "@/lib/password";
 
 // PATCH - update a portal user (toggle active, reset password)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; userId: string }> }) {
@@ -24,8 +25,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.email = body.email;
   }
   if (typeof body.password === "string" && body.password) {
-    if (body.password.length < 8) {
-      return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères" }, { status: 400 });
+    const validation = validatePassword(body.password);
+    if (!validation.valid) {
+      return NextResponse.json({ error: passwordErrorMessage(validation) }, { status: 400 });
     }
     data.password = await bcrypt.hash(body.password, 10);
   }

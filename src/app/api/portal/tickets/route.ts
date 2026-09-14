@@ -5,6 +5,7 @@ import { syncTicketToAtera, getAteraConfig } from "@/lib/atera";
 import { sendEmail, getSmtpConfig } from "@/lib/email";
 import { notifyAdmins } from "@/lib/notifications";
 import { escapeHtml } from "@/lib/utils";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // GET: List client's tickets
 export async function GET(req: NextRequest) {
@@ -34,6 +35,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const payload = await verifyPortalToken();
   if (!payload) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const rl = checkRateLimit(`portal-ticket:${payload.sub}`, 10, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   try {
     const { title, description, priority, type } = await req.json();
@@ -143,7 +147,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(ticket, { status: 201 });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Erreur serveur" },
+      { error: "Erreur serveur" },
       { status: 500 }
     );
   }

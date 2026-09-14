@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(
-      { error: "Erreur de connexion à Atera", details: String(err) },
+      { error: "Erreur de connexion à Atera", details: "Erreur interne" },
       { status: 502 },
     );
   }

@@ -5,6 +5,7 @@ import { sendEmail, getSmtpConfig } from "@/lib/email";
 import { notifyAdmins } from "@/lib/notifications";
 import { addAteraTicketComment } from "@/lib/atera";
 import { escapeHtml } from "@/lib/utils";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // POST: Client adds a comment to their ticket
 export async function POST(
@@ -13,6 +14,9 @@ export async function POST(
 ) {
   const payload = await verifyPortalToken();
   if (!payload) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const rl = checkRateLimit(`portal-comment:${payload.sub}`, 20, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   const { id } = await params;
   const { content } = await req.json();

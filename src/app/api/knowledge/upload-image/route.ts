@@ -9,7 +9,7 @@ const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "knowledge", "i
 // POST /api/knowledge/upload-image — upload image for rich text editor
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;

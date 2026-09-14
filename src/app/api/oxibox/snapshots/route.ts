@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(serialized);
   } catch (err) {
     return NextResponse.json(
-      { error: "Erreur lors de la récupération des snapshots", details: String(err) },
+      { error: "Erreur lors de la récupération des snapshots", details: "Erreur interne" },
       { status: 500 },
     );
   }
@@ -109,7 +109,7 @@ export async function POST() {
     return NextResponse.json({ success: true, count: snapshotCount });
   } catch (err) {
     return NextResponse.json(
-      { error: "Erreur lors de la création des snapshots", details: String(err) },
+      { error: "Erreur lors de la création des snapshots", details: "Erreur interne" },
       { status: 500 },
     );
   }
