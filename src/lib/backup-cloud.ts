@@ -1,12 +1,13 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { Client as FtpClient } from "basic-ftp";
+import SftpClient from "ssh2-sftp-client";
 import fs from "fs/promises";
 import { createReadStream, createWriteStream, statSync } from "fs";
 import path from "path";
 import { Readable } from "stream";
 import { getSettings } from "@/lib/settings";
 
-export type CloudProvider = "s3" | "ftp" | "none";
+export type CloudProvider = "s3" | "ftp" | "sftp" | "none";
 
 export interface CloudConfig {
   provider: CloudProvider;
@@ -17,7 +18,7 @@ export interface CloudConfig {
   s3AccessKey?: string;
   s3SecretKey?: string;
   s3Prefix?: string;
-  // FTP
+  // FTP / SFTP
   ftpHost?: string;
   ftpPort?: number;
   ftpUser?: string;
@@ -263,6 +264,84 @@ async function ftpTestConnection(config: CloudConfig): Promise<{ success: boolea
   }
 }
 
+// ─── SFTP ─────────────────────────────────────────────
+
+function sftpConnectConfig(config: CloudConfig): Parameters<SftpClient["connect"]>[0] {
+  return {
+    host: config.ftpHost,
+    port: config.ftpPort || 22,
+    username: config.ftpUser,
+    password: config.ftpPassword,
+    readyTimeout: 15000,
+    retries: 1,
+  };
+}
+
+async function withSftpClient<T>(config: CloudConfig, fn: (client: SftpClient, remotePath: string) => Promise<T>): Promise<T> {
+  const client = new SftpClient();
+  try {
+    await client.connect(sftpConnectConfig(config));
+    const remotePath = config.ftpPath || "/backups";
+    const exists = await client.exists(remotePath);
+    if (!exists) {
+      await client.mkdir(remotePath, true);
+    }
+    return await fn(client, remotePath);
+  } finally {
+    await client.end();
+  }
+}
+
+async function sftpUpload(config: CloudConfig, filepath: string, filename: string): Promise<void> {
+  const stat = await fs.stat(filepath);
+  if (stat.size === 0) throw new Error("Le fichier backup est vide, upload SFTP annulé");
+
+  await withSftpClient(config, async (client, remotePath) => {
+    const remoteDest = path.posix.join(remotePath, filename);
+    await client.fastPut(filepath, remoteDest);
+    const info = await client.stat(remoteDest);
+    if (info.size < stat.size * 0.9) {
+      throw new Error(`Fichier ${filename} incomplet sur SFTP: ${info.size} vs ${stat.size} octets`);
+    }
+  });
+}
+
+async function sftpDownload(config: CloudConfig, filename: string, destPath: string): Promise<void> {
+  await withSftpClient(config, async (client, remotePath) => {
+    const remoteFile = path.posix.join(remotePath, filename);
+    await client.fastGet(remoteFile, destPath);
+  });
+}
+
+async function sftpDelete(config: CloudConfig, filename: string): Promise<void> {
+  await withSftpClient(config, async (client, remotePath) => {
+    const remoteFile = path.posix.join(remotePath, filename);
+    await client.delete(remoteFile);
+  });
+}
+
+async function sftpList(config: CloudConfig): Promise<{ name: string; size: number; lastModified: Date }[]> {
+  return withSftpClient(config, async (client, remotePath) => {
+    const list = await client.list(remotePath);
+    return list
+      .filter((f) => (f.name.endsWith(".sql.gz") || f.name.endsWith(".tar.gz")) && f.name.startsWith("backup_"))
+      .map((f) => ({
+        name: f.name,
+        size: f.size,
+        lastModified: new Date(f.modifyTime),
+      }));
+  });
+}
+
+async function sftpTestConnection(config: CloudConfig): Promise<{ success: boolean; error?: string }> {
+  try {
+    await withSftpClient(config, async (_client, _remotePath) => {});
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 // ─── Public API ───────────────────────────────────────
 
 export async function cloudUpload(filepath: string, filename: string): Promise<void> {
@@ -273,6 +352,8 @@ export async function cloudUpload(filepath: string, filename: string): Promise<v
     await s3Upload(config, filepath, filename);
   } else if (config.provider === "ftp") {
     await ftpUpload(config, filepath, filename);
+  } else if (config.provider === "sftp") {
+    await sftpUpload(config, filepath, filename);
   }
 }
 
@@ -282,6 +363,8 @@ export async function cloudDownload(filename: string, destPath: string): Promise
     await s3Download(config, filename, destPath);
   } else if (config.provider === "ftp") {
     await ftpDownload(config, filename, destPath);
+  } else if (config.provider === "sftp") {
+    await sftpDownload(config, filename, destPath);
   } else {
     throw new Error("Aucun provider cloud configuré");
   }
@@ -295,6 +378,8 @@ export async function cloudDelete(filename: string): Promise<void> {
     await s3Delete(config, filename);
   } else if (config.provider === "ftp") {
     await ftpDelete(config, filename);
+  } else if (config.provider === "sftp") {
+    await sftpDelete(config, filename);
   }
 }
 
@@ -304,6 +389,8 @@ export async function cloudList(): Promise<{ name: string; size: number; lastMod
     return s3List(config);
   } else if (config.provider === "ftp") {
     return ftpList(config);
+  } else if (config.provider === "sftp") {
+    return sftpList(config);
   }
   return [];
 }
@@ -314,6 +401,8 @@ export async function cloudTestConnection(config?: CloudConfig): Promise<{ succe
     return s3TestConnection(cfg);
   } else if (cfg.provider === "ftp") {
     return ftpTestConnection(cfg);
+  } else if (cfg.provider === "sftp") {
+    return sftpTestConnection(cfg);
   }
   return { success: false, error: "Aucun provider configuré" };
 }

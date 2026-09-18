@@ -40,7 +40,7 @@ interface BackupSettings {
 }
 
 interface CloudConfig {
-  provider: "s3" | "ftp" | "none";
+  provider: "s3" | "ftp" | "sftp" | "none";
   s3Endpoint: string;
   s3Region: string;
   s3Bucket: string;
@@ -520,7 +520,7 @@ export default function BackupPage() {
             <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-3">
               <div className="flex items-center gap-2 text-sm text-indigo-700">
                 <Cloud className="h-4 w-4" />
-                <span>Cloud actif: {cloud.provider === "s3" ? `S3 (${cloud.s3Bucket})` : `FTP (${cloud.ftpHost})`}</span>
+                <span>Cloud actif: {cloud.provider === "s3" ? `S3 (${cloud.s3Bucket})` : cloud.provider === "sftp" ? `SFTP (${cloud.ftpHost})` : `FTP (${cloud.ftpHost})`}</span>
               </div>
             </div>
           )}
@@ -643,11 +643,12 @@ export default function BackupPage() {
           {/* Provider selector */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Fournisseur</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {[
-                { value: "none" as const, label: "Aucun (local uniquement)", icon: HardDrive },
+                { value: "none" as const, label: "Local uniquement", icon: HardDrive },
                 { value: "s3" as const, label: "S3 / Compatible S3", icon: Cloud },
-                { value: "ftp" as const, label: "FTP / SFTP", icon: Server },
+                { value: "ftp" as const, label: "FTP / FTPS", icon: Server },
+                { value: "sftp" as const, label: "SFTP (SSH)", icon: Server },
               ].map((opt) => (
                 <button
                   key={opt.value}
@@ -740,7 +741,7 @@ export default function BackupPage() {
           {/* FTP Configuration */}
           {cloud.provider === "ftp" && (
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 space-y-3">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Configuration FTP / SFTP</p>
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Configuration FTP</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Serveur *</label>
@@ -800,10 +801,72 @@ export default function BackupPage() {
                       onChange={(e) => setCloud({ ...cloud, ftpSecure: e.target.checked })}
                       className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-slate-700">Connexion sécurisée (FTPS)</span>
+                    <span className="text-sm text-slate-700">Connexion sécurisée (FTPS / TLS)</span>
                   </label>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* SFTP Configuration */}
+          {cloud.provider === "sftp" && (
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 space-y-3">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Configuration SFTP (SSH)</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Serveur *</label>
+                  <input
+                    type="text"
+                    placeholder="serveur.exemple.com"
+                    value={cloud.ftpHost}
+                    onChange={(e) => setCloud({ ...cloud, ftpHost: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Port</label>
+                  <input
+                    type="number"
+                    placeholder="22"
+                    value={cloud.ftpPort || 22}
+                    onChange={(e) => setCloud({ ...cloud, ftpPort: parseInt(e.target.value) || 22 })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Utilisateur *</label>
+                  <input
+                    type="text"
+                    placeholder="backup_user"
+                    value={cloud.ftpUser}
+                    onChange={(e) => setCloud({ ...cloud, ftpUser: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Mot de passe *</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={cloud.ftpPassword}
+                    onChange={(e) => setCloud({ ...cloud, ftpPassword: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Dossier distant</label>
+                  <input
+                    type="text"
+                    placeholder="/backups"
+                    value={cloud.ftpPath}
+                    onChange={(e) => setCloud({ ...cloud, ftpPath: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">
+                Connexion via SSH (comme FileZilla en mode SFTP). Le dossier distant est créé automatiquement.
+              </p>
             </div>
           )}
 

@@ -8,7 +8,7 @@ try {
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  serverExternalPackages: ["@aws-sdk/client-s3", "basic-ftp"],
+  serverExternalPackages: ["@aws-sdk/client-s3", "basic-ftp", "ssh2-sftp-client", "ssh2"],
   env: {
     NEXT_PUBLIC_APP_VERSION: process.env.npm_package_version || "1.5.0",
     NEXT_PUBLIC_GIT_HASH: gitHash,
