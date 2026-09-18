@@ -1,10 +1,12 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { Client as FtpClient } from "basic-ftp";
 import SftpClient from "ssh2-sftp-client";
+import crypto from "crypto";
 import fs from "fs/promises";
 import { createReadStream, createWriteStream, statSync } from "fs";
 import path from "path";
 import { Readable } from "stream";
+import { pipeline } from "stream/promises";
 import { getSettings } from "@/lib/settings";
 
 export type CloudProvider = "s3" | "ftp" | "sftp" | "none";
@@ -342,31 +344,129 @@ async function sftpTestConnection(config: CloudConfig): Promise<{ success: boole
   }
 }
 
+// ─── Encryption ──────────────────────────────────────
+
+const ENC_MAGIC = Buffer.from("COMET_ENC");
+
+function getEncryptionKey(): Buffer | null {
+  const hex = process.env.ENCRYPTION_KEY;
+  if (!hex || hex.length < 64) return null;
+  return Buffer.from(hex, "hex");
+}
+
+async function encryptFile(inputPath: string, outputPath: string): Promise<void> {
+  const key = getEncryptionKey();
+  if (!key) throw new Error("ENCRYPTION_KEY requise pour chiffrer les backups cloud");
+
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+
+  const input = createReadStream(inputPath);
+  const output = createWriteStream(outputPath);
+
+  // Write header: magic (9 bytes) + iv (16 bytes)
+  output.write(ENC_MAGIC);
+  output.write(iv);
+
+  await pipeline(input, cipher, output);
+
+  // Append auth tag (16 bytes) at the end
+  const authTag = cipher.getAuthTag();
+  await fs.appendFile(outputPath, authTag);
+}
+
+async function decryptFile(inputPath: string, outputPath: string): Promise<void> {
+  const key = getEncryptionKey();
+  if (!key) throw new Error("ENCRYPTION_KEY requise pour déchiffrer les backups cloud");
+
+  const data = await fs.readFile(inputPath);
+
+  // Verify magic header
+  if (!data.subarray(0, ENC_MAGIC.length).equals(ENC_MAGIC)) {
+    // Not encrypted — copy as-is (backward compat with old unencrypted backups)
+    await fs.copyFile(inputPath, outputPath);
+    return;
+  }
+
+  const iv = data.subarray(ENC_MAGIC.length, ENC_MAGIC.length + 16);
+  const authTag = data.subarray(data.length - 16);
+  const encrypted = data.subarray(ENC_MAGIC.length + 16, data.length - 16);
+
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(authTag);
+
+  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  await fs.writeFile(outputPath, decrypted);
+}
+
+function isEncryptionAvailable(): boolean {
+  return getEncryptionKey() !== null;
+}
+
 // ─── Public API ───────────────────────────────────────
 
 export async function cloudUpload(filepath: string, filename: string): Promise<void> {
   const config = await getCloudConfig();
   if (config.provider === "none") return;
 
-  if (config.provider === "s3") {
-    await s3Upload(config, filepath, filename);
-  } else if (config.provider === "ftp") {
-    await ftpUpload(config, filepath, filename);
-  } else if (config.provider === "sftp") {
-    await sftpUpload(config, filepath, filename);
+  // Encrypt before uploading if ENCRYPTION_KEY is available
+  let uploadPath = filepath;
+  const encrypted = isEncryptionAvailable();
+  if (encrypted) {
+    uploadPath = filepath + ".enc";
+    await encryptFile(filepath, uploadPath);
+    console.log(`[backup] Backup chiffré avant upload cloud: ${filename}`);
+  }
+
+  try {
+    if (config.provider === "s3") {
+      await s3Upload(config, uploadPath, filename);
+    } else if (config.provider === "ftp") {
+      await ftpUpload(config, uploadPath, filename);
+    } else if (config.provider === "sftp") {
+      await sftpUpload(config, uploadPath, filename);
+    }
+  } finally {
+    if (encrypted && uploadPath !== filepath) {
+      await fs.rm(uploadPath, { force: true }).catch(() => {});
+    }
   }
 }
 
 export async function cloudDownload(filename: string, destPath: string): Promise<void> {
   const config = await getCloudConfig();
-  if (config.provider === "s3") {
-    await s3Download(config, filename, destPath);
-  } else if (config.provider === "ftp") {
-    await ftpDownload(config, filename, destPath);
-  } else if (config.provider === "sftp") {
-    await sftpDownload(config, filename, destPath);
-  } else {
-    throw new Error("Aucun provider cloud configuré");
+
+  // Download to a temp path first
+  const tmpPath = destPath + ".dl";
+
+  try {
+    if (config.provider === "s3") {
+      await s3Download(config, filename, tmpPath);
+    } else if (config.provider === "ftp") {
+      await ftpDownload(config, filename, tmpPath);
+    } else if (config.provider === "sftp") {
+      await sftpDownload(config, filename, tmpPath);
+    } else {
+      throw new Error("Aucun provider cloud configuré");
+    }
+
+    // Check if the downloaded file is encrypted and decrypt
+    const header = Buffer.alloc(ENC_MAGIC.length);
+    const fd = await fs.open(tmpPath, "r");
+    try {
+      await fd.read(header, 0, ENC_MAGIC.length, 0);
+    } finally {
+      await fd.close();
+    }
+
+    if (header.equals(ENC_MAGIC) && isEncryptionAvailable()) {
+      await decryptFile(tmpPath, destPath);
+      console.log(`[backup] Backup cloud déchiffré: ${filename}`);
+    } else {
+      await fs.rename(tmpPath, destPath);
+    }
+  } finally {
+    await fs.rm(tmpPath, { force: true }).catch(() => {});
   }
 }
 
