@@ -15,7 +15,7 @@ export async function POST(
     where: { id },
     include: {
       lines: { include: { product: true } },
-      installations: { where: { deletedAt: null }, select: { invoiceLineId: true } },
+      installations: { where: { deletedAt: null }, select: { invoiceLineId: true, quantity: true } },
     },
   });
 
@@ -23,11 +23,11 @@ export async function POST(
     return NextResponse.json({ error: "Facture non trouvée" }, { status: 404 });
   }
 
-  // Count existing active installations per line
+  // Sum existing quantities per line (not row count) to handle installations with quantity > 1
   const installCountByLine = new Map<string, number>();
   for (const inst of invoice.installations) {
     if (inst.invoiceLineId) {
-      installCountByLine.set(inst.invoiceLineId, (installCountByLine.get(inst.invoiceLineId) || 0) + 1);
+      installCountByLine.set(inst.invoiceLineId, (installCountByLine.get(inst.invoiceLineId) || 0) + (inst.quantity || 1));
     }
   }
 

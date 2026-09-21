@@ -6,15 +6,15 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  // Count active installations per invoice line
+  // Sum existing quantities per line (not row count) to handle installations with quantity > 1
   const activeInstallations = await prisma.installation.findMany({
     where: { invoiceLineId: { not: null }, deletedAt: null },
-    select: { invoiceLineId: true },
+    select: { invoiceLineId: true, quantity: true },
   });
   const installCountByLine = new Map<string, number>();
   for (const inst of activeInstallations) {
     if (inst.invoiceLineId) {
-      installCountByLine.set(inst.invoiceLineId, (installCountByLine.get(inst.invoiceLineId) || 0) + 1);
+      installCountByLine.set(inst.invoiceLineId, (installCountByLine.get(inst.invoiceLineId) || 0) + (inst.quantity || 1));
     }
   }
 
@@ -88,15 +88,15 @@ export async function POST() {
   const session = await auth();
   if (!session || session.user?.role !== "ADMIN") return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  // Count active installations per invoice line
+  // Sum existing quantities per line (not row count) to handle installations with quantity > 1
   const activeInstallations = await prisma.installation.findMany({
     where: { invoiceLineId: { not: null }, deletedAt: null },
-    select: { invoiceLineId: true },
+    select: { invoiceLineId: true, quantity: true },
   });
   const installCountByLine = new Map<string, number>();
   for (const inst of activeInstallations) {
     if (inst.invoiceLineId) {
-      installCountByLine.set(inst.invoiceLineId, (installCountByLine.get(inst.invoiceLineId) || 0) + 1);
+      installCountByLine.set(inst.invoiceLineId, (installCountByLine.get(inst.invoiceLineId) || 0) + (inst.quantity || 1));
     }
   }
 

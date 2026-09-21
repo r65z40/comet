@@ -129,10 +129,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Aucun produit lié à cette ligne" }, { status: 400 });
   }
 
-  // Count existing active installations for this line
-  const existingCount = await prisma.installation.count({
+  // Sum existing quantities (not row count) to handle installations with quantity > 1
+  const existingAgg = await prisma.installation.aggregate({
     where: { invoiceLineId, deletedAt: null },
+    _sum: { quantity: true },
   });
+  const existingCount = existingAgg._sum.quantity || 0;
   const unitCount = Math.max(1, Math.round(invoiceLine.quantity));
   if (existingCount >= unitCount) {
     return NextResponse.json({ error: "Toutes les installations sont déjà créées pour cette ligne" }, { status: 409 });
