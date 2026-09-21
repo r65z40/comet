@@ -133,8 +133,8 @@ export async function POST() {
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + duration);
 
-      const toCreate = unitCount - existingCount;
-      for (let i = 0; i < toCreate; i++) {
+      const remaining = unitCount - existingCount;
+      if (remaining > 0) {
         await prisma.installation.create({
           data: {
             clientId: line.invoice.clientId,
@@ -143,14 +143,14 @@ export async function POST() {
             invoiceLineId: line.id,
             supplier: line.product.supplier || null,
             family: line.product.family || null,
-            quantity: 1,
+            quantity: remaining,
             startDate,
             durationMonths: duration,
             endDate,
             status: "EN_PARC",
           },
         });
-        created++;
+        created += remaining;
       }
     } catch {
       errors++;

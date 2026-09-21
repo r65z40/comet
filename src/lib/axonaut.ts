@@ -599,31 +599,28 @@ async function generateInstallationForLine(
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + duration);
 
-  const toCreate = unitCount - existingCount;
-  let createdCount = 0;
+  const remaining = unitCount - existingCount;
+  if (remaining <= 0) return "skipped";
 
-  for (let i = 0; i < toCreate; i++) {
-    await prisma.installation.create({
-      data: {
-        clientId,
-        productId: product.id,
-        invoiceId,
-        invoiceLineId: lineId,
-        supplier: product.supplier,
-        family: product.family,
-        quantity: 1,
-        startDate,
-        durationMonths: duration,
-        endDate,
-        status: "EN_PARC",
-        importSource: "axonaut",
-        importDetails: axonautImportDetails(),
-      },
-    });
-    createdCount++;
-  }
+  await prisma.installation.create({
+    data: {
+      clientId,
+      productId: product.id,
+      invoiceId,
+      invoiceLineId: lineId,
+      supplier: product.supplier,
+      family: product.family,
+      quantity: remaining,
+      startDate,
+      durationMonths: duration,
+      endDate,
+      status: "EN_PARC",
+      importSource: "axonaut",
+      importDetails: axonautImportDetails(),
+    },
+  });
 
-  return createdCount > 0 ? "created" : "skipped";
+  return "created";
 }
 
 export async function syncInvoices() {

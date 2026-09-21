@@ -169,29 +169,26 @@ export async function POST(req: NextRequest) {
     computedEndDate.setMonth(computedEndDate.getMonth() + 12);
   }
 
-  const toCreate = unitCount - existingCount;
-  const created = [];
-  for (let i = 0; i < toCreate; i++) {
-    const inst = await prisma.installation.create({
-      data: {
-        clientId: invoiceLine.invoice.clientId,
-        productId: invoiceLine.product.id,
-        invoiceId: invoiceLine.invoice.id,
-        invoiceLineId: invoiceLine.id,
-        supplier: invoiceLine.product.supplier || null,
-        family: invoiceLine.product.family || null,
-        quantity: 1,
-        startDate: new Date(startDate),
-        durationMonths: computedDuration,
-        endDate: computedEndDate,
-        status: "EN_PARC",
-      },
-      include: {
-        product: { select: { id: true, name: true } },
-      },
-    });
-    created.push(inst);
-  }
+  const remaining = unitCount - existingCount;
 
-  return NextResponse.json(created.length === 1 ? created[0] : created, { status: 201 });
+  const inst = await prisma.installation.create({
+    data: {
+      clientId: invoiceLine.invoice.clientId,
+      productId: invoiceLine.product.id,
+      invoiceId: invoiceLine.invoice.id,
+      invoiceLineId: invoiceLine.id,
+      supplier: invoiceLine.product.supplier || null,
+      family: invoiceLine.product.family || null,
+      quantity: remaining,
+      startDate: new Date(startDate),
+      durationMonths: computedDuration,
+      endDate: computedEndDate,
+      status: "EN_PARC",
+    },
+    include: {
+      product: { select: { id: true, name: true } },
+    },
+  });
+
+  return NextResponse.json(inst, { status: 201 });
 }
