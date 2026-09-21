@@ -15,7 +15,6 @@ export async function POST(
     where: { id },
     include: {
       lines: { include: { product: true } },
-      installations: { where: { deletedAt: null }, select: { invoiceLineId: true, quantity: true } },
     },
   });
 
@@ -23,27 +22,20 @@ export async function POST(
     return NextResponse.json({ error: "Facture non trouvée" }, { status: 404 });
   }
 
-  // Sum existing quantities per line (not row count) to handle installations with quantity > 1
-  const installCountByLine = new Map<string, number>();
-  for (const inst of invoice.installations) {
-    if (inst.invoiceLineId) {
-      installCountByLine.set(inst.invoiceLineId, (installCountByLine.get(inst.invoiceLineId) || 0) + (inst.quantity || 1));
-    }
-  }
+  // Get lines that already have ANY installation (including soft-deleted) — skip those
+  const allInstallations = await prisma.installation.findMany({
+    where: { invoiceId: id },
+    select: { invoiceLineId: true },
+  });
+  const processedLines = new Set(allInstallations.map((i) => i.invoiceLineId).filter(Boolean));
 
   let created = 0;
 
   for (const line of invoice.lines) {
     if (!line.product) continue;
+    if (processedLines.has(line.id)) continue;
 
     const unitCount = Math.max(1, Math.round(line.quantity));
-    const existingCount = installCountByLine.get(line.id) || 0;
-    if (existingCount >= unitCount) continue;
-
-    // Remove soft-deleted installations for this line
-    await prisma.installation.deleteMany({
-      where: { invoiceLineId: line.id, deletedAt: { not: null } },
-    });
 
     const duration =
       line.product.durationMonths && line.product.durationMonths > 0
@@ -53,25 +45,22 @@ export async function POST(
     const endDate = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + duration);
 
-    const remaining = unitCount - existingCount;
-    if (remaining > 0) {
-      await prisma.installation.create({
-        data: {
-          clientId: invoice.clientId,
-          productId: line.product.id,
-          invoiceId: invoice.id,
-          invoiceLineId: line.id,
-          supplier: line.product.supplier || null,
-          family: line.product.family || null,
-          quantity: remaining,
-          startDate,
-          durationMonths: duration,
-          endDate,
-          status: "EN_PARC",
-        },
-      });
-      created += remaining;
-    }
+    await prisma.installation.create({
+      data: {
+        clientId: invoice.clientId,
+        productId: line.product.id,
+        invoiceId: invoice.id,
+        invoiceLineId: line.id,
+        supplier: line.product.supplier || null,
+        family: line.product.family || null,
+        quantity: unitCount,
+        startDate,
+        durationMonths: duration,
+        endDate,
+        status: "EN_PARC",
+      },
+    });
+    created += unitCount;
   }
 
   return NextResponse.json({ created });

@@ -581,26 +581,17 @@ async function generateInstallationForLine(
 ): Promise<"created" | "merged" | "skipped"> {
   const unitCount = Math.max(1, Math.round(quantity));
 
-  // Sum existing quantities (not row count) to handle installations with quantity > 1
-  const existingAgg = await prisma.installation.aggregate({
-    where: { invoiceLineId: lineId, deletedAt: null },
-    _sum: { quantity: true },
+  // Count ALL installations for this line (including soft-deleted).
+  // If any exist, the line was already processed — don't recreate.
+  const allCount = await prisma.installation.count({
+    where: { invoiceLineId: lineId },
   });
-  const existingCount = existingAgg._sum.quantity || 0;
-  if (existingCount >= unitCount) return "skipped";
-
-  // Remove soft-deleted installations for this line
-  await prisma.installation.deleteMany({
-    where: { invoiceLineId: lineId, deletedAt: { not: null } },
-  });
+  if (allCount > 0) return "skipped";
 
   const duration = (product.durationMonths && product.durationMonths > 0) ? product.durationMonths : 12;
   const startDate = new Date(invoiceDate);
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + duration);
-
-  const remaining = unitCount - existingCount;
-  if (remaining <= 0) return "skipped";
 
   await prisma.installation.create({
     data: {
@@ -610,7 +601,7 @@ async function generateInstallationForLine(
       invoiceLineId: lineId,
       supplier: product.supplier,
       family: product.family,
-      quantity: remaining,
+      quantity: unitCount,
       startDate,
       durationMonths: duration,
       endDate,

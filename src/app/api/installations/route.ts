@@ -129,21 +129,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Aucun produit lié à cette ligne" }, { status: 400 });
   }
 
-  // Sum existing quantities (not row count) to handle installations with quantity > 1
-  const existingAgg = await prisma.installation.aggregate({
-    where: { invoiceLineId, deletedAt: null },
-    _sum: { quantity: true },
+  // Check if ANY installation exists for this line (including soft-deleted)
+  const anyExisting = await prisma.installation.count({
+    where: { invoiceLineId },
   });
-  const existingCount = existingAgg._sum.quantity || 0;
-  const unitCount = Math.max(1, Math.round(invoiceLine.quantity));
-  if (existingCount >= unitCount) {
-    return NextResponse.json({ error: "Toutes les installations sont déjà créées pour cette ligne" }, { status: 409 });
+  if (anyExisting > 0) {
+    return NextResponse.json({ error: "Des installations existent déjà pour cette ligne" }, { status: 409 });
   }
 
-  // Remove soft-deleted installations
-  await prisma.installation.deleteMany({
-    where: { invoiceLineId, deletedAt: { not: null } },
-  });
+  const unitCount = Math.max(1, Math.round(invoiceLine.quantity));
 
   const startDate = invoiceLine.invoice.invoiceDate;
   let computedEndDate: Date;
@@ -169,8 +163,6 @@ export async function POST(req: NextRequest) {
     computedEndDate.setMonth(computedEndDate.getMonth() + 12);
   }
 
-  const remaining = unitCount - existingCount;
-
   const inst = await prisma.installation.create({
     data: {
       clientId: invoiceLine.invoice.clientId,
@@ -179,7 +171,7 @@ export async function POST(req: NextRequest) {
       invoiceLineId: invoiceLine.id,
       supplier: invoiceLine.product.supplier || null,
       family: invoiceLine.product.family || null,
-      quantity: remaining,
+      quantity: unitCount,
       startDate: new Date(startDate),
       durationMonths: computedDuration,
       endDate: computedEndDate,
