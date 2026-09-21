@@ -53,6 +53,7 @@ import {
   ZoomIn,
   ZoomOut,
   Wifi,
+  Globe,
   RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -73,6 +74,7 @@ import { useBoardSync } from "@/lib/hooks/useBoardSync";
 import { useMediaSync, MediaCommand } from "@/lib/hooks/useMediaSync";
 import { TouchKeyboardProvider } from "@/components/ui/TouchKeyboard";
 import RedCardSquare, { RedCardAnimation } from "@/components/board/RedCardSquare";
+import NewsWidget from "../NewsWidget";
 
 interface CardTag {
   id: string;
@@ -167,6 +169,7 @@ interface ScreenVisibility {
   showOmada: boolean;
   showSpotify: boolean;
   showVideoPlayer: boolean;
+  showNews: boolean;
 }
 
 const DEFAULT_VISIBILITY: ScreenVisibility = {
@@ -181,6 +184,7 @@ const DEFAULT_VISIBILITY: ScreenVisibility = {
   showOmada: true,
   showSpotify: true,
   showVideoPlayer: false,
+  showNews: true,
 };
 
 const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
@@ -195,6 +199,7 @@ const SCREEN_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "omada", x: 0, y: 15, w: 4, h: 4, minW: 2, minH: 2 },
   { i: "spotify", x: 4, y: 15, w: 3, h: 4, minW: 2, minH: 3 },
   { i: "video_player", x: 7, y: 15, w: 5, h: 5, minW: 3, minH: 3 },
+  { i: "news", x: 4, y: 15, w: 4, h: 4, minW: 2, minH: 2 },
   { i: "calendar", x: 0, y: 19, w: 4, h: 3, minW: 3, minH: 2 },
 ];
 
@@ -748,6 +753,14 @@ export default function BoardScreenPage() {
           content: <VideoPlayerWidget dark externalUrl={extVideoUrl} externalCommand={extVideoCmd} />,
         }]
       : []),
+    ...(visibility.showNews
+      ? [{
+          id: "news",
+          title: "Actualités",
+          icon: <Globe className="h-4 w-4 text-sky-400" />,
+          content: <NewsWidget dark />,
+        }]
+      : []),
     ...(visibility.showCalendar
       ? [{
           id: "calendar",
@@ -1023,6 +1036,7 @@ export default function BoardScreenPage() {
             { key: "showOmada" as const, label: "Réseau Omada" },
             { key: "showSpotify" as const, label: "Spotify" },
             { key: "showVideoPlayer" as const, label: "Lecteur vidéo" },
+            { key: "showNews" as const, label: "Actualités géopolitiques" },
             { key: "showCalendar" as const, label: "Calendrier" },
           ].map(({ key, label }) => (
             <div key={key} className="flex items-center justify-between py-4 border-b border-slate-700/50 last:border-b-0">

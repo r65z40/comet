@@ -65,6 +65,7 @@ import {
   EyeOff,
   Tv,
   Wifi,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeHtml } from "@/lib/sanitize";
@@ -79,6 +80,7 @@ import ActivityFeedWidget from "@/components/ui/ActivityFeedWidget";
 import EmisoftWidget from "./EmisoftWidget";
 import OmadaWidget from "./OmadaWidget";
 import VideoPlayerWidget from "./VideoPlayerWidget";
+import NewsWidget from "./NewsWidget";
 import ScreenRemotePanel from "./ScreenRemotePanel";
 import DashboardGrid, { type LayoutItem } from "@/components/ui/DashboardGrid";
 import { useBoardSync } from "@/lib/hooks/useBoardSync";
@@ -163,6 +165,7 @@ const BOARD_DEFAULT_LAYOUT: LayoutItem[] = [
   { i: "emsisoft", x: 4, y: 12, w: 4, h: 5, minW: 2, minH: 2 },
   { i: "omada", x: 8, y: 12, w: 4, h: 5, minW: 2, minH: 2 },
   { i: "video_player", x: 0, y: 17, w: 4, h: 5, minW: 3, minH: 3 },
+  { i: "news", x: 4, y: 17, w: 4, h: 5, minW: 2, minH: 2 },
 ];
 
 const BOARD_WIDGET_REGISTRY: Record<string, { label: string; icon: typeof ClipboardList; description: string }> = {
@@ -175,6 +178,7 @@ const BOARD_WIDGET_REGISTRY: Record<string, { label: string; icon: typeof Clipbo
   emsisoft: { label: "Sécurité Emsisoft", icon: Shield, description: "Protection des appareils et menaces" },
   omada: { label: "Réseau Omada", icon: Wifi, description: "Supervision réseau TP-Link Omada" },
   video_player: { label: "Lecteur vidéo", icon: Tv, description: "Vidéo, IPTV, YouTube, flux HLS" },
+  news: { label: "Actualités", icon: Globe, description: "Actualités géopolitiques internationales" },
 };
 
 export default function BoardPage() {
@@ -984,6 +988,12 @@ export default function BoardPage() {
       title: "Lecteur vidéo",
       icon: <Tv className="h-3 w-3 text-cyan-500" />,
       content: <VideoPlayerWidget />,
+    },
+    {
+      id: "news",
+      title: "Actualités",
+      icon: <Globe className="h-3 w-3 text-sky-500" />,
+      content: <NewsWidget />,
     },
   ];
 
