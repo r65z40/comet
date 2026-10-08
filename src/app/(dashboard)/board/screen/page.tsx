@@ -1526,44 +1526,61 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
     }
     setMicError("");
 
-    const SR = (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
-      ?? (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
-    if (!SR) { setMicError("Non supporté par ce navigateur"); return; }
-    const recognition = new SR();
-    recognition.lang = "fr-FR";
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => {
-      const last = event.results[event.results.length - 1];
-      const transcript = last?.[0]?.transcript ?? "";
-      if (transcript) setNewTitle((prev) => (prev ? prev + " " + transcript : transcript));
-    };
-    recognition.onend = () => setListening(false);
-    recognition.onerror = (event) => {
-      setListening(false);
-      const err = (event as unknown as { error?: string }).error;
-      if (err === "not-allowed") {
-        setMicError("Micro bloqué — vérifier : Windows → Paramètres → Confidentialité → Microphone + Chrome → cadenas → Micro → Autoriser");
-      } else if (err === "network") {
-        setMicError("Erreur réseau — la dictée nécessite internet (Google Speech)");
-      } else if (err === "no-speech") {
-        setMicError("Aucune voix détectée — réessayer");
-      } else if (err === "audio-capture") {
-        setMicError("Micro inaccessible — vérifier qu'il n'est pas utilisé par une autre app");
-      } else if (err === "service-not-allowed") {
-        setMicError("Dictée vocale désactivée — activer dans chrome://settings/content/siteDetails → Microphone");
-      } else {
-        setMicError("Erreur dictée" + (err ? ` (${err})` : ""));
+    // Step 1: test raw getUserMedia to get the real error
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      stream.getTracks().forEach((t) => t.stop());
+
+      // getUserMedia succeeded — mic access is granted, now start speech recognition
+      const SR = (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
+        ?? (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
+      if (!SR) { setMicError("SpeechRecognition non supporté par ce navigateur"); return; }
+      const recognition = new SR();
+      recognition.lang = "fr-FR";
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.onresult = (event) => {
+        const last = event.results[event.results.length - 1];
+        const transcript = last?.[0]?.transcript ?? "";
+        if (transcript) setNewTitle((prev) => (prev ? prev + " " + transcript : transcript));
+      };
+      recognition.onend = () => setListening(false);
+      recognition.onerror = (event) => {
+        setListening(false);
+        const err = (event as unknown as { error?: string }).error;
+        if (err === "network") {
+          setMicError("Erreur réseau — la dictée vocale envoie l'audio aux serveurs Google, vérifier la connexion internet");
+        } else if (err === "no-speech") {
+          setMicError("Aucune voix détectée — réessayer");
+        } else if (err === "audio-capture") {
+          setMicError("Micro inaccessible — vérifier qu'il n'est pas utilisé par une autre app");
+        } else if (err === "not-allowed" || err === "service-not-allowed") {
+          setMicError("Chrome bloque la dictée — aller dans chrome://settings/content/microphone et vérifier que le site est autorisé");
+        } else {
+          setMicError(`Erreur dictée : ${err || "inconnue"}`);
+        }
+      };
+      recognitionRef.current = recognition;
+      try {
+        recognition.start();
+        setListening(true);
+      } catch (e) {
+        setMicError(`Erreur start() : ${(e as Error).message}`);
       }
-    };
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-      setListening(true);
-    } catch {
-      setMicError("Impossible de démarrer — vérifier les permissions micro");
-    }
+    }).catch((err) => {
+      // getUserMedia failed — show the raw error for diagnosis
+      const name = (err as DOMException)?.name || "";
+      const msg = (err as Error)?.message || "";
+      if (name === "NotAllowedError") {
+        setMicError(`Accès micro refusé (${name}: ${msg}). Vérifier : 1) Windows → Paramètres → Confidentialité → Micro activé pour Chrome, 2) Chrome → cadenas → Micro = Autoriser, 3) Redémarrer Chrome`);
+      } else if (name === "NotFoundError") {
+        setMicError("Aucun microphone détecté — brancher un micro ou vérifier le Gestionnaire de périphériques");
+      } else if (name === "NotReadableError") {
+        setMicError("Micro occupé par une autre application — fermer les autres apps qui utilisent le micro");
+      } else {
+        setMicError(`Erreur micro : ${name} — ${msg}`);
+      }
+    });
   }
 
   const touchFiredRef = useRef(false);
