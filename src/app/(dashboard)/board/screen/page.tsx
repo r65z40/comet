@@ -1518,7 +1518,7 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
     setHasSpeechRecognition("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
   }, []);
 
-  async function toggleDictation() {
+  function toggleDictation() {
     if (listening && recognitionRef.current) {
       recognitionRef.current.stop();
       setListening(false);
@@ -1526,51 +1526,43 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
     }
     setMicError("");
 
-    // Request mic permission explicitly via getUserMedia first
-    // This triggers the OS/browser permission prompt if needed
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Stop the stream immediately — we just needed the permission grant
-      stream.getTracks().forEach((t) => t.stop());
-    } catch (err) {
-      const name = (err as DOMException)?.name;
-      if (name === "NotAllowedError") {
-        setMicError("Micro bloqué — vérifier : 1) Paramètres Windows → Confidentialité → Microphone → Autoriser les apps, 2) Chrome → cadenas à côté de l'URL → Micro → Autoriser");
-      } else if (name === "NotFoundError") {
-        setMicError("Aucun microphone détecté sur cet appareil");
-      } else {
-        setMicError("Impossible d'accéder au micro" + (name ? ` (${name})` : ""));
-      }
-      return;
-    }
-
     const SR = (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
       ?? (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
     if (!SR) { setMicError("Non supporté par ce navigateur"); return; }
     const recognition = new SR();
     recognition.lang = "fr-FR";
+    recognition.continuous = true;
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.onresult = (event) => {
-      const transcript = event.results[0]?.[0]?.transcript ?? "";
+      const last = event.results[event.results.length - 1];
+      const transcript = last?.[0]?.transcript ?? "";
       if (transcript) setNewTitle((prev) => (prev ? prev + " " + transcript : transcript));
     };
     recognition.onend = () => setListening(false);
     recognition.onerror = (event) => {
       setListening(false);
       const err = (event as unknown as { error?: string }).error;
-      if (err === "not-allowed") setMicError("Micro bloqué par le navigateur malgré l'autorisation — redémarrer Chrome");
-      else if (err === "network") setMicError("Erreur réseau — la dictée vocale nécessite une connexion internet");
-      else if (err === "no-speech") setMicError("Aucune voix détectée — réessayer");
-      else if (err === "audio-capture") setMicError("Micro inaccessible — vérifier qu'il n'est pas utilisé par une autre app");
-      else setMicError("Erreur dictée" + (err ? ` (${err})` : ""));
+      if (err === "not-allowed") {
+        setMicError("Micro bloqué — vérifier : Windows → Paramètres → Confidentialité → Microphone + Chrome → cadenas → Micro → Autoriser");
+      } else if (err === "network") {
+        setMicError("Erreur réseau — la dictée nécessite internet (Google Speech)");
+      } else if (err === "no-speech") {
+        setMicError("Aucune voix détectée — réessayer");
+      } else if (err === "audio-capture") {
+        setMicError("Micro inaccessible — vérifier qu'il n'est pas utilisé par une autre app");
+      } else if (err === "service-not-allowed") {
+        setMicError("Dictée vocale désactivée — activer dans chrome://settings/content/siteDetails → Microphone");
+      } else {
+        setMicError("Erreur dictée" + (err ? ` (${err})` : ""));
+      }
     };
     recognitionRef.current = recognition;
     try {
       recognition.start();
       setListening(true);
     } catch {
-      setMicError("Impossible de démarrer la dictée vocale");
+      setMicError("Impossible de démarrer — vérifier les permissions micro");
     }
   }
 
@@ -1698,7 +1690,9 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
               {hasSpeechRecognition && (
                 <button
                   type="button"
-                  {...touchSafe(toggleDictation)}
+                  onClick={() => toggleDictation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   className={cn(
                     "shrink-0 flex items-center justify-center w-12 h-12 rounded-lg border transition-all",
                     micError
