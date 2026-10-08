@@ -1513,6 +1513,7 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
   }, [showForm]);
 
   const [hasSpeechRecognition, setHasSpeechRecognition] = useState(false);
+  const [micError, setMicError] = useState("");
   useEffect(() => {
     setHasSpeechRecognition("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
   }, []);
@@ -1523,9 +1524,10 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
       setListening(false);
       return;
     }
+    setMicError("");
     const SR = (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
       ?? (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR) { setMicError("Non supporté par ce navigateur"); return; }
     const recognition = new SR();
     recognition.lang = "fr-FR";
     recognition.interimResults = false;
@@ -1535,13 +1537,19 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
       if (transcript) setNewTitle((prev) => (prev ? prev + " " + transcript : transcript));
     };
     recognition.onend = () => setListening(false);
-    recognition.onerror = () => { setListening(false); setHasSpeechRecognition(false); };
+    recognition.onerror = (event) => {
+      setListening(false);
+      const err = (event as unknown as { error?: string }).error;
+      if (err === "not-allowed") setMicError("Micro bloqué — autoriser dans les paramètres du navigateur");
+      else if (err === "network") setMicError("HTTPS requis pour la dictée vocale");
+      else setMicError("Erreur micro" + (err ? ` (${err})` : ""));
+    };
     recognitionRef.current = recognition;
     try {
       recognition.start();
       setListening(true);
     } catch {
-      setHasSpeechRecognition(false);
+      setMicError("Impossible de démarrer la dictée vocale");
     }
   }
 
@@ -1672,16 +1680,23 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
                   {...touchSafe(toggleDictation)}
                   className={cn(
                     "shrink-0 flex items-center justify-center w-12 h-12 rounded-lg border transition-all",
-                    listening
-                      ? "bg-red-500/20 border-red-500/50 text-red-400 animate-pulse"
-                      : "bg-slate-700/50 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500",
+                    micError
+                      ? "bg-orange-500/20 border-orange-500/50 text-orange-400"
+                      : listening
+                        ? "bg-red-500/20 border-red-500/50 text-red-400 animate-pulse"
+                        : "bg-slate-700/50 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500",
                   )}
-                  title={listening ? "Arrêter la dictée" : "Dictée vocale"}
+                  title={micError || (listening ? "Arrêter la dictée" : "Dictée vocale")}
                 >
                   {listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                 </button>
               )}
             </div>
+            {micError && (
+              <div className="text-orange-400 text-xs bg-orange-500/10 border border-orange-500/20 rounded-lg px-3 py-2">
+                {micError}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 mr-1">Priorité</span>
               {([
