@@ -1518,13 +1518,32 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
     setHasSpeechRecognition("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
   }, []);
 
-  function toggleDictation() {
+  async function toggleDictation() {
     if (listening && recognitionRef.current) {
       recognitionRef.current.stop();
       setListening(false);
       return;
     }
     setMicError("");
+
+    // Request mic permission explicitly via getUserMedia first
+    // This triggers the OS/browser permission prompt if needed
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Stop the stream immediately — we just needed the permission grant
+      stream.getTracks().forEach((t) => t.stop());
+    } catch (err) {
+      const name = (err as DOMException)?.name;
+      if (name === "NotAllowedError") {
+        setMicError("Micro bloqué — vérifier : 1) Paramètres Windows → Confidentialité → Microphone → Autoriser les apps, 2) Chrome → cadenas à côté de l'URL → Micro → Autoriser");
+      } else if (name === "NotFoundError") {
+        setMicError("Aucun microphone détecté sur cet appareil");
+      } else {
+        setMicError("Impossible d'accéder au micro" + (name ? ` (${name})` : ""));
+      }
+      return;
+    }
+
     const SR = (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
       ?? (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
     if (!SR) { setMicError("Non supporté par ce navigateur"); return; }
@@ -1540,9 +1559,11 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
     recognition.onerror = (event) => {
       setListening(false);
       const err = (event as unknown as { error?: string }).error;
-      if (err === "not-allowed") setMicError("Micro bloqué — autoriser dans les paramètres du navigateur");
-      else if (err === "network") setMicError("HTTPS requis pour la dictée vocale");
-      else setMicError("Erreur micro" + (err ? ` (${err})` : ""));
+      if (err === "not-allowed") setMicError("Micro bloqué par le navigateur malgré l'autorisation — redémarrer Chrome");
+      else if (err === "network") setMicError("Erreur réseau — la dictée vocale nécessite une connexion internet");
+      else if (err === "no-speech") setMicError("Aucune voix détectée — réessayer");
+      else if (err === "audio-capture") setMicError("Micro inaccessible — vérifier qu'il n'est pas utilisé par une autre app");
+      else setMicError("Erreur dictée" + (err ? ` (${err})` : ""));
     };
     recognitionRef.current = recognition;
     try {
