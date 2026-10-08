@@ -135,7 +135,12 @@ export function TouchKeyboardProvider({ children }: { children: React.ReactNode 
   const submit = useCallback(() => {
     if (!target) return;
     target.focus();
-    target.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+    const form = target.closest("form");
+    if (form) {
+      form.requestSubmit();
+    } else {
+      target.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+    }
   }, [target]);
 
   const handleKey = useCallback((key: string) => {

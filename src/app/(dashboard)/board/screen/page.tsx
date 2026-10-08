@@ -1512,7 +1512,10 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
     if (showForm) inputRef.current?.focus();
   }, [showForm]);
 
-  const hasSpeechRecognition = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+  const [hasSpeechRecognition, setHasSpeechRecognition] = useState(false);
+  useEffect(() => {
+    setHasSpeechRecognition("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+  }, []);
 
   function toggleDictation() {
     if (listening && recognitionRef.current) {
@@ -1532,28 +1535,48 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
       if (transcript) setNewTitle((prev) => (prev ? prev + " " + transcript : transcript));
     };
     recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    recognition.onerror = () => { setListening(false); setHasSpeechRecognition(false); };
     recognitionRef.current = recognition;
-    recognition.start();
-    setListening(true);
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      setHasSpeechRecognition(false);
+    }
   }
 
+  const touchFiredRef = useRef(false);
   function touchSafe(handler: () => void) {
     return {
-      onClick: handler,
-      onTouchEnd: (e: React.TouchEvent) => { e.preventDefault(); handler(); },
+      onTouchEnd: (e: React.TouchEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        touchFiredRef.current = true;
+        handler();
+        setTimeout(() => { touchFiredRef.current = false; }, 400);
+      },
+      onClick: (e: React.MouseEvent) => {
+        if (touchFiredRef.current) { e.preventDefault(); return; }
+        handler();
+      },
       onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+      onTouchStart: (e: React.TouchEvent) => e.stopPropagation(),
     };
   }
 
+  const [createError, setCreateError] = useState("");
+  const createRef = useRef(false);
   async function handleCreate() {
     const title = newTitle.trim();
-    if (!title || creating) return;
+    if (!title || createRef.current) return;
+    createRef.current = true;
     setCreating(true);
+    setCreateError("");
     try {
       const res = await fetch("/api/board/cards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ columnId: column.id, title, priority: newPriority }),
       });
       if (res.ok) {
@@ -1561,8 +1584,14 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
         setNewPriority(3);
         setShowForm(false);
         onCardCreated();
+      } else {
+        const data = await res.json().catch(() => null);
+        setCreateError(data?.error || `Erreur ${res.status}`);
       }
+    } catch (err) {
+      setCreateError("Erreur réseau");
     } finally {
+      createRef.current = false;
       setCreating(false);
     }
   }
@@ -1620,8 +1649,9 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
       </div>
       <div className="border-t border-slate-700/50 p-3">
         {showForm ? (
-          <div
+          <form
             className="space-y-3"
+            onSubmit={(e) => { e.preventDefault(); handleCreate(); }}
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
@@ -1632,12 +1662,13 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
                 type="text"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setShowForm(false); setNewTitle(""); } }}
+                onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); setShowForm(false); setNewTitle(""); } }}
                 placeholder="Titre de la carte..."
                 className="flex-1 bg-slate-700/60 border border-slate-600 rounded-lg px-4 py-3 text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
               />
               {hasSpeechRecognition && (
                 <button
+                  type="button"
                   {...touchSafe(toggleDictation)}
                   className={cn(
                     "shrink-0 flex items-center justify-center w-12 h-12 rounded-lg border transition-all",
@@ -1660,6 +1691,7 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
               ] as const).map((p) => (
                 <button
                   key={p.v}
+                  type="button"
                   {...touchSafe(() => setNewPriority(p.v))}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-medium border min-h-[36px] transition-all",
@@ -1670,9 +1702,14 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
                 </button>
               ))}
             </div>
+            {createError && (
+              <div className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                {createError}
+              </div>
+            )}
             <div className="flex gap-2">
               <button
-                {...touchSafe(handleCreate)}
+                type="submit"
                 disabled={!newTitle.trim() || creating}
                 className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium rounded-lg px-4 py-3 min-h-[48px] text-base transition-colors active:bg-blue-400"
               >
@@ -1680,13 +1717,14 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
                 {creating ? "Création..." : "Créer"}
               </button>
               <button
-                {...touchSafe(() => { setShowForm(false); setNewTitle(""); setNewPriority(3); if (listening && recognitionRef.current) { recognitionRef.current.stop(); setListening(false); } })}
+                type="button"
+                {...touchSafe(() => { setShowForm(false); setNewTitle(""); setNewPriority(3); setCreateError(""); if (listening && recognitionRef.current) { recognitionRef.current.stop(); setListening(false); } })}
                 className="px-4 py-3 min-h-[48px] rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-          </div>
+          </form>
         ) : (
           <button
             {...touchSafe(() => setShowForm(true))}
