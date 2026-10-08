@@ -398,7 +398,7 @@ export default function CardDetailModal({ cardId, users, onClose, onArchive, onD
     >
       <div className={cn(
         "rounded-2xl shadow-2xl w-full mx-3",
-        dark ? "bg-slate-800 max-w-5xl" : "bg-white max-w-3xl",
+        dark ? "bg-slate-800 max-w-6xl" : "bg-white max-w-3xl",
       )}>
         {/* ───── Header ───── */}
         <div className={cn(
@@ -854,26 +854,28 @@ export default function CardDetailModal({ cardId, users, onClose, onArchive, onD
 
               {/* Comment input */}
               <div className={cn(
-                "flex items-start rounded-xl border transition-colors",
-                dark ? "gap-3 bg-slate-700/30 border-slate-600 p-3 focus-within:border-primary-500/50" : "gap-2 bg-slate-50 border-slate-200 p-2 focus-within:border-primary-300",
+                "flex items-end rounded-xl border transition-colors",
+                dark ? "gap-2 bg-slate-700/30 border-slate-600 p-3 focus-within:border-primary-500/50" : "gap-2 bg-slate-50 border-slate-200 p-2 focus-within:border-primary-300",
               )}>
-                <MentionInput
-                  value={commentText}
-                  onChange={setCommentText}
-                  onSubmit={addComment}
-                  placeholder="Écrire un commentaire... (@mention)"
-                  rows={dark ? 2 : 2}
-                  users={users}
-                  className={cn(
-                    "flex-1 border-0 bg-transparent focus:ring-0",
-                    dark ? "px-2 py-1 text-base text-white placeholder-slate-500" : "px-2 py-1 text-sm",
-                  )}
-                />
+                <div className="flex-1 min-w-0">
+                  <MentionInput
+                    value={commentText}
+                    onChange={setCommentText}
+                    onSubmit={addComment}
+                    placeholder="Écrire un commentaire... (@mention)"
+                    rows={dark ? 2 : 2}
+                    users={users}
+                    className={cn(
+                      "!border-0 !bg-transparent !ring-0 !shadow-none focus:!ring-0 focus:!border-0",
+                      dark ? "px-2 py-1 text-base text-white placeholder-slate-500" : "px-2 py-1 text-sm",
+                    )}
+                  />
+                </div>
                 <button
                   onClick={addComment}
                   disabled={!commentText.trim() || sendingComment}
                   className={cn(
-                    "self-end bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-30 transition-colors flex-shrink-0",
+                    "bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-30 transition-colors flex-shrink-0",
                     dark ? "p-3 min-h-[48px] min-w-[48px] flex items-center justify-center" : "p-2",
                   )}
                 >
@@ -1000,8 +1002,8 @@ export default function CardDetailModal({ cardId, users, onClose, onArchive, onD
 
           {/* ───── Sidebar (right) ───── */}
           <div className={cn(
-            "flex-shrink-0 md:w-72 lg:w-80",
-            dark ? "p-5 space-y-4" : "p-4 space-y-3",
+            "flex-shrink-0",
+            dark ? "md:w-80 lg:w-96 p-5 space-y-4" : "md:w-72 lg:w-80 p-4 space-y-3",
           )}>
             {/* Priority (edit mode) */}
             {editing && (
