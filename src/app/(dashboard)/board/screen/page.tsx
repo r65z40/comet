@@ -47,8 +47,6 @@ import {
   Tv,
   Plus,
   Send,
-  Mic,
-  MicOff,
   GripVertical,
   Maximize,
   Minimize,
@@ -1504,90 +1502,11 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
   const [newPriority, setNewPriority] = useState(3);
   const [creating, setCreating] = useState(false);
   const [showRedCardAnim, setShowRedCardAnim] = useState(false);
-  const [listening, setListening] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
     if (showForm) inputRef.current?.focus();
   }, [showForm]);
-
-  const [hasSpeechRecognition, setHasSpeechRecognition] = useState(false);
-  const [micError, setMicError] = useState("");
-  const [micPermission, setMicPermission] = useState<"unknown" | "granted" | "denied">("unknown");
-
-  // Check for SpeechRecognition support and pre-check mic permission on mount
-  useEffect(() => {
-    const hasSR = "SpeechRecognition" in window || "webkitSpeechRecognition" in window;
-    setHasSpeechRecognition(hasSR);
-    if (hasSR && navigator.permissions) {
-      navigator.permissions.query({ name: "microphone" as PermissionName }).then((result) => {
-        setMicPermission(result.state === "granted" ? "granted" : result.state === "denied" ? "denied" : "unknown");
-        result.onchange = () => {
-          setMicPermission(result.state === "granted" ? "granted" : result.state === "denied" ? "denied" : "unknown");
-        };
-      }).catch(() => {});
-    }
-  }, []);
-
-  // When form opens, pre-warm mic permission if not yet granted
-  useEffect(() => {
-    if (showForm && micPermission === "unknown" && hasSpeechRecognition) {
-      navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-        stream.getTracks().forEach((t) => t.stop());
-        setMicPermission("granted");
-      }).catch(() => {
-        setMicPermission("denied");
-      });
-    }
-  }, [showForm, micPermission, hasSpeechRecognition]);
-
-  function toggleDictation() {
-    if (listening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setListening(false);
-      return;
-    }
-    setMicError("");
-
-    const SR = (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
-      ?? (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
-    if (!SR) { setMicError("Non supporté par ce navigateur"); return; }
-
-    const recognition = new SR();
-    recognition.lang = "fr-FR";
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => {
-      const last = event.results[event.results.length - 1];
-      const transcript = last?.[0]?.transcript ?? "";
-      if (transcript) setNewTitle((prev) => (prev ? prev + " " + transcript : transcript));
-    };
-    recognition.onend = () => setListening(false);
-    recognition.onerror = (event) => {
-      setListening(false);
-      const err = (event as unknown as { error?: string }).error;
-      if (err === "network") {
-        setMicError("Erreur réseau — la dictée nécessite internet");
-      } else if (err === "no-speech") {
-        setMicError("Aucune voix détectée — réessayer");
-      } else if (err === "audio-capture") {
-        setMicError("Micro inaccessible — utilisé par une autre app ?");
-      } else if (err === "not-allowed" || err === "service-not-allowed") {
-        setMicError("Dictée bloquée par Chrome — redémarrer le navigateur");
-      } else {
-        setMicError(`Erreur : ${err || "inconnue"}`);
-      }
-    };
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-      setListening(true);
-    } catch (e) {
-      setMicError(`Erreur : ${(e as Error).message}`);
-    }
-  }
 
   const touchFiredRef = useRef(false);
   function touchSafe(handler: () => void) {
@@ -1693,48 +1612,21 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
       </div>
       <div className="border-t border-slate-700/50 p-3">
         {showForm ? (
-          <form
+          <div
             className="space-y-3"
-            onSubmit={(e) => { e.preventDefault(); handleCreate(); }}
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
           >
-            <div className="flex gap-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); setShowForm(false); setNewTitle(""); } }}
-                placeholder="Titre de la carte..."
-                className="flex-1 bg-slate-700/60 border border-slate-600 rounded-lg px-4 py-3 text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
-              />
-              {hasSpeechRecognition && (
-                <button
-                  type="button"
-                  onClick={() => toggleDictation()}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  className={cn(
-                    "shrink-0 flex items-center justify-center w-12 h-12 rounded-lg border transition-all",
-                    micError
-                      ? "bg-orange-500/20 border-orange-500/50 text-orange-400"
-                      : listening
-                        ? "bg-red-500/20 border-red-500/50 text-red-400 animate-pulse"
-                        : "bg-slate-700/50 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500",
-                  )}
-                  title={micError || (listening ? "Arrêter la dictée" : "Dictée vocale")}
-                >
-                  {listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                </button>
-              )}
-            </div>
-            {micError && (
-              <div className="text-orange-400 text-xs bg-orange-500/10 border border-orange-500/20 rounded-lg px-3 py-2">
-                {micError}
-              </div>
-            )}
+            <input
+              ref={inputRef}
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); setShowForm(false); setNewTitle(""); } }}
+              placeholder="Titre de la carte..."
+              className="w-full bg-slate-700/60 border border-slate-600 rounded-lg px-4 py-3 text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+            />
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 mr-1">Priorité</span>
               {([
@@ -1762,8 +1654,9 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
             )}
             <div className="flex gap-2">
               <button
-                type="submit"
+                type="button"
                 disabled={!newTitle.trim() || creating}
+                {...touchSafe(() => handleCreate())}
                 className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium rounded-lg px-4 py-3 min-h-[48px] text-base transition-colors active:bg-blue-400"
               >
                 <Send className="h-4 w-4" />
@@ -1771,13 +1664,13 @@ function ScreenColumn({ column, colCount, onCardOpen, onCardCreated, onRedCardUp
               </button>
               <button
                 type="button"
-                {...touchSafe(() => { setShowForm(false); setNewTitle(""); setNewPriority(3); setCreateError(""); if (listening && recognitionRef.current) { recognitionRef.current.stop(); setListening(false); } })}
+                {...touchSafe(() => { setShowForm(false); setNewTitle(""); setNewPriority(3); setCreateError(""); })}
                 className="px-4 py-3 min-h-[48px] rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-          </form>
+          </div>
         ) : (
           <button
             {...touchSafe(() => setShowForm(true))}
