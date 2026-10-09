@@ -133,51 +133,75 @@ interface FinancialData {
   filters: { families: string[]; suppliers: string[] };
 }
 
-type Period = "month" | "quarter" | "year" | "last-month" | "last-quarter" | "last-year" | "custom";
+type PeriodType = "month" | "quarter" | "semester" | "year" | "custom";
 
-function getPeriodDates(period: Period): { from: string; to: string } {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  switch (period) {
-    case "month":
-      return { from: `${y}-${String(m + 1).padStart(2, "0")}-01`, to: now.toISOString().slice(0, 10) };
-    case "last-month": {
-      const lm = m === 0 ? 11 : m - 1;
-      const ly = m === 0 ? y - 1 : y;
-      const lastDay = new Date(ly, lm + 1, 0).getDate();
-      return { from: `${ly}-${String(lm + 1).padStart(2, "0")}-01`, to: `${ly}-${String(lm + 1).padStart(2, "0")}-${lastDay}` };
-    }
-    case "quarter": {
-      const qStart = Math.floor(m / 3) * 3;
-      return { from: `${y}-${String(qStart + 1).padStart(2, "0")}-01`, to: now.toISOString().slice(0, 10) };
-    }
-    case "last-quarter": {
-      const cqStart = Math.floor(m / 3) * 3;
-      const lqStart = cqStart - 3;
-      const lqY = lqStart < 0 ? y - 1 : y;
-      const lqM = lqStart < 0 ? lqStart + 12 : lqStart;
-      const lqEnd = new Date(lqY, lqM + 3, 0);
-      return { from: `${lqY}-${String(lqM + 1).padStart(2, "0")}-01`, to: lqEnd.toISOString().slice(0, 10) };
-    }
-    case "year":
-      return { from: `${y}-01-01`, to: now.toISOString().slice(0, 10) };
-    case "last-year":
-      return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` };
-    default:
-      return { from: `${y}-01-01`, to: now.toISOString().slice(0, 10) };
-  }
+const PERIOD_TYPE_LABELS: Record<PeriodType, string> = {
+  month: "Mois",
+  quarter: "Trimestre",
+  semester: "Semestre",
+  year: "Année",
+  custom: "Personnalisé",
+};
+
+const MONTH_LABELS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
+function getAvailableYears() {
+  const y = new Date().getFullYear();
+  return Array.from({ length: 6 }, (_, i) => y - i);
 }
 
-const PERIOD_LABELS: Record<Period, string> = {
-  "month": "Ce mois",
-  "last-month": "Mois dernier",
-  "quarter": "Ce trimestre",
-  "last-quarter": "Trimestre dernier",
-  "year": "Cette année",
-  "last-year": "Année dernière",
-  "custom": "Personnalisé",
-};
+function computePeriodDates(
+  type: PeriodType,
+  selectedYear: number,
+  selectedMonth: number,
+  selectedQuarter: number,
+  selectedSemester: number,
+  customFrom: string,
+  customTo: string,
+): { from: string; to: string } {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+
+  switch (type) {
+    case "month": {
+      const lastDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+      const endDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${lastDay}`;
+      return {
+        from: `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-01`,
+        to: endDate > today ? today : endDate,
+      };
+    }
+    case "quarter": {
+      const qStartMonth = (selectedQuarter - 1) * 3;
+      const qEndDate = new Date(selectedYear, qStartMonth + 3, 0);
+      const endStr = qEndDate.toISOString().slice(0, 10);
+      return {
+        from: `${selectedYear}-${String(qStartMonth + 1).padStart(2, "0")}-01`,
+        to: endStr > today ? today : endStr,
+      };
+    }
+    case "semester": {
+      const sStartMonth = (selectedSemester - 1) * 6;
+      const sEndDate = new Date(selectedYear, sStartMonth + 6, 0);
+      const endStr = sEndDate.toISOString().slice(0, 10);
+      return {
+        from: `${selectedYear}-${String(sStartMonth + 1).padStart(2, "0")}-01`,
+        to: endStr > today ? today : endStr,
+      };
+    }
+    case "year": {
+      const endDate = `${selectedYear}-12-31`;
+      return {
+        from: `${selectedYear}-01-01`,
+        to: endDate > today ? today : endDate,
+      };
+    }
+    case "custom":
+      return { from: customFrom, to: customTo };
+    default:
+      return { from: `${selectedYear}-01-01`, to: today };
+  }
+}
 
 const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1"];
 
@@ -200,9 +224,14 @@ function calcEvolution(current: number, previous: number): { pct: number; direct
 }
 
 export default function ChiffresPage() {
+  const now = new Date();
   const [data, setData] = useState<FinancialData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<Period>("year");
+  const [periodType, setPeriodType] = useState<PeriodType>("year");
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(now.getMonth() / 3) + 1);
+  const [selectedSemester, setSelectedSemester] = useState(now.getMonth() < 6 ? 1 : 2);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [clientId, setClientId] = useState("");
@@ -216,7 +245,7 @@ export default function ChiffresPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const dates = period === "custom" ? { from: customFrom, to: customTo } : getPeriodDates(period);
+    const dates = computePeriodDates(periodType, selectedYear, selectedMonth, selectedQuarter, selectedSemester, customFrom, customTo);
     if (!dates.from || !dates.to) { setLoading(false); return; }
     const params = new URLSearchParams({ from: dates.from, to: dates.to });
     if (clientId) params.set("clientId", clientId);
@@ -228,7 +257,7 @@ export default function ChiffresPage() {
     } catch {} finally {
       setLoading(false);
     }
-  }, [period, customFrom, customTo, clientId, family, supplier]);
+  }, [periodType, selectedYear, selectedMonth, selectedQuarter, selectedSemester, customFrom, customTo, clientId, family, supplier]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -267,22 +296,84 @@ export default function ChiffresPage() {
       {/* Filters bar */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <div className="flex flex-wrap items-end gap-3">
-          {/* Period */}
+          {/* Period type */}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Période</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Type</label>
             <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value as Period)}
+              value={periodType}
+              onChange={(e) => setPeriodType(e.target.value as PeriodType)}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             >
-              {Object.entries(PERIOD_LABELS).map(([k, v]) => (
+              {Object.entries(PERIOD_TYPE_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
             </select>
           </div>
 
+          {/* Year selector (for all except custom) */}
+          {periodType !== "custom" && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Année</label>
+              <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-primary-500 outline-none">
+                {getAvailableYears().map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Month selector */}
+          {periodType === "month" && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Mois</label>
+              <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-primary-500 outline-none">
+                {MONTH_LABELS.map((label, i) => <option key={i} value={i}>{label}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Quarter selector */}
+          {periodType === "quarter" && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Trimestre</label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4].map((q) => (
+                  <button key={q} onClick={() => setSelectedQuarter(q)}
+                    className={cn(
+                      "px-3 py-2 text-sm font-medium rounded-lg border transition-colors",
+                      selectedQuarter === q
+                        ? "bg-primary-50 border-primary-300 text-primary-700"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50",
+                    )}>
+                    T{q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Semester selector */}
+          {periodType === "semester" && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Semestre</label>
+              <div className="flex gap-1">
+                {[1, 2].map((s) => (
+                  <button key={s} onClick={() => setSelectedSemester(s)}
+                    className={cn(
+                      "px-3 py-2 text-sm font-medium rounded-lg border transition-colors",
+                      selectedSemester === s
+                        ? "bg-primary-50 border-primary-300 text-primary-700"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50",
+                    )}>
+                    S{s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Custom dates */}
-          {period === "custom" && (
+          {periodType === "custom" && (
             <>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Du</label>
