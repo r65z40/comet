@@ -19,6 +19,7 @@ import {
   X,
   ChevronDown,
   Download,
+  Info,
 } from "lucide-react";
 import {
   BarChart,
@@ -52,6 +53,20 @@ interface KPIs {
   unpaidCount: number;
   activeInstallations: number;
   renewalInstallations: number;
+  linesWithoutCost: number;
+  totalLines: number;
+}
+
+interface PreviousKPIs {
+  totalRevenue: number;
+  totalCost: number;
+  margin: number;
+  marginPercent: number;
+  invoiceCount: number;
+  averageInvoice: number;
+  totalPaid: number;
+  totalUnpaid: number;
+  unpaidCount: number;
 }
 
 interface MonthlyData {
@@ -70,10 +85,19 @@ interface FamilyData {
   count: number;
 }
 
+interface SupplierData {
+  name: string;
+  revenue: number;
+  cost: number;
+  count: number;
+}
+
 interface TopClient {
   id: string;
   name: string;
   revenue: number;
+  cost: number;
+  margin: number;
   invoiceCount: number;
 }
 
@@ -98,8 +122,11 @@ interface UnpaidInvoice {
 
 interface FinancialData {
   kpis: KPIs;
+  previousKpis: PreviousKPIs;
+  clientConcentration: number;
   monthlyData: MonthlyData[];
   familyData: FamilyData[];
+  supplierData: SupplierData[];
   topClients: TopClient[];
   topProducts: TopProduct[];
   unpaidDetail: UnpaidInvoice[];
@@ -166,6 +193,12 @@ function tooltipFmt(v: unknown) {
   return formatCurrency(Number(v ?? 0));
 }
 
+function calcEvolution(current: number, previous: number): { pct: number; direction: "up" | "down" | "flat" } {
+  if (previous === 0) return { pct: current > 0 ? 100 : 0, direction: current > 0 ? "up" : "flat" };
+  const pct = ((current - previous) / Math.abs(previous)) * 100;
+  return { pct: Math.round(pct * 10) / 10, direction: pct > 0.5 ? "up" : pct < -0.5 ? "down" : "flat" };
+}
+
 export default function ChiffresPage() {
   const [data, setData] = useState<FinancialData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -219,6 +252,7 @@ export default function ChiffresPage() {
   }, [clientSearch]);
 
   const kpis = data?.kpis;
+  const prev = data?.previousKpis;
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-6">
@@ -325,6 +359,19 @@ export default function ChiffresPage() {
         <div className="text-center py-20 text-slate-500">Erreur de chargement</div>
       ) : (
         <>
+          {/* Data quality warning */}
+          {kpis && kpis.linesWithoutCost > 0 && kpis.totalLines > 0 && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <Info className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-800">Données de marge incomplètes</p>
+                <p className="text-xs text-amber-600 mt-0.5">
+                  {kpis.linesWithoutCost} ligne{kpis.linesWithoutCost > 1 ? "s" : ""} sur {kpis.totalLines} ({Math.round((kpis.linesWithoutCost / kpis.totalLines) * 100)}%) n&apos;ont pas de prix d&apos;achat renseigné. La marge affichée est donc surestimée.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
             {([
@@ -345,17 +392,38 @@ export default function ChiffresPage() {
             ))}
           </div>
 
-          {activeTab === "overview" && kpis && (
+          {activeTab === "overview" && kpis && prev && (
             <>
-              {/* KPI cards */}
+              {/* KPI cards with evolution */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <KpiCard icon={<DollarSign className="h-5 w-5" />} label="Chiffre d'affaires" value={formatCurrency(kpis.totalRevenue)} color="blue" />
-                <KpiCard icon={<FileText className="h-5 w-5" />} label="Factures" value={formatNumber(kpis.invoiceCount)} sub={`Moy. ${formatCurrency(kpis.averageInvoice)}`} color="slate" />
-                <KpiCard icon={<TrendingUp className="h-5 w-5" />} label="Encaissé" value={formatCurrency(kpis.totalPaid)} color="emerald" />
-                <KpiCard icon={<AlertCircle className="h-5 w-5" />} label="Impayés" value={formatCurrency(kpis.totalUnpaid)} sub={`${kpis.unpaidCount} facture${kpis.unpaidCount > 1 ? "s" : ""}`} color="red" />
+                <KpiCard icon={<DollarSign className="h-5 w-5" />} label="Chiffre d'affaires" value={formatCurrency(kpis.totalRevenue)} color="blue"
+                  evolution={calcEvolution(kpis.totalRevenue, prev.totalRevenue)} />
+                <KpiCard icon={<FileText className="h-5 w-5" />} label="Factures" value={formatNumber(kpis.invoiceCount)} sub={`Moy. ${formatCurrency(kpis.averageInvoice)}`} color="slate"
+                  evolution={calcEvolution(kpis.invoiceCount, prev.invoiceCount)} />
+                <KpiCard icon={<TrendingUp className="h-5 w-5" />} label="Encaissé" value={formatCurrency(kpis.totalPaid)} color="emerald"
+                  evolution={calcEvolution(kpis.totalPaid, prev.totalPaid)} />
+                <KpiCard icon={<AlertCircle className="h-5 w-5" />} label="Impayés" value={formatCurrency(kpis.totalUnpaid)} sub={`${kpis.unpaidCount} facture${kpis.unpaidCount > 1 ? "s" : ""}`} color="red"
+                  evolution={calcEvolution(kpis.totalUnpaid, prev.totalUnpaid)} invertColor />
                 <KpiCard icon={<Monitor className="h-5 w-5" />} label="Installations actives" value={formatNumber(kpis.activeInstallations)} color="purple" />
                 <KpiCard icon={<RotateCcw className="h-5 w-5" />} label="À renouveler (90j)" value={formatNumber(kpis.renewalInstallations)} color="amber" />
               </div>
+
+              {/* Client concentration */}
+              {data.clientConcentration > 0 && (
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className={cn("rounded-lg p-2", data.clientConcentration > 70 ? "bg-red-50" : data.clientConcentration > 50 ? "bg-amber-50" : "bg-emerald-50")}>
+                    <Users className={cn("h-4 w-4", data.clientConcentration > 70 ? "text-red-500" : data.clientConcentration > 50 ? "text-amber-500" : "text-emerald-500")} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">
+                      Concentration client : <span className={cn("font-bold", data.clientConcentration > 70 ? "text-red-600" : data.clientConcentration > 50 ? "text-amber-600" : "text-emerald-600")}>{data.clientConcentration}%</span> du CA sur les 3 premiers clients
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {data.clientConcentration > 70 ? "Risque élevé — forte dépendance" : data.clientConcentration > 50 ? "Risque modéré — à diversifier" : "Bonne diversification"}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Charts row */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -409,7 +477,7 @@ export default function ChiffresPage() {
                 </div>
               </div>
 
-              {/* Top clients table */}
+              {/* Top clients table with margin */}
               <div className="bg-white rounded-xl border border-slate-200 p-5">
                 <h3 className="text-sm font-semibold text-slate-700 mb-4">Top 10 clients</h3>
                 {data.topClients.length > 0 ? (
@@ -420,33 +488,49 @@ export default function ChiffresPage() {
                           <th className="text-left py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
                           <th className="text-left py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Client</th>
                           <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">CA</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Coût</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Marge</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">% Marge</th>
                           <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Factures</th>
-                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">% du total</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">% du CA</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.topClients.map((c, i) => (
-                          <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                            <td className="py-2.5 px-3 text-slate-400 font-medium">{i + 1}</td>
-                            <td className="py-2.5 px-3">
-                              <Link href={`/clients/${c.id}`} className="text-primary-600 hover:text-primary-700 font-medium hover:underline">
-                                {c.name}
-                              </Link>
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-semibold text-slate-900">{formatCurrency(c.revenue)}</td>
-                            <td className="py-2.5 px-3 text-right text-slate-600">{c.invoiceCount}</td>
-                            <td className="py-2.5 px-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                  <div className="h-full bg-primary-500 rounded-full" style={{ width: `${kpis.totalRevenue > 0 ? (c.revenue / kpis.totalRevenue * 100) : 0}%` }} />
-                                </div>
-                                <span className="text-slate-500 text-xs w-10 text-right">
-                                  {kpis.totalRevenue > 0 ? (c.revenue / kpis.totalRevenue * 100).toFixed(1) : 0}%
+                        {data.topClients.map((c, i) => {
+                          const pctMargin = c.revenue > 0 ? (c.margin / c.revenue) * 100 : 0;
+                          return (
+                            <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                              <td className="py-2.5 px-3 text-slate-400 font-medium">{i + 1}</td>
+                              <td className="py-2.5 px-3">
+                                <Link href={`/clients/${c.id}`} className="text-primary-600 hover:text-primary-700 font-medium hover:underline">
+                                  {c.name}
+                                </Link>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-semibold text-slate-900">{formatCurrency(c.revenue)}</td>
+                              <td className="py-2.5 px-3 text-right text-red-600">{formatCurrency(c.cost)}</td>
+                              <td className="py-2.5 px-3 text-right font-semibold text-emerald-600">{formatCurrency(c.margin)}</td>
+                              <td className="py-2.5 px-3 text-right">
+                                <span className={cn(
+                                  "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                                  pctMargin >= 20 ? "bg-emerald-100 text-emerald-700" : pctMargin >= 0 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700",
+                                )}>
+                                  {pctMargin.toFixed(1)}%
                                 </span>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-slate-600">{c.invoiceCount}</td>
+                              <td className="py-2.5 px-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-primary-500 rounded-full" style={{ width: `${kpis.totalRevenue > 0 ? (c.revenue / kpis.totalRevenue * 100) : 0}%` }} />
+                                  </div>
+                                  <span className="text-slate-500 text-xs w-10 text-right">
+                                    {kpis.totalRevenue > 0 ? (c.revenue / kpis.totalRevenue * 100).toFixed(1) : 0}%
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -457,12 +541,14 @@ export default function ChiffresPage() {
             </>
           )}
 
-          {activeTab === "unpaid" && kpis && (
+          {activeTab === "unpaid" && kpis && prev && (
             <>
               {/* Unpaid KPIs */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <KpiCard icon={<AlertCircle className="h-5 w-5" />} label="Total impayé" value={formatCurrency(kpis.totalUnpaid)} color="red" />
-                <KpiCard icon={<FileText className="h-5 w-5" />} label="Factures impayées" value={formatNumber(kpis.unpaidCount)} color="orange" />
+                <KpiCard icon={<AlertCircle className="h-5 w-5" />} label="Total impayé" value={formatCurrency(kpis.totalUnpaid)} color="red"
+                  evolution={calcEvolution(kpis.totalUnpaid, prev.totalUnpaid)} invertColor />
+                <KpiCard icon={<FileText className="h-5 w-5" />} label="Factures impayées" value={formatNumber(kpis.unpaidCount)} color="orange"
+                  evolution={calcEvolution(kpis.unpaidCount, prev.unpaidCount)} invertColor />
                 <KpiCard icon={<TrendingUp className="h-5 w-5" />} label="Taux d'encaissement" value={`${kpis.totalRevenue > 0 ? ((kpis.totalPaid / kpis.totalRevenue) * 100).toFixed(1) : 0}%`} color="emerald" />
               </div>
 
@@ -549,17 +635,21 @@ export default function ChiffresPage() {
             </>
           )}
 
-          {activeTab === "margins" && kpis && (
+          {activeTab === "margins" && kpis && prev && (
             <>
               {/* Margin KPIs */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <KpiCard icon={<DollarSign className="h-5 w-5" />} label="Chiffre d'affaires" value={formatCurrency(kpis.totalRevenue)} color="blue" />
-                <KpiCard icon={<ShoppingCart className="h-5 w-5" />} label="Coût d'achat" value={formatCurrency(kpis.totalCost)} color="slate" />
-                <KpiCard icon={<TrendingUp className="h-5 w-5" />} label="Marge brute" value={formatCurrency(kpis.margin)} color="emerald" />
+                <KpiCard icon={<DollarSign className="h-5 w-5" />} label="Chiffre d'affaires" value={formatCurrency(kpis.totalRevenue)} color="blue"
+                  evolution={calcEvolution(kpis.totalRevenue, prev.totalRevenue)} />
+                <KpiCard icon={<ShoppingCart className="h-5 w-5" />} label="Coût d'achat" value={formatCurrency(kpis.totalCost)} color="slate"
+                  evolution={calcEvolution(kpis.totalCost, prev.totalCost)} invertColor />
+                <KpiCard icon={<TrendingUp className="h-5 w-5" />} label="Marge brute" value={formatCurrency(kpis.margin)} color="emerald"
+                  evolution={calcEvolution(kpis.margin, prev.margin)} />
                 <KpiCard
                   icon={kpis.marginPercent >= 0 ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
                   label="Taux de marge"
                   value={`${kpis.marginPercent.toFixed(1)}%`}
+                  sub={`vs ${prev.marginPercent.toFixed(1)}% période préc.`}
                   color={kpis.marginPercent >= 20 ? "emerald" : kpis.marginPercent >= 0 ? "amber" : "red"}
                 />
               </div>
@@ -676,6 +766,50 @@ export default function ChiffresPage() {
                   <p className="text-slate-400 text-sm text-center py-6">Aucune donnée</p>
                 )}
               </div>
+
+              {/* Supplier margin table */}
+              {data.supplierData.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 p-5">
+                  <h3 className="text-sm font-semibold text-slate-700 mb-4">Marges par fournisseur</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-100">
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fournisseur</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Lignes</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">CA</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Coût</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Marge</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">% Marge</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.supplierData.map((s) => {
+                          const sMargin = s.revenue - s.cost;
+                          const sPct = s.revenue > 0 ? (sMargin / s.revenue) * 100 : 0;
+                          return (
+                            <tr key={s.name} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                              <td className="py-2.5 px-3 font-medium text-slate-700">{s.name}</td>
+                              <td className="py-2.5 px-3 text-right text-slate-600">{s.count}</td>
+                              <td className="py-2.5 px-3 text-right font-semibold text-slate-900">{formatCurrency(s.revenue)}</td>
+                              <td className="py-2.5 px-3 text-right text-red-600">{formatCurrency(s.cost)}</td>
+                              <td className="py-2.5 px-3 text-right font-semibold text-emerald-600">{formatCurrency(sMargin)}</td>
+                              <td className="py-2.5 px-3 text-right">
+                                <span className={cn(
+                                  "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                                  sPct >= 20 ? "bg-emerald-100 text-emerald-700" : sPct >= 0 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700",
+                                )}>
+                                  {sPct.toFixed(1)}%
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </>
@@ -694,14 +828,37 @@ const COLOR_MAP: Record<string, { bg: string; text: string; icon: string }> = {
   slate: { bg: "bg-slate-50", text: "text-slate-700", icon: "text-slate-500" },
 };
 
-function KpiCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string; sub?: string; color: string }) {
+function KpiCard({
+  icon, label, value, sub, color, evolution, invertColor,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: string;
+  color: string;
+  evolution?: { pct: number; direction: "up" | "down" | "flat" };
+  invertColor?: boolean;
+}) {
   const c = COLOR_MAP[color] || COLOR_MAP.slate;
+
+  let evoColor = "text-slate-400";
+  if (evolution && evolution.direction !== "flat") {
+    const isPositive = invertColor ? evolution.direction === "down" : evolution.direction === "up";
+    evoColor = isPositive ? "text-emerald-600" : "text-red-600";
+  }
+
   return (
     <div className={cn("rounded-xl border border-slate-200 bg-white p-4")}>
       <div className="flex items-center gap-2 mb-2">
         <div className={cn("rounded-lg p-2", c.bg)}>
           <span className={c.icon}>{icon}</span>
         </div>
+        {evolution && evolution.direction !== "flat" && (
+          <span className={cn("ml-auto flex items-center gap-0.5 text-xs font-semibold", evoColor)}>
+            {evolution.direction === "up" ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+            {Math.abs(evolution.pct).toFixed(1)}%
+          </span>
+        )}
       </div>
       <p className="text-xs font-medium text-slate-500 mb-0.5">{label}</p>
       <p className={cn("text-xl font-bold", c.text)}>{value}</p>

@@ -2,6 +2,71 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
+function computeKpis(
+  invoices: Array<{
+    totalAmount: number | null;
+    status: string | null;
+    invoiceDate: Date;
+    client: { id: string; name: string };
+    lines: Array<{
+      totalPrice: number | null;
+      purchasePrice: number | null;
+      quantity: number;
+      product: { id: string; name: string; family: string | null; supplier: string | null } | null;
+    }>;
+  }>,
+  filterByLine: boolean,
+) {
+  let totalRevenue = 0;
+  let totalCost = 0;
+  let totalPaid = 0;
+  let totalUnpaid = 0;
+  let linesWithoutCost = 0;
+  let totalLines = 0;
+
+  for (const inv of invoices) {
+    const amount = filterByLine
+      ? inv.lines.reduce((s, l) => s + (l.totalPrice ?? 0), 0)
+      : (inv.totalAmount ?? inv.lines.reduce((s, l) => s + (l.totalPrice ?? 0), 0));
+    totalRevenue += amount;
+
+    for (const line of inv.lines) {
+      totalLines++;
+      const cost = line.purchasePrice ?? 0;
+      if (cost === 0) linesWithoutCost++;
+      totalCost += cost * (line.quantity ?? 1);
+    }
+
+    const s = inv.status?.toLowerCase();
+    const isPaid = s === "paid" || s === "payée" || s === "payé";
+    if (isPaid) {
+      totalPaid += amount;
+    } else {
+      totalUnpaid += amount;
+    }
+  }
+
+  const margin = totalRevenue - totalCost;
+  const marginPercent = totalRevenue > 0 ? (margin / totalRevenue) * 100 : 0;
+
+  return {
+    totalRevenue: Math.round(totalRevenue * 100) / 100,
+    totalCost: Math.round(totalCost * 100) / 100,
+    margin: Math.round(margin * 100) / 100,
+    marginPercent: Math.round(marginPercent * 10) / 10,
+    invoiceCount: invoices.length,
+    averageInvoice: invoices.length > 0 ? Math.round((totalRevenue / invoices.length) * 100) / 100 : 0,
+    totalPaid: Math.round(totalPaid * 100) / 100,
+    totalUnpaid: Math.round(totalUnpaid * 100) / 100,
+    unpaidCount: invoices.filter((inv) => {
+      const st = inv.status?.toLowerCase();
+      return st !== "paid" && st !== "payée" && st !== "payé";
+    }).length,
+    linesWithoutCost,
+    totalLines,
+  };
+}
+
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -16,10 +81,21 @@ export async function GET(req: NextRequest) {
   const dateFrom = from ? new Date(from) : new Date(new Date().getFullYear(), 0, 1);
   const dateTo = to ? new Date(to + "T23:59:59") : new Date();
 
+  const durationMs = dateTo.getTime() - dateFrom.getTime();
+  const prevTo = new Date(dateFrom.getTime() - 1);
+  const prevFrom = new Date(prevTo.getTime() - durationMs);
+
+  const filterByLine = !!(family || supplier);
+
   const invoiceWhere: Record<string, unknown> = {
     invoiceDate: { gte: dateFrom, lte: dateTo },
   };
   if (clientId) invoiceWhere.clientId = clientId;
+
+  const prevInvoiceWhere: Record<string, unknown> = {
+    invoiceDate: { gte: prevFrom, lte: prevTo },
+  };
+  if (clientId) prevInvoiceWhere.clientId = clientId;
 
   const lineWhere: Record<string, unknown> = {};
   if (family || supplier) {
@@ -28,54 +104,44 @@ export async function GET(req: NextRequest) {
     if (supplier) (lineWhere.product as Record<string, unknown>).supplier = supplier;
   }
 
-  // Fetch invoices with lines
-  const invoices = await prisma.invoice.findMany({
-    where: invoiceWhere,
-    include: {
-      client: { select: { id: true, name: true } },
-      lines: {
-        where: Object.keys(lineWhere).length > 0 ? lineWhere : undefined,
-        include: { product: { select: { id: true, name: true, family: true, supplier: true } } },
+  const lineInclude = {
+    where: Object.keys(lineWhere).length > 0 ? lineWhere : undefined,
+    include: { product: { select: { id: true, name: true, family: true, supplier: true } } },
+  };
+
+  const [invoices, prevInvoices] = await Promise.all([
+    prisma.invoice.findMany({
+      where: invoiceWhere,
+      include: {
+        client: { select: { id: true, name: true } },
+        lines: lineInclude,
       },
-    },
-    orderBy: { invoiceDate: "desc" },
+      orderBy: { invoiceDate: "desc" },
+    }),
+    prisma.invoice.findMany({
+      where: prevInvoiceWhere,
+      include: {
+        client: { select: { id: true, name: true } },
+        lines: lineInclude,
+      },
+      orderBy: { invoiceDate: "desc" },
+    }),
+  ]);
+
+  const currentKpis = computeKpis(invoices, filterByLine);
+  const prevKpis = computeKpis(prevInvoices, filterByLine);
+
+  const unpaidInvoices = invoices.filter((inv) => {
+    const s = inv.status?.toLowerCase();
+    return s !== "paid" && s !== "payée" && s !== "payé";
   });
-
-  // KPIs
-  let totalRevenue = 0;
-  let totalCost = 0;
-  let totalPaid = 0;
-  let totalUnpaid = 0;
-  const unpaidInvoices: typeof invoices = [];
-
-  for (const inv of invoices) {
-    const amount = family || supplier
-      ? inv.lines.reduce((s, l) => s + (l.totalPrice ?? 0), 0)
-      : (inv.totalAmount ?? inv.lines.reduce((s, l) => s + (l.totalPrice ?? 0), 0));
-    totalRevenue += amount;
-
-    for (const line of inv.lines) {
-      totalCost += (line.purchasePrice ?? 0) * (line.quantity ?? 1);
-    }
-
-    const isPaid = inv.status?.toLowerCase() === "paid" || inv.status?.toLowerCase() === "payée" || inv.status?.toLowerCase() === "payé";
-    if (isPaid) {
-      totalPaid += amount;
-    } else {
-      totalUnpaid += amount;
-      unpaidInvoices.push(inv);
-    }
-  }
-
-  const margin = totalRevenue - totalCost;
-  const marginPercent = totalRevenue > 0 ? (margin / totalRevenue) * 100 : 0;
 
   // Revenue by month
   const revenueByMonth: Record<string, { revenue: number; cost: number; count: number }> = {};
   for (const inv of invoices) {
     const key = inv.invoiceDate.toISOString().slice(0, 7);
     if (!revenueByMonth[key]) revenueByMonth[key] = { revenue: 0, cost: 0, count: 0 };
-    const amount = family || supplier
+    const amount = filterByLine
       ? inv.lines.reduce((s, l) => s + (l.totalPrice ?? 0), 0)
       : (inv.totalAmount ?? inv.lines.reduce((s, l) => s + (l.totalPrice ?? 0), 0));
     revenueByMonth[key].revenue += amount;
@@ -111,21 +177,50 @@ export async function GET(req: NextRequest) {
     .map(([name, data]) => ({ name, revenue: Math.round(data.revenue * 100) / 100, cost: Math.round(data.cost * 100) / 100, count: data.count }))
     .sort((a, b) => b.revenue - a.revenue);
 
-  // Top clients
-  const byClient: Record<string, { id: string; name: string; revenue: number; invoiceCount: number }> = {};
+  // Revenue by supplier
+  const bySupplier: Record<string, { revenue: number; cost: number; count: number }> = {};
+  for (const inv of invoices) {
+    for (const line of inv.lines) {
+      const s = line.product?.supplier || "Sans fournisseur";
+      if (!bySupplier[s]) bySupplier[s] = { revenue: 0, cost: 0, count: 0 };
+      bySupplier[s].revenue += line.totalPrice ?? 0;
+      bySupplier[s].cost += (line.purchasePrice ?? 0) * (line.quantity ?? 1);
+      bySupplier[s].count += 1;
+    }
+  }
+  const supplierData = Object.entries(bySupplier)
+    .map(([name, data]) => ({ name, revenue: Math.round(data.revenue * 100) / 100, cost: Math.round(data.cost * 100) / 100, count: data.count }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  // Top clients with margin
+  const byClient: Record<string, { id: string; name: string; revenue: number; cost: number; invoiceCount: number }> = {};
   for (const inv of invoices) {
     const cid = inv.client.id;
-    if (!byClient[cid]) byClient[cid] = { id: cid, name: inv.client.name, revenue: 0, invoiceCount: 0 };
-    const amount = family || supplier
+    if (!byClient[cid]) byClient[cid] = { id: cid, name: inv.client.name, revenue: 0, cost: 0, invoiceCount: 0 };
+    const amount = filterByLine
       ? inv.lines.reduce((s, l) => s + (l.totalPrice ?? 0), 0)
       : (inv.totalAmount ?? inv.lines.reduce((s, l) => s + (l.totalPrice ?? 0), 0));
     byClient[cid].revenue += amount;
     byClient[cid].invoiceCount += 1;
+    for (const line of inv.lines) {
+      byClient[cid].cost += (line.purchasePrice ?? 0) * (line.quantity ?? 1);
+    }
   }
-  const topClients = Object.values(byClient)
-    .sort((a, b) => b.revenue - a.revenue)
+  const allClientsSorted = Object.values(byClient).sort((a, b) => b.revenue - a.revenue);
+  const topClients = allClientsSorted
     .slice(0, 10)
-    .map((c) => ({ ...c, revenue: Math.round(c.revenue * 100) / 100 }));
+    .map((c) => ({
+      ...c,
+      revenue: Math.round(c.revenue * 100) / 100,
+      cost: Math.round(c.cost * 100) / 100,
+      margin: Math.round((c.revenue - c.cost) * 100) / 100,
+    }));
+
+  // Client concentration: top 3 share
+  const top3Revenue = allClientsSorted.slice(0, 3).reduce((s, c) => s + c.revenue, 0);
+  const clientConcentration = currentKpis.totalRevenue > 0
+    ? Math.round((top3Revenue / currentKpis.totalRevenue) * 1000) / 10
+    : 0;
 
   // Top products
   const byProduct: Record<string, { id: string; name: string; revenue: number; quantity: number; cost: number }> = {};
@@ -184,20 +279,25 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     kpis: {
-      totalRevenue: Math.round(totalRevenue * 100) / 100,
-      totalCost: Math.round(totalCost * 100) / 100,
-      margin: Math.round(margin * 100) / 100,
-      marginPercent: Math.round(marginPercent * 10) / 10,
-      invoiceCount: invoices.length,
-      averageInvoice: invoices.length > 0 ? Math.round((totalRevenue / invoices.length) * 100) / 100 : 0,
-      totalPaid: Math.round(totalPaid * 100) / 100,
-      totalUnpaid: Math.round(totalUnpaid * 100) / 100,
-      unpaidCount: unpaidInvoices.length,
+      ...currentKpis,
       activeInstallations,
       renewalInstallations,
     },
+    previousKpis: {
+      totalRevenue: prevKpis.totalRevenue,
+      totalCost: prevKpis.totalCost,
+      margin: prevKpis.margin,
+      marginPercent: prevKpis.marginPercent,
+      invoiceCount: prevKpis.invoiceCount,
+      averageInvoice: prevKpis.averageInvoice,
+      totalPaid: prevKpis.totalPaid,
+      totalUnpaid: prevKpis.totalUnpaid,
+      unpaidCount: prevKpis.unpaidCount,
+    },
+    clientConcentration,
     monthlyData,
     familyData,
+    supplierData,
     topClients,
     topProducts,
     unpaidDetail,
