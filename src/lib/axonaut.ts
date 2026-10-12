@@ -4,7 +4,7 @@ function axonautImportDetails() {
   return `Sync Axonaut — ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
 }
 
-async function getAxonautConfig() {
+export async function getAxonautConfig() {
   const settings = await prisma.setting.findMany({
     where: { key: { in: ["axonaut_api_key", "axonaut_api_url"] } },
   });
@@ -23,7 +23,7 @@ function delay(ms: number) {
 let lastApiCall = 0;
 const API_DELAY_MS = 600; // 600ms entre chaque appel
 
-async function rateLimitedFetch(url: string, apiKey: string): Promise<Response> {
+export async function rateLimitedFetch(url: string, apiKey: string): Promise<Response> {
   // Rate limiting: attendre entre les appels
   const now = Date.now();
   const elapsed = now - lastApiCall;

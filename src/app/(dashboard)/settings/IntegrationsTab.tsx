@@ -10,15 +10,38 @@ import {
   Plug,
   Send,
   ChevronDown,
+  ChevronRight,
   HardDrive,
   Shield,
   Music,
   LogIn,
   LogOut,
   Wifi,
+  Search,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SettingsTabProps } from "./GeneralTab";
+
+interface AxonautEndpoint {
+  name: string;
+  endpoint: string;
+  status: "ok" | "error" | "empty";
+  count?: number;
+  sample?: Record<string, unknown>;
+  fields?: string[];
+  error?: string;
+  financialSummary?: Record<string, unknown>;
+}
+
+interface AxonautExploreData {
+  apiUrl: string;
+  endpoints: AxonautEndpoint[];
+  exploredAt: string;
+}
 
 export default function IntegrationsTab({
   settings,
@@ -31,6 +54,10 @@ export default function IntegrationsTab({
   const [apiUrl, setApiUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [exploring, setExploring] = useState(false);
+  const [exploreData, setExploreData] = useState<AxonautExploreData | null>(null);
+  const [exploreError, setExploreError] = useState("");
+  const [expandedEndpoint, setExpandedEndpoint] = useState<string | null>(null);
 
   // Atera settings
   const [ateraApiKey, setAteraApiKey] = useState("");
@@ -206,6 +233,145 @@ export default function IntegrationsTab({
           </button>
           {saved && (
             <span className="text-xs text-emerald-600">Paramètres enregistrés</span>
+          )}
+        </div>
+
+        {/* Explore Axonaut data */}
+        <div className="border-t border-slate-100 pt-5 mt-2">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Database className="h-4 w-4 text-primary-500" />
+                Données disponibles via l&apos;API
+              </h4>
+              <p className="text-xs text-slate-400 mt-0.5">Explorez les endpoints Axonaut et les chiffres récupérables</p>
+            </div>
+            <button
+              onClick={async () => {
+                setExploring(true);
+                setExploreError("");
+                setExploreData(null);
+                try {
+                  const res = await fetch("/api/axonaut/explore");
+                  if (!res.ok) {
+                    const d = await res.json().catch(() => ({ error: "Erreur" }));
+                    setExploreError(d.error || `Erreur HTTP ${res.status}`);
+                  } else {
+                    setExploreData(await res.json());
+                  }
+                } catch {
+                  setExploreError("Erreur de connexion");
+                } finally {
+                  setExploring(false);
+                }
+              }}
+              disabled={exploring}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              {exploring ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              {exploring ? "Exploration..." : "Explorer les données"}
+            </button>
+          </div>
+
+          {exploreError && (
+            <div className="p-3 rounded-lg bg-red-50 text-sm text-red-700 flex items-center gap-2">
+              <XCircle className="h-4 w-4 shrink-0" />
+              {exploreError}
+            </div>
+          )}
+
+          {exploreData && (
+            <div className="space-y-2">
+              <p className="text-[11px] text-slate-400 mb-2">
+                Exploré le {new Date(exploreData.exploredAt).toLocaleString("fr-FR")} — API : {exploreData.apiUrl}
+              </p>
+
+              {exploreData.endpoints.map((ep) => (
+                <div key={ep.endpoint} className="rounded-lg border border-slate-200 overflow-hidden">
+                  <button
+                    onClick={() => setExpandedEndpoint(expandedEndpoint === ep.endpoint ? null : ep.endpoint)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+                  >
+                    {ep.status === "ok" ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                    ) : ep.status === "empty" ? (
+                      <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-400 shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-700">{ep.name}</span>
+                        <code className="text-[11px] text-slate-400 font-mono">{ep.endpoint}</code>
+                      </div>
+                      {ep.status === "ok" && ep.count !== undefined && (
+                        <p className="text-xs text-slate-400">{ep.count} élément{ep.count > 1 ? "s" : ""} (page 1)</p>
+                      )}
+                      {ep.status === "empty" && (
+                        <p className="text-xs text-amber-500">Aucune donnée</p>
+                      )}
+                      {ep.status === "error" && (
+                        <p className="text-xs text-red-500">{ep.error}</p>
+                      )}
+                    </div>
+                    {ep.status === "ok" && (
+                      expandedEndpoint === ep.endpoint
+                        ? <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                        : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                    )}
+                  </button>
+
+                  {expandedEndpoint === ep.endpoint && ep.status === "ok" && (
+                    <div className="px-4 pb-4 space-y-3 border-t border-slate-100 pt-3">
+                      {/* Financial summary */}
+                      {ep.financialSummary && (
+                        <div className="bg-primary-50 rounded-lg p-3">
+                          <p className="text-xs font-semibold text-primary-700 mb-1.5">Résumé financier (page 1)</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {Object.entries(ep.financialSummary).map(([key, val]) => (
+                              <div key={key} className="text-xs">
+                                <span className="text-primary-500 font-medium">{formatFinancialKey(key)}</span>
+                                <p className="text-primary-800 font-semibold">
+                                  {typeof val === "number"
+                                    ? key.toLowerCase().includes("count") || key.toLowerCase().includes("total") && !key.toLowerCase().includes("amount") && !key.toLowerCase().includes("ht") && !key.toLowerCase().includes("ttc")
+                                      ? val.toLocaleString("fr-FR")
+                                      : formatFinancialValue(key, val)
+                                    : typeof val === "object" && val !== null
+                                      ? Object.entries(val as Record<string, number>).map(([k, v]) => `${k}: ${v}`).join(", ")
+                                      : String(val)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Fields list */}
+                      {ep.fields && ep.fields.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-600 mb-1">Champs disponibles ({ep.fields.length})</p>
+                          <div className="flex flex-wrap gap-1">
+                            {ep.fields.map((f) => (
+                              <span key={f} className="px-2 py-0.5 rounded bg-slate-100 text-[11px] text-slate-600 font-mono">{f}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sample data */}
+                      {ep.sample && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-600 mb-1">Exemple de donnée</p>
+                          <pre className="text-[11px] text-slate-500 bg-slate-50 rounded-lg p-3 overflow-x-auto font-mono max-h-48 overflow-y-auto">
+                            {JSON.stringify(ep.sample, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>}
@@ -891,4 +1057,26 @@ export default function IntegrationsTab({
       </div>}
     </>
   );
+}
+
+function formatFinancialKey(key: string): string {
+  const map: Record<string, string> = {
+    totalHT: "Total HT",
+    totalTTC: "Total TTC",
+    totalAmount: "Montant total",
+    sampleCount: "Nb (page 1)",
+    total: "Total",
+    withEmail: "Avec email",
+    statuses: "Statuts",
+    stages: "Étapes",
+  };
+  return map[key] || key;
+}
+
+function formatFinancialValue(key: string, val: number): string {
+  const isCurrency = key.toLowerCase().includes("ht") || key.toLowerCase().includes("ttc") || key.toLowerCase().includes("amount");
+  if (isCurrency) {
+    return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(val);
+  }
+  return val.toLocaleString("fr-FR");
 }
