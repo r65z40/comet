@@ -90,6 +90,11 @@ function toFloat(val: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
+function isTruthy(val: unknown): boolean {
+  if (val === true || val === 1 || val === "1" || val === "true") return true;
+  return false;
+}
+
 // custom_fields peut être:
 // - un objet: {"Durée en mois": "12", "Famille": "Réseau"}
 // - un tableau: [{name: "Durée en mois", value: "12"}, ...]
@@ -698,7 +703,7 @@ export async function syncInvoices() {
           if (!client) continue;
 
           const rawStatus = inv.status || null;
-          const paidFlag = inv.paid === true || inv.is_paid === true;
+          const paidFlag = isTruthy(inv.paid) || isTruthy(inv.is_paid);
           const normalizedStatus = deriveInvoiceStatus(rawStatus, paidFlag);
           const invoiceNumber = inv.number || inv.invoice_number || null;
           const amount = toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount);
@@ -867,6 +872,92 @@ export async function generateInstallations() {
 
 export async function updateInstallationStatuses() {
   // No-op: status changes are manual only
+}
+
+export async function renormalizeInvoiceStatuses() {
+  const log = await prisma.syncLog.create({
+    data: { type: "fix-statuses", status: "running", message: "Correction des statuts de factures..." },
+  });
+
+  try {
+    let page = 1;
+    let totalFixed = 0;
+    let totalUnchanged = 0;
+    let hasMore = true;
+    const seenIds = new Set<number>();
+    const fixed: { number: string | null; oldStatus: string | null; newStatus: string; client: string }[] = [];
+
+    while (hasMore) {
+      const data = await axonautFetch("/invoices", page);
+      const invoices = Array.isArray(data) ? data : data.invoices || [];
+
+      if (invoices.length === 0) break;
+
+      let newOnThisPage = 0;
+      for (const inv of invoices) {
+        if (seenIds.has(inv.id)) continue;
+        seenIds.add(inv.id);
+        newOnThisPage++;
+
+        const rawStatus = inv.status || null;
+        const paidFlag = isTruthy(inv.paid) || isTruthy(inv.is_paid);
+        const normalizedStatus = deriveInvoiceStatus(rawStatus, paidFlag);
+
+        const existing = await prisma.invoice.findUnique({
+          where: { axonautId: inv.id },
+          include: { client: { select: { name: true } } },
+        });
+
+        if (!existing) continue;
+
+        if (existing.status !== normalizedStatus) {
+          await prisma.invoice.update({
+            where: { id: existing.id },
+            data: { status: normalizedStatus },
+          });
+          fixed.push({
+            number: existing.invoiceNumber,
+            oldStatus: existing.status,
+            newStatus: normalizedStatus,
+            client: existing.client?.name || "-",
+          });
+          totalFixed++;
+        } else {
+          totalUnchanged++;
+        }
+      }
+
+      await updateProgress(log.id, `Statuts: ${totalFixed} corrigés, ${totalUnchanged} inchangés (page ${page})...`, totalFixed);
+
+      if (newOnThisPage === 0) break;
+      page++;
+    }
+
+    const details = JSON.stringify({ fixed });
+
+    await prisma.syncLog.update({
+      where: { id: log.id },
+      data: {
+        status: "success",
+        message: `${totalFixed} statuts corrigés, ${totalUnchanged} déjà corrects`,
+        itemCount: totalFixed,
+        details,
+        completedAt: new Date(),
+      },
+    });
+
+    return { success: true, fixed: totalFixed, unchanged: totalUnchanged };
+  } catch (error) {
+    await prisma.syncLog.update({
+      where: { id: log.id },
+      data: {
+        status: "error",
+        message: error instanceof Error ? error.message : "Erreur inconnue",
+        completedAt: new Date(),
+      },
+    });
+    throw error;
+  }
 }
 
 export async function refreshClient(axonautId: number) {
@@ -1053,7 +1144,7 @@ export async function refreshInvoice(axonautId: number) {
   if (!client) throw new Error("Client non trouvé pour cette facture. Synchronisez d'abord les clients.");
 
   const rawStatus2 = inv.status || null;
-  const paidFlag2 = inv.paid === true || inv.is_paid === true;
+  const paidFlag2 = isTruthy(inv.paid) || isTruthy(inv.is_paid);
   const normalizedStatus2 = deriveInvoiceStatus(rawStatus2, paidFlag2);
 
   const invoice = await prisma.invoice.upsert({

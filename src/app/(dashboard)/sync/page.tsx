@@ -20,6 +20,7 @@ interface SyncDetails {
   created?: { name?: string; number?: string; client?: string; amount?: number | null; status?: string; product?: string }[];
   updated?: { name?: string; number?: string; client?: string; amount?: number | null; status?: string; product?: string }[];
   installationsCreated?: { product: string; client: string; invoiceNumber?: string | null }[];
+  fixed?: { number: string | null; oldStatus: string | null; newStatus: string; client: string }[];
   merged?: number;
   skipped?: number;
 }
@@ -29,9 +30,10 @@ interface DebugData {
     products: { total: number; withDuration: number; withoutDuration: number };
     clients: { total: number };
     invoices: { total: number };
-    invoiceLines: { total: number; withProduct: number; withoutProduct: number };
+    invoiceLines: { total: number; withProduct: number; withoutProduct: number; withCost?: number; withoutCost?: number };
     installations: { total: number };
   };
+  invoiceStatuses?: { status: string; count: number }[];
   samples: {
     productsWithDuration: { name: string; durationMonths: number; duration: string | null }[];
     productsWithoutDuration: { name: string; durationMonths: number | null; duration: string | null }[];
@@ -47,6 +49,7 @@ const syncTypes = [
   { type: "invoices", label: "Factures", description: "Synchroniser les factures et lignes de factures" },
   { type: "installations", label: "Installations", description: "Générer les installations à partir des factures" },
   { type: "statuses", label: "Statuts", description: "Mettre à jour les statuts des installations" },
+  { type: "fix-statuses", label: "Corriger les statuts", description: "Re-normaliser les statuts de paiement des factures depuis Axonaut" },
 ];
 
 export default function SyncPage() {
@@ -235,9 +238,31 @@ export default function SyncPage() {
             <DiagCard label="Produits" value={debug.database.products.total} sub={`${debug.database.products.withDuration} avec durée`} />
             <DiagCard label="Clients" value={debug.database.clients.total} />
             <DiagCard label="Factures" value={debug.database.invoices.total} />
-            <DiagCard label="Lignes factures" value={debug.database.invoiceLines.total} sub={`${debug.database.invoiceLines.withProduct} liées, ${debug.database.invoiceLines.withoutProduct} orphelines`} />
+            <DiagCard label="Lignes factures" value={debug.database.invoiceLines.total} sub={`${debug.database.invoiceLines.withCost ?? 0} avec coût, ${debug.database.invoiceLines.withoutCost ?? debug.database.invoiceLines.total} sans coût`} />
             <DiagCard label="Installations" value={debug.database.installations.total} />
           </div>
+
+          {debug.invoiceStatuses && debug.invoiceStatuses.length > 0 && (
+            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+              <p className="text-sm text-blue-700 font-medium mb-2">Répartition des statuts de factures en base</p>
+              <div className="flex flex-wrap gap-2">
+                {debug.invoiceStatuses.map((s) => (
+                  <span key={s.status} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                    s.status === "Payée" ? "bg-emerald-100 text-emerald-700" :
+                    s.status === "En retard" ? "bg-red-100 text-red-700" :
+                    s.status === "Non payée" ? "bg-amber-100 text-amber-700" :
+                    s.status === "Envoyée" ? "bg-blue-100 text-blue-700" :
+                    "bg-slate-100 text-slate-600"
+                  }`}>
+                    {s.status} : {s.count}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-blue-500 mt-2">
+                Si toutes vos factures sont &quot;Non payée&quot; ou ont un statut brut Axonaut, utilisez le bouton &quot;Corriger les statuts&quot; ci-dessus.
+              </p>
+            </div>
+          )}
 
           {debug.database.products.withDuration === 0 && (
             <div className="rounded-lg bg-red-50 border border-red-200 p-3">
@@ -421,11 +446,62 @@ function SyncDetailPanel({ details, type }: { details: SyncDetails; type: string
   const created = details.created || [];
   const updated = details.updated || [];
   const instCreated = details.installationsCreated || [];
+  const fixed = details.fixed || [];
 
-  if (created.length === 0 && updated.length === 0 && instCreated.length === 0) {
+  if (created.length === 0 && updated.length === 0 && instCreated.length === 0 && fixed.length === 0) {
     return (
       <div className="px-4 pb-4 border-t border-slate-100">
         <p className="text-xs text-slate-400 py-3">Aucun détail disponible pour cette synchronisation.</p>
+      </div>
+    );
+  }
+
+  if (type === "fix-statuses" && fixed.length > 0) {
+    return (
+      <div className="px-4 pb-4 border-t border-slate-100 space-y-3 pt-3">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium">
+          <Pencil className="h-3 w-3" />
+          {fixed.length} statut{fixed.length > 1 ? "s" : ""} corrigé{fixed.length > 1 ? "s" : ""}
+        </span>
+        <div className="rounded-lg border border-amber-100 overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-amber-50">
+                <th className="px-3 py-1.5 text-left text-amber-600 font-medium">N° Facture</th>
+                <th className="px-3 py-1.5 text-left text-amber-600 font-medium">Client</th>
+                <th className="px-3 py-1.5 text-left text-amber-600 font-medium">Ancien statut</th>
+                <th className="px-3 py-1.5 text-left text-amber-600 font-medium">Nouveau statut</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-amber-50">
+              {fixed.slice(0, 100).map((f, i) => (
+                <tr key={i} className="hover:bg-amber-50/50">
+                  <td className="px-3 py-1.5 text-slate-700 font-mono">{f.number || "-"}</td>
+                  <td className="px-3 py-1.5 text-slate-600">{f.client}</td>
+                  <td className="px-3 py-1.5">
+                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">
+                      {f.oldStatus || "(vide)"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      f.newStatus === "Payée" ? "bg-emerald-100 text-emerald-700" :
+                      f.newStatus === "En retard" ? "bg-red-100 text-red-700" :
+                      "bg-slate-100 text-slate-600"
+                    }`}>
+                      {f.newStatus}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {fixed.length > 100 && (
+            <p className="px-3 py-1.5 text-[11px] text-slate-400 border-t border-amber-100">
+              ... et {fixed.length - 100} de plus
+            </p>
+          )}
+        </div>
       </div>
     );
   }

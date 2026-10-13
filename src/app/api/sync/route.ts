@@ -8,6 +8,7 @@ import {
   syncInvoices,
   generateInstallations,
   updateInstallationStatuses,
+  renormalizeInvoiceStatuses,
   cleanupStaleLogs,
 } from "@/lib/axonaut";
 
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest) {
       case "statuses":
         await updateInstallationStatuses();
         result = { success: true, message: "Statuts mis à jour" };
+        break;
+      case "fix-statuses":
+        result = await renormalizeInvoiceStatuses();
         break;
       case "full": {
         const [productsResult, clientsResult] = await Promise.all([

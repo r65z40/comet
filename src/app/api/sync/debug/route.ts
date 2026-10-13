@@ -124,14 +124,29 @@ export async function GET() {
       axonautSample = { error: e instanceof Error ? e.message : "Erreur" };
     }
 
+    const invoiceStatusGroups = await prisma.invoice.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+      orderBy: { _count: { status: "desc" } },
+    });
+    const invoiceStatuses = invoiceStatusGroups.map((g) => ({
+      status: g.status || "(null)",
+      count: g._count._all,
+    }));
+
+    const linesWithCost = await prisma.invoiceLine.count({
+      where: { purchasePrice: { not: null, gt: 0 } },
+    });
+
     return NextResponse.json({
       database: {
         products: { total: productsTotal, withDuration: productsWithDuration, withoutDuration: productsTotal - productsWithDuration },
         clients: { total: clientsTotal },
         invoices: { total: invoicesTotal },
-        invoiceLines: { total: invoiceLinesTotal, withProduct: invoiceLinesWithProduct, withoutProduct: invoiceLinesWithoutProduct },
+        invoiceLines: { total: invoiceLinesTotal, withProduct: invoiceLinesWithProduct, withoutProduct: invoiceLinesWithoutProduct, withCost: linesWithCost, withoutCost: invoiceLinesTotal - linesWithCost },
         installations: { total: installationsTotal },
       },
+      invoiceStatuses,
       samples: {
         productsWithDuration: sampleProductsWithDuration,
         productsWithoutDuration: sampleProductsWithoutDuration,
