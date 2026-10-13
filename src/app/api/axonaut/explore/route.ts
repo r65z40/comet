@@ -114,8 +114,17 @@ export async function GET() {
           for (const inv of items) {
             totalHT += Number(inv.pre_tax_amount ?? inv.amount ?? 0);
             totalTTC += Number(inv.total_amount ?? inv.amount ?? 0);
-            const s = String(inv.status ?? inv.paid ?? "inconnu");
+            const s = String(inv.status ?? "inconnu");
             statuses[s] = (statuses[s] || 0) + 1;
+
+            if (inv.paid !== undefined) {
+              const paidKey = `paid=${String(inv.paid)}`;
+              statuses[paidKey] = (statuses[paidKey] || 0) + 1;
+            }
+            if (inv.is_paid !== undefined) {
+              const isPaidKey = `is_paid=${String(inv.is_paid)}`;
+              statuses[isPaidKey] = (statuses[isPaidKey] || 0) + 1;
+            }
 
             const lines = (inv.lines || inv.invoice_lines || inv.products || []) as Record<string, unknown>[];
             for (const line of lines) {

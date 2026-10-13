@@ -124,6 +124,20 @@ function norm(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
 }
 
+function deriveInvoiceStatus(rawStatus: string | null, paidFlag: boolean): string {
+  if (paidFlag) return "Pay\u00e9e";
+  if (!rawStatus) return "Non pay\u00e9e";
+  const s = rawStatus.toLowerCase().trim();
+  if (s === "paid" || s === "pay\u00e9" || s === "pay\u00e9e") return "Pay\u00e9e";
+  if (s === "accepted" || s === "accept\u00e9" || s === "accept\u00e9e" || s === "validated" || s === "valid\u00e9" || s === "valid\u00e9e") return "Pay\u00e9e";
+  if (s === "late" || s === "en retard" || s === "overdue") return "En retard";
+  if (s === "draft" || s === "brouillon") return "Brouillon";
+  if (s === "cancelled" || s === "annul\u00e9" || s === "annul\u00e9e") return "Annul\u00e9e";
+  if (s === "sent" || s === "envoy\u00e9" || s === "envoy\u00e9e") return "Envoy\u00e9e";
+  if (s === "due" || s === "\u00e0 payer") return "Non pay\u00e9e";
+  return rawStatus;
+}
+
 // Update sync log with progress (throttled to avoid DB spam)
 async function updateProgress(logId: string, message: string, itemCount: number) {
   await prisma.syncLog.update({
@@ -653,6 +667,10 @@ export async function syncInvoices() {
 
           if (!client) continue;
 
+          const rawStatus = inv.status || null;
+          const paidFlag = inv.paid === true || inv.is_paid === true;
+          const normalizedStatus = deriveInvoiceStatus(rawStatus, paidFlag);
+
           const invoice = await prisma.invoice.upsert({
             where: { axonautId: inv.id },
             create: {
@@ -661,7 +679,7 @@ export async function syncInvoices() {
               clientId: client.id,
               invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
               totalAmount: toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount),
-              status: inv.status || null,
+              status: normalizedStatus,
               importSource: "axonaut",
               importDetails: axonautImportDetails(),
             },
@@ -670,7 +688,7 @@ export async function syncInvoices() {
               clientId: client.id,
               invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
               totalAmount: toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount),
-              status: inv.status || null,
+              status: normalizedStatus,
             },
           });
 
@@ -984,6 +1002,10 @@ export async function refreshInvoice(axonautId: number) {
 
   if (!client) throw new Error("Client non trouvé pour cette facture. Synchronisez d'abord les clients.");
 
+  const rawStatus2 = inv.status || null;
+  const paidFlag2 = inv.paid === true || inv.is_paid === true;
+  const normalizedStatus2 = deriveInvoiceStatus(rawStatus2, paidFlag2);
+
   const invoice = await prisma.invoice.upsert({
     where: { axonautId: inv.id },
     create: {
@@ -992,7 +1014,7 @@ export async function refreshInvoice(axonautId: number) {
       clientId: client.id,
       invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
       totalAmount: toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount),
-      status: inv.status || null,
+      status: normalizedStatus2,
       importSource: "axonaut",
       importDetails: axonautImportDetails(),
     },
@@ -1001,7 +1023,7 @@ export async function refreshInvoice(axonautId: number) {
       clientId: client.id,
       invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
       totalAmount: toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount),
-      status: inv.status || null,
+      status: normalizedStatus2,
     },
   });
 

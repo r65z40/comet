@@ -37,8 +37,10 @@ function computeKpis(
       totalCost += cost * (line.quantity ?? 1);
     }
 
-    const s = inv.status?.toLowerCase();
-    const isPaid = s === "paid" || s === "payée" || s === "payé";
+    const s = inv.status?.toLowerCase()?.trim();
+    const isPaid = s === "paid" || s === "payée" || s === "payé"
+      || s === "accepted" || s === "accepté" || s === "acceptée"
+      || s === "validated" || s === "validé" || s === "validée";
     if (isPaid) {
       totalPaid += amount;
     } else {
