@@ -517,6 +517,10 @@ async function upsertInvoiceLines(
     const quantity = toFloat(line.quantity) ?? 1;
     let unitPrice = toFloat(line.unit_price ?? line.price ?? line.unitPrice ?? line.product_sale_price ?? line.sale_price);
     let totalPrice = toFloat(line.total_pre_tax_amount ?? line.total_price ?? line.total ?? line.totalPrice ?? line.total_amount ?? line.amount ?? line.pre_tax_amount);
+    const purchasePrice = toFloat(
+      line.purchase_price ?? line.product_purchase_price ?? line.cost_price ??
+      line.buying_price ?? line.purchasePrice ?? line.costPrice ?? line.buyingPrice ?? null
+    );
 
     if (unitPrice != null && totalPrice == null && quantity > 0) {
       totalPrice = unitPrice * quantity;
@@ -536,6 +540,7 @@ async function upsertInvoiceLines(
           description,
           quantity,
           unitPrice,
+          purchasePrice,
           totalPrice,
           importDetails: axonautImportDetails(),
         },
@@ -549,6 +554,7 @@ async function upsertInvoiceLines(
           description,
           quantity,
           unitPrice,
+          purchasePrice,
           totalPrice,
           importSource: "axonaut",
           importDetails: axonautImportDetails(),

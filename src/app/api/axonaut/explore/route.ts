@@ -109,13 +109,41 @@ export async function GET() {
           let totalHT = 0;
           let totalTTC = 0;
           const statuses: Record<string, number> = {};
+          const purchasePriceFields: Record<string, number> = {};
+
           for (const inv of items) {
             totalHT += Number(inv.pre_tax_amount ?? inv.amount ?? 0);
             totalTTC += Number(inv.total_amount ?? inv.amount ?? 0);
             const s = String(inv.status ?? inv.paid ?? "inconnu");
             statuses[s] = (statuses[s] || 0) + 1;
+
+            const lines = (inv.lines || inv.invoice_lines || inv.products || []) as Record<string, unknown>[];
+            for (const line of lines) {
+              for (const key of Object.keys(line)) {
+                const kl = key.toLowerCase();
+                if (kl.includes("purchase") || kl.includes("cost") || kl.includes("buying") || kl.includes("achat")) {
+                  const val = Number(line[key] ?? 0);
+                  purchasePriceFields[key] = (purchasePriceFields[key] || 0) + (val > 0 ? 1 : 0);
+                }
+              }
+            }
           }
-          return { totalHT, totalTTC, statuses, sampleCount: items.length };
+
+          const result: Record<string, unknown> = { totalHT, totalTTC, statuses, sampleCount: items.length };
+
+          if (Object.keys(purchasePriceFields).length > 0) {
+            result["champsAchat (lignes)"] = purchasePriceFields;
+          } else {
+            result["champsAchat (lignes)"] = "Aucun champ d'achat trouvé";
+          }
+
+          const firstInv = items[0] as Record<string, unknown>;
+          const firstLines = (firstInv?.lines || firstInv?.invoice_lines || firstInv?.products || []) as Record<string, unknown>[];
+          if (firstLines[0]) {
+            result["champsLigne"] = Object.keys(firstLines[0]);
+          }
+
+          return result;
         },
       },
     },
@@ -168,6 +196,21 @@ export async function GET() {
     {
       name: "Produits",
       endpoint: "/products",
+      opts: {
+        extractFinancials: (items: Record<string, unknown>[]) => {
+          const priceFields: Record<string, number> = {};
+          for (const p of items) {
+            for (const key of Object.keys(p)) {
+              const kl = key.toLowerCase();
+              if (kl.includes("price") || kl.includes("cost") || kl.includes("buying") || kl.includes("purchase") || kl.includes("achat")) {
+                const val = Number(p[key] ?? 0);
+                priceFields[key] = (priceFields[key] || 0) + (val > 0 ? 1 : 0);
+              }
+            }
+          }
+          return { total: items.length, champsPrix: priceFields };
+        },
+      },
     },
     {
       name: "Contrats",
