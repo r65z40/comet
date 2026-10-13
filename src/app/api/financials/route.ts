@@ -61,8 +61,11 @@ function computeKpis(
     totalPaid: Math.round(totalPaid * 100) / 100,
     totalUnpaid: Math.round(totalUnpaid * 100) / 100,
     unpaidCount: invoices.filter((inv) => {
-      const st = inv.status?.toLowerCase();
-      return st !== "paid" && st !== "payée" && st !== "payé";
+      const st = inv.status?.toLowerCase()?.trim();
+      const paid = st === "paid" || st === "payée" || st === "payé"
+        || st === "accepted" || st === "accepté" || st === "acceptée"
+        || st === "validated" || st === "validé" || st === "validée";
+      return !paid;
     }).length,
     linesWithoutCost,
     totalLines,
@@ -134,8 +137,11 @@ export async function GET(req: NextRequest) {
   const prevKpis = computeKpis(prevInvoices, filterByLine);
 
   const unpaidInvoices = invoices.filter((inv) => {
-    const s = inv.status?.toLowerCase();
-    return s !== "paid" && s !== "payée" && s !== "payé";
+    const s = inv.status?.toLowerCase()?.trim();
+    const paid = s === "paid" || s === "payée" || s === "payé"
+      || s === "accepted" || s === "accepté" || s === "acceptée"
+      || s === "validated" || s === "validé" || s === "validée";
+    return !paid;
   });
 
   // Revenue by month

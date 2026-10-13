@@ -172,6 +172,8 @@ export async function syncProducts() {
     let totalSynced = 0;
     let hasMore = true;
     const seenIds = new Set<number>();
+    const created: { name: string }[] = [];
+    const updated: { name: string }[] = [];
 
     while (hasMore) {
       const data = await axonautFetch("/products", page);
@@ -192,6 +194,7 @@ export async function syncProducts() {
           const family = getCustomField(cf, "Famille") || p.category || null;
           const supplier = getCustomField(cf, "Fournisseur") || null;
           const duration = getCustomField(cf, "Durée") || getCustomField(cf, "Duree") || null;
+          const productName = p.name || "Sans nom";
 
           const existingProductByAxonaut = await prisma.product.findUnique({ where: { axonautId: p.id } });
 
@@ -199,7 +202,7 @@ export async function syncProducts() {
             await prisma.product.update({
               where: { id: existingProductByAxonaut.id },
               data: {
-                name: p.name || "Sans nom",
+                name: productName,
                 code: p.code || null,
                 description: p.description || null,
                 family,
@@ -209,10 +212,11 @@ export async function syncProducts() {
                 unitPrice: toFloat(p.price),
               },
             });
+            updated.push({ name: productName });
           } else {
             const existingProductByName = await prisma.product.findFirst({
               where: {
-                name: { equals: p.name || "Sans nom", mode: "insensitive" },
+                name: { equals: productName, mode: "insensitive" },
                 axonautId: null,
               },
             });
@@ -222,7 +226,7 @@ export async function syncProducts() {
                 where: { id: existingProductByName.id },
                 data: {
                   axonautId: p.id,
-                  name: p.name || "Sans nom",
+                  name: productName,
                   code: p.code || null,
                   description: p.description || null,
                   family,
@@ -232,11 +236,12 @@ export async function syncProducts() {
                   unitPrice: toFloat(p.price),
                 },
               });
+              updated.push({ name: productName });
             } else {
               await prisma.product.create({
                 data: {
                   axonautId: p.id,
-                  name: p.name || "Sans nom",
+                  name: productName,
                   code: p.code || null,
                   description: p.description || null,
                   family,
@@ -248,6 +253,7 @@ export async function syncProducts() {
                   importDetails: axonautImportDetails(),
                 },
               });
+              created.push({ name: productName });
             }
           }
           totalSynced++;
@@ -262,12 +268,15 @@ export async function syncProducts() {
       page++;
     }
 
+    const details = JSON.stringify({ created, updated });
+
     await prisma.syncLog.update({
       where: { id: log.id },
       data: {
         status: "success",
-        message: `${totalSynced} produits synchronisés`,
+        message: `${totalSynced} produits synchronisés (${created.length} créés, ${updated.length} mis à jour)`,
         itemCount: totalSynced,
+        details,
         completedAt: new Date(),
       },
     });
@@ -296,6 +305,8 @@ export async function syncClients() {
     let totalSynced = 0;
     let hasMore = true;
     const seenIds = new Set<number>();
+    const created: { name: string }[] = [];
+    const updated: { name: string }[] = [];
 
     while (hasMore) {
       const data = await axonautFetch("/companies", page);
@@ -313,9 +324,10 @@ export async function syncClients() {
           let clientType = "client";
           if (c.is_supplier || c.supplier) clientType = "fournisseur";
           else if (c.is_prospect || c.prospect) clientType = "prospect";
+          const clientName = c.name || "Sans nom";
 
           const clientData = {
-            name: c.name || "Sans nom",
+            name: clientName,
             email: c.email || null,
             phone: c.phone || null,
             mobile: c.cellphone_number || c.mobile || null,
@@ -338,10 +350,11 @@ export async function syncClients() {
               where: { id: existingByAxonaut.id },
               data: clientData,
             });
+            updated.push({ name: clientName });
           } else {
             const existingByName = await prisma.client.findFirst({
               where: {
-                name: { equals: c.name || "Sans nom", mode: "insensitive" },
+                name: { equals: clientName, mode: "insensitive" },
                 axonautId: null,
               },
             });
@@ -351,10 +364,12 @@ export async function syncClients() {
                 where: { id: existingByName.id },
                 data: { axonautId: c.id, ...clientData },
               });
+              updated.push({ name: clientName });
             } else {
               await prisma.client.create({
                 data: { axonautId: c.id, ...clientData, importSource: "axonaut", importDetails: axonautImportDetails() },
               });
+              created.push({ name: clientName });
             }
           }
           totalSynced++;
@@ -369,12 +384,15 @@ export async function syncClients() {
       page++;
     }
 
+    const details = JSON.stringify({ created, updated });
+
     await prisma.syncLog.update({
       where: { id: log.id },
       data: {
         status: "success",
-        message: `${totalSynced} clients synchronisés`,
+        message: `${totalSynced} clients synchronisés (${created.length} créés, ${updated.length} mis à jour)`,
         itemCount: totalSynced,
+        details,
         completedAt: new Date(),
       },
     });
@@ -403,6 +421,8 @@ export async function syncContacts() {
     let totalSynced = 0;
     let hasMore = true;
     const seenIds = new Set<number>();
+    const created: { name: string; client: string }[] = [];
+    const updated: { name: string; client: string }[] = [];
 
     while (hasMore) {
       const data = await axonautFetch("/employees", page);
@@ -423,6 +443,8 @@ export async function syncContacts() {
           const client = await prisma.client.findUnique({ where: { axonautId: companyId } });
           if (!client) continue;
 
+          const contactName = [emp.firstname || emp.first_name, emp.lastname || emp.last_name].filter(Boolean).join(" ") || "Sans nom";
+
           const contactData = {
             clientId: client.id,
             firstName: emp.firstname || emp.first_name || null,
@@ -441,10 +463,12 @@ export async function syncContacts() {
               where: { id: existingContact.id },
               data: contactData,
             });
+            updated.push({ name: contactName, client: client.name });
           } else {
             await prisma.contact.create({
               data: { axonautId: emp.id, ...contactData, importSource: "axonaut", importDetails: axonautImportDetails() },
             });
+            created.push({ name: contactName, client: client.name });
           }
           totalSynced++;
         } catch {
@@ -458,12 +482,15 @@ export async function syncContacts() {
       page++;
     }
 
+    const details = JSON.stringify({ created, updated });
+
     await prisma.syncLog.update({
       where: { id: log.id },
       data: {
         status: "success",
-        message: `${totalSynced} contacts synchronisés`,
+        message: `${totalSynced} contacts synchronisés (${created.length} créés, ${updated.length} mis à jour)`,
         itemCount: totalSynced,
+        details,
         completedAt: new Date(),
       },
     });
@@ -647,6 +674,9 @@ export async function syncInvoices() {
     let errors = 0;
     let hasMore = true;
     const seenIds = new Set<number>();
+    const created: { number: string | null; client: string; amount: number | null; status: string }[] = [];
+    const updated: { number: string | null; client: string; amount: number | null; status: string }[] = [];
+    const installationsCreated: { product: string; client: string; invoiceNumber: string | null }[] = [];
 
     while (hasMore) {
       const data = await axonautFetch("/invoices", page);
@@ -670,32 +700,40 @@ export async function syncInvoices() {
           const rawStatus = inv.status || null;
           const paidFlag = inv.paid === true || inv.is_paid === true;
           const normalizedStatus = deriveInvoiceStatus(rawStatus, paidFlag);
+          const invoiceNumber = inv.number || inv.invoice_number || null;
+          const amount = toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount);
+
+          const existingInvoice = await prisma.invoice.findUnique({ where: { axonautId: inv.id } });
+          const isNew = !existingInvoice;
 
           const invoice = await prisma.invoice.upsert({
             where: { axonautId: inv.id },
             create: {
               axonautId: inv.id,
-              invoiceNumber: inv.number || inv.invoice_number || null,
+              invoiceNumber,
               clientId: client.id,
               invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
-              totalAmount: toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount),
+              totalAmount: amount,
               status: normalizedStatus,
               importSource: "axonaut",
               importDetails: axonautImportDetails(),
             },
             update: {
-              invoiceNumber: inv.number || inv.invoice_number || null,
+              invoiceNumber,
               clientId: client.id,
               invoiceDate: new Date(inv.date || inv.invoice_date || inv.created_at),
-              totalAmount: toFloat(inv.total ?? inv.total_amount ?? inv.pre_tax_amount),
+              totalAmount: amount,
               status: normalizedStatus,
             },
           });
 
+          const entry = { number: invoiceNumber, client: client.name, amount, status: normalizedStatus };
+          if (isNew) created.push(entry);
+          else updated.push(entry);
+
           const incomingLines = inv.lines || inv.invoice_lines || inv.products || [];
           const lineResults = await upsertInvoiceLines(invoice.id, incomingLines);
 
-          // Generate installations for each line that has a product with duration
           for (const lr of lineResults) {
             if (!lr.product) continue;
             const result = await generateInstallationForLine(
@@ -706,7 +744,10 @@ export async function syncInvoices() {
               lr.product,
               lr.quantity,
             );
-            if (result === "created") totalInstCreated++;
+            if (result === "created") {
+              totalInstCreated++;
+              installationsCreated.push({ product: lr.product.name, client: client.name, invoiceNumber });
+            }
             if (result === "merged") totalInstMerged++;
           }
 
@@ -722,10 +763,12 @@ export async function syncInvoices() {
       page++;
     }
 
-    const parts = [`${totalSynced} factures synchronisées`];
+    const parts = [`${totalSynced} factures synchronisées (${created.length} créées, ${updated.length} mises à jour)`];
     if (totalInstCreated > 0) parts.push(`${totalInstCreated} installations créées`);
     if (totalInstMerged > 0) parts.push(`${totalInstMerged} installations fusionnées`);
     if (errors > 0) parts.push(`${errors} erreurs`);
+
+    const details = JSON.stringify({ created, updated, installationsCreated });
 
     await prisma.syncLog.update({
       where: { id: log.id },
@@ -733,6 +776,7 @@ export async function syncInvoices() {
         status: errors > 0 && totalSynced === 0 ? "error" : "success",
         message: parts.join(", "),
         itemCount: totalSynced,
+        details,
         completedAt: new Date(),
       },
     });
@@ -760,6 +804,7 @@ export async function generateInstallations() {
     let totalGenerated = 0;
     let totalMerged = 0;
     let skipped = 0;
+    const created: { product: string; client: string }[] = [];
 
     const invoiceLines = await prisma.invoiceLine.findMany({
       include: {
@@ -782,8 +827,10 @@ export async function generateInstallations() {
         line.product,
         line.quantity,
       );
-      if (result === "created") totalGenerated++;
-      else if (result === "merged") totalMerged++;
+      if (result === "created") {
+        totalGenerated++;
+        created.push({ product: line.product.name, client: line.invoice.client.name });
+      } else if (result === "merged") totalMerged++;
       else skipped++;
     }
 
@@ -791,12 +838,15 @@ export async function generateInstallations() {
     if (totalMerged > 0) parts.push(`${totalMerged} fusionnées`);
     parts.push(`${invoiceLines.length} lignes analysées, ${skipped} ignorées`);
 
+    const details = JSON.stringify({ created, merged: totalMerged, skipped });
+
     await prisma.syncLog.update({
       where: { id: log.id },
       data: {
         status: "success",
         message: parts.join(", "),
         itemCount: totalGenerated + totalMerged,
+        details,
         completedAt: new Date(),
       },
     });

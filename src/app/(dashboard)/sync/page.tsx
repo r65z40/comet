@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { RefreshCw, CheckCircle, XCircle, Loader2, Play, Zap, Bug, Trash2, Copy } from "lucide-react";
+import { RefreshCw, CheckCircle, XCircle, Loader2, Play, Zap, Bug, Trash2, Copy, ChevronDown, Plus, Pencil } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import DedupInstallationsModal from "./DedupInstallationsModal";
 
@@ -10,9 +10,18 @@ interface SyncLog {
   type: string;
   status: string;
   message: string | null;
+  details: string | null;
   itemCount: number;
   startedAt: string;
   completedAt: string | null;
+}
+
+interface SyncDetails {
+  created?: { name?: string; number?: string; client?: string; amount?: number | null; status?: string; product?: string }[];
+  updated?: { name?: string; number?: string; client?: string; amount?: number | null; status?: string; product?: string }[];
+  installationsCreated?: { product: string; client: string; invoiceNumber?: string | null }[];
+  merged?: number;
+  skipped?: number;
 }
 
 interface DebugData {
@@ -49,6 +58,7 @@ export default function SyncPage() {
   const [loadingDebug, setLoadingDebug] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDedup, setShowDedup] = useState(false);
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchLogs = useCallback(async () => {
@@ -315,11 +325,16 @@ export default function SyncPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Statut</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Message</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Éléments</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Date</th>
+                <th className="px-4 py-3 text-left" colSpan={5}>
+                  <div className="flex items-center">
+                    <span className="w-[15%] text-xs font-medium uppercase tracking-wider text-slate-400">Type</span>
+                    <span className="w-[12%] text-xs font-medium uppercase tracking-wider text-slate-400">Statut</span>
+                    <span className="flex-1 text-xs font-medium uppercase tracking-wider text-slate-400 px-2">Message</span>
+                    <span className="w-[8%] text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Éléments</span>
+                    <span className="w-[18%] text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Date</span>
+                    <span className="w-[5%]" />
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -330,31 +345,52 @@ export default function SyncPage() {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-slate-800 capitalize">{log.type}</td>
-                    <td className="px-4 py-3">
-                      {log.status === "success" ? (
-                        <span className="flex items-center gap-1.5 text-xs text-emerald-600">
-                          <CheckCircle className="h-3.5 w-3.5" /> Succès
-                        </span>
-                      ) : log.status === "error" ? (
-                        <span className="flex items-center gap-1.5 text-xs text-red-600">
-                          <XCircle className="h-3.5 w-3.5" /> Erreur
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1.5 text-xs text-amber-600">
-                          <RefreshCw className="h-3.5 w-3.5 animate-spin" /> En cours
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-500 max-w-md">
-                      <span className="block truncate" title={log.message || ""}>{log.message}</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{log.itemCount}</td>
-                    <td className="px-4 py-3 text-sm text-slate-500">{formatDate(log.startedAt)}</td>
-                  </tr>
-                ))
+                logs.map((log) => {
+                  const hasDetails = !!log.details;
+                  const isExpanded = expandedLogId === log.id;
+                  let details: SyncDetails | null = null;
+                  if (isExpanded && log.details) {
+                    try { details = JSON.parse(log.details); } catch { /* ignore */ }
+                  }
+                  return (
+                    <tr key={log.id} className="group">
+                      <td colSpan={5} className="p-0">
+                        <button
+                          onClick={() => hasDetails && setExpandedLogId(isExpanded ? null : log.id)}
+                          className={`w-full flex items-center text-left px-4 py-3 transition-colors ${hasDetails ? "hover:bg-slate-50 cursor-pointer" : "cursor-default"}`}
+                        >
+                          <span className="w-[15%] text-sm text-slate-800 capitalize shrink-0">{log.type}</span>
+                          <span className="w-[12%] shrink-0">
+                            {log.status === "success" ? (
+                              <span className="flex items-center gap-1.5 text-xs text-emerald-600">
+                                <CheckCircle className="h-3.5 w-3.5" /> Succès
+                              </span>
+                            ) : log.status === "error" ? (
+                              <span className="flex items-center gap-1.5 text-xs text-red-600">
+                                <XCircle className="h-3.5 w-3.5" /> Erreur
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1.5 text-xs text-amber-600">
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> En cours
+                              </span>
+                            )}
+                          </span>
+                          <span className="flex-1 text-sm text-slate-500 truncate min-w-0 px-2" title={log.message || ""}>{log.message}</span>
+                          <span className="w-[8%] text-sm text-slate-600 text-right shrink-0">{log.itemCount}</span>
+                          <span className="w-[18%] text-sm text-slate-500 text-right shrink-0">{formatDate(log.startedAt)}</span>
+                          <span className="w-[5%] flex justify-end shrink-0">
+                            {hasDetails && (
+                              <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                            )}
+                          </span>
+                        </button>
+                        {isExpanded && details && (
+                          <SyncDetailPanel details={details} type={log.type} />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -377,6 +413,180 @@ function DiagCard({ label, value, sub }: { label: string; value: number; sub?: s
       <p className="text-xl font-bold text-slate-900">{value}</p>
       <p className="text-xs text-slate-500">{label}</p>
       {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+function SyncDetailPanel({ details, type }: { details: SyncDetails; type: string }) {
+  const created = details.created || [];
+  const updated = details.updated || [];
+  const instCreated = details.installationsCreated || [];
+
+  if (created.length === 0 && updated.length === 0 && instCreated.length === 0) {
+    return (
+      <div className="px-4 pb-4 border-t border-slate-100">
+        <p className="text-xs text-slate-400 py-3">Aucun détail disponible pour cette synchronisation.</p>
+      </div>
+    );
+  }
+
+  const isInvoice = type === "invoices";
+
+  return (
+    <div className="px-4 pb-4 border-t border-slate-100 space-y-3 pt-3">
+      <div className="flex gap-3 flex-wrap">
+        {created.length > 0 && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+            <Plus className="h-3 w-3" />
+            {created.length} créé{created.length > 1 ? "s" : ""}
+          </span>
+        )}
+        {updated.length > 0 && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+            <Pencil className="h-3 w-3" />
+            {updated.length} mis à jour
+          </span>
+        )}
+        {instCreated.length > 0 && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium">
+            <Plus className="h-3 w-3" />
+            {instCreated.length} installation{instCreated.length > 1 ? "s" : ""} créée{instCreated.length > 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+
+      {created.length > 0 && (
+        <DetailSection
+          title={`Créés (${created.length})`}
+          color="emerald"
+          items={created}
+          isInvoice={isInvoice}
+        />
+      )}
+
+      {updated.length > 0 && (
+        <DetailSection
+          title={`Mis à jour (${updated.length})`}
+          color="blue"
+          items={updated}
+          isInvoice={isInvoice}
+        />
+      )}
+
+      {instCreated.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-purple-600 mb-1.5">
+            Installations créées ({instCreated.length})
+          </p>
+          <div className="rounded-lg border border-purple-100 overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-purple-50">
+                  <th className="px-3 py-1.5 text-left text-purple-600 font-medium">Produit</th>
+                  <th className="px-3 py-1.5 text-left text-purple-600 font-medium">Client</th>
+                  <th className="px-3 py-1.5 text-left text-purple-600 font-medium">Facture</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-purple-50">
+                {instCreated.slice(0, 50).map((inst, i) => (
+                  <tr key={i} className="hover:bg-purple-50/50">
+                    <td className="px-3 py-1.5 text-slate-700">{inst.product}</td>
+                    <td className="px-3 py-1.5 text-slate-600">{inst.client}</td>
+                    <td className="px-3 py-1.5 text-slate-500">{inst.invoiceNumber || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {instCreated.length > 50 && (
+              <p className="px-3 py-1.5 text-[11px] text-slate-400 border-t border-purple-100">
+                ... et {instCreated.length - 50} de plus
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetailSection({
+  title,
+  color,
+  items,
+  isInvoice,
+}: {
+  title: string;
+  color: "emerald" | "blue";
+  items: { name?: string; number?: string; client?: string; amount?: number | null; status?: string; product?: string }[];
+  isInvoice: boolean;
+}) {
+  const colorMap = {
+    emerald: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bgHover: "hover:bg-emerald-50/50" },
+    blue: { text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", bgHover: "hover:bg-blue-50/50" },
+  };
+  const c = colorMap[color];
+
+  return (
+    <div>
+      <p className={`text-xs font-semibold ${c.text} mb-1.5`}>{title}</p>
+      <div className={`rounded-lg border ${c.border} overflow-hidden`}>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className={c.bg}>
+              {isInvoice ? (
+                <>
+                  <th className={`px-3 py-1.5 text-left ${c.text} font-medium`}>N° Facture</th>
+                  <th className={`px-3 py-1.5 text-left ${c.text} font-medium`}>Client</th>
+                  <th className={`px-3 py-1.5 text-right ${c.text} font-medium`}>Montant</th>
+                  <th className={`px-3 py-1.5 text-left ${c.text} font-medium`}>Statut</th>
+                </>
+              ) : (
+                <>
+                  <th className={`px-3 py-1.5 text-left ${c.text} font-medium`}>Nom</th>
+                  {items[0]?.client && <th className={`px-3 py-1.5 text-left ${c.text} font-medium`}>Client</th>}
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody className={`divide-y ${c.border}`}>
+            {items.slice(0, 50).map((item, i) => (
+              <tr key={i} className={c.bgHover}>
+                {isInvoice ? (
+                  <>
+                    <td className="px-3 py-1.5 text-slate-700 font-mono">{item.number || "-"}</td>
+                    <td className="px-3 py-1.5 text-slate-600">{item.client || "-"}</td>
+                    <td className="px-3 py-1.5 text-slate-700 text-right font-mono">
+                      {item.amount != null
+                        ? new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(item.amount)
+                        : "-"}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        item.status === "Payée" ? "bg-emerald-100 text-emerald-700" :
+                        item.status === "En retard" ? "bg-red-100 text-red-700" :
+                        item.status === "Envoyée" ? "bg-blue-100 text-blue-700" :
+                        "bg-slate-100 text-slate-600"
+                      }`}>
+                        {item.status || "-"}
+                      </span>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-3 py-1.5 text-slate-700">{item.name || "-"}</td>
+                    {items[0]?.client && <td className="px-3 py-1.5 text-slate-600">{item.client || "-"}</td>}
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {items.length > 50 && (
+          <p className={`px-3 py-1.5 text-[11px] text-slate-400 border-t ${c.border}`}>
+            ... et {items.length - 50} de plus
+          </p>
+        )}
+      </div>
     </div>
   );
 }
