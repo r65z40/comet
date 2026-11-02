@@ -257,7 +257,7 @@ export default function KanbanColumn({
               <button
                 {...sortableAttributes}
                 {...sortableListeners}
-                className="flex items-center justify-center w-8 h-8 -m-1 rounded-md text-slate-300 hover:text-slate-500 hover:bg-slate-100 cursor-grab active:cursor-grabbing active:bg-slate-200 transition-colors touch-none"
+                className="flex items-center justify-center w-8 h-8 -m-1 rounded-md bg-slate-100 text-slate-400 hover:text-slate-600 hover:bg-slate-200 cursor-grab active:cursor-grabbing active:bg-primary-100 transition-colors touch-none"
               >
                 <GripVertical className="h-5 w-5" />
               </button>

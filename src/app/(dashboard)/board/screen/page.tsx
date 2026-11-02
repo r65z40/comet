@@ -1715,24 +1715,26 @@ function ScreenCard({ card, isDraggingOverlay, onOpen }: { card: BoardCard; isDr
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group relative bg-slate-700/40 rounded-xl border-l-[3px] hover:bg-slate-700/60 transition-colors select-none min-h-[56px]",
+        "group relative bg-slate-700/40 rounded-xl border-l-[3px] hover:bg-slate-700/60 transition-colors select-none min-h-[56px] flex overflow-hidden",
         priorityColors[card.priority] || "border-l-slate-600",
       )}
     >
-      {/* Drag handle — left strip */}
+      {/* Drag handle — visible sidebar */}
       <div
         {...attributes}
         {...listeners}
-        className="absolute left-0 top-0 bottom-0 w-8 cursor-grab active:cursor-grabbing touch-none z-10 flex items-center justify-center opacity-0 group-hover:opacity-60 transition-opacity"
+        className="flex-shrink-0 w-8 flex flex-col items-center justify-center gap-1 bg-white/5 hover:bg-white/10 active:bg-blue-500/20 border-r border-white/10 cursor-grab active:cursor-grabbing touch-none"
         title="Glisser pour déplacer"
       >
-        <GripVertical className="h-4 w-4 text-slate-500" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-500 group-hover:bg-slate-400 transition-colors" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-500 group-hover:bg-slate-400 transition-colors" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-500 group-hover:bg-slate-400 transition-colors" />
       </div>
 
       {/* Tappable area — opens card detail */}
       <div
         onClick={onOpen}
-        className="cursor-pointer"
+        className="cursor-pointer flex-1 min-w-0"
       >
         {card.client && (
           <div className="flex items-center gap-2.5 px-4 py-2 bg-blue-500/10 border-b border-blue-500/20 rounded-t-xl">

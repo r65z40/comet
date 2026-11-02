@@ -124,13 +124,26 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all group overflow-hidden",
+        "bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all group overflow-hidden flex",
         (isSortableDragging || isDragging) && "opacity-50 shadow-lg",
         card.priority === 1 && "border-l-2 border-l-red-500",
         card.archived && "opacity-60"
       )}
       onClick={onClick}
     >
+      {/* Drag handle - visible sidebar */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="flex-shrink-0 w-7 flex flex-col items-center justify-center gap-[3px] bg-slate-50 hover:bg-slate-100 active:bg-primary-100 border-r border-slate-200 cursor-grab active:cursor-grabbing transition-colors touch-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-slate-400 transition-colors" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-slate-400 transition-colors" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-slate-400 transition-colors" />
+      </button>
+
+      <div className="flex-1 min-w-0">
       {/* Client header */}
       {card.client && (
         <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-50 border-b border-primary-100">
@@ -143,17 +156,9 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
       )}
 
       <div className="p-3">
-        {/* Drag handle + Priority */}
+        {/* Priority */}
         <div className="flex items-start justify-between mb-1.5">
           <div className="flex items-center gap-1.5">
-            <button
-              {...attributes}
-              {...listeners}
-              className="flex items-center justify-center w-8 h-8 -m-1.5 rounded-md text-slate-300 hover:text-slate-600 hover:bg-slate-100 cursor-grab active:cursor-grabbing active:bg-slate-200 transition-colors touch-none"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <GripVertical className="h-5 w-5" />
-            </button>
             <span
               className={cn(
                 "inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border",
@@ -298,6 +303,7 @@ export default function KanbanCard({ card, onClick, isDragging }: Props) {
             </span>
           )}
         </div>
+      </div>
       </div>
       </div>
     </div>
