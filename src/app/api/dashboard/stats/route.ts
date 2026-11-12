@@ -71,7 +71,7 @@ export async function GET() {
         FROM installations
         WHERE "endDate" >= NOW() - INTERVAL '3 months'
           AND "endDate" <= NOW() + INTERVAL '12 months'
-          AND status != 'RENOUVELE'
+          AND status NOT IN ('RENOUVELE', 'HORS_PARC', 'EN_PARC_HORS_GARANTIE')
           AND ("alwaysInFleet" IS NULL OR "alwaysInFleet" = false)
           AND "deletedAt" IS NULL
         GROUP BY TO_CHAR("endDate", 'YYYY-MM')
