@@ -23,42 +23,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Client introuvable" }, { status: 404 });
   }
 
-  // Move all installations from source to target
-  const installations = await prisma.installation.updateMany({
-    where: { clientId: sourceId },
-    data: { clientId: targetId },
-  });
-
-  // Move all invoices from source to target
-  const invoices = await prisma.invoice.updateMany({
-    where: { clientId: sourceId },
-    data: { clientId: targetId },
-  });
-
-  // If target has no logo but source does, keep it
-  if (!target.logoUrl && source.logoUrl) {
-    await prisma.client.update({
-      where: { id: targetId },
-      data: { logoUrl: source.logoUrl },
+  const result = await prisma.$transaction(async (tx) => {
+    const installations = await tx.installation.updateMany({
+      where: { clientId: sourceId },
+      data: { clientId: targetId },
     });
-  }
 
-  // Fill in missing contact info from source
-  const updates: Record<string, string> = {};
-  if (!target.email && source.email) updates.email = source.email;
-  if (!target.phone && source.phone) updates.phone = source.phone;
-  if (!target.address && source.address) updates.address = source.address;
-  if (!target.city && source.city) updates.city = source.city;
-  if (!target.zipCode && source.zipCode) updates.zipCode = source.zipCode;
-  if (Object.keys(updates).length > 0) {
-    await prisma.client.update({ where: { id: targetId }, data: updates });
-  }
+    const invoices = await tx.invoice.updateMany({
+      where: { clientId: sourceId },
+      data: { clientId: targetId },
+    });
 
-  // Delete the source client
-  await prisma.client.delete({ where: { id: sourceId } });
+    if (!target.logoUrl && source.logoUrl) {
+      await tx.client.update({
+        where: { id: targetId },
+        data: { logoUrl: source.logoUrl },
+      });
+    }
+
+    const updates: Record<string, string> = {};
+    if (!target.email && source.email) updates.email = source.email;
+    if (!target.phone && source.phone) updates.phone = source.phone;
+    if (!target.address && source.address) updates.address = source.address;
+    if (!target.city && source.city) updates.city = source.city;
+    if (!target.zipCode && source.zipCode) updates.zipCode = source.zipCode;
+    if (Object.keys(updates).length > 0) {
+      await tx.client.update({ where: { id: targetId }, data: updates });
+    }
+
+    await tx.client.delete({ where: { id: sourceId } });
+
+    return { installationCount: installations.count, invoiceCount: invoices.count };
+  });
 
   return NextResponse.json({
     success: true,
-    message: `Client "${source.name}" fusionné dans "${target.name}". ${installations.count} installation(s) et ${invoices.count} facture(s) transférées.`,
+    message: `Client "${source.name}" fusionné dans "${target.name}". ${result.installationCount} installation(s) et ${result.invoiceCount} facture(s) transférées.`,
   });
 }

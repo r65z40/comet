@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { validatePassword, passwordErrorMessage } from "@/lib/password";
+import { logAudit } from "@/lib/audit";
 
 export async function PATCH(
   req: NextRequest,
@@ -43,6 +44,15 @@ export async function PATCH(
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
 
+  await logAudit({
+    userId: session.user.id,
+    userName: session.user.name || session.user.email,
+    action: "UPDATE",
+    entity: "user",
+    entityId: user.id,
+    details: `Utilisateur ${user.name} (${user.email}) modifié — champs: ${Object.keys(updateData).join(", ")}`,
+  });
+
   return NextResponse.json(user);
 }
 
@@ -61,7 +71,17 @@ export async function DELETE(
     return NextResponse.json({ error: "Vous ne pouvez pas supprimer votre propre compte" }, { status: 400 });
   }
 
+  const target = await prisma.user.findUnique({ where: { id }, select: { name: true, email: true } });
   await prisma.user.delete({ where: { id } });
+
+  await logAudit({
+    userId: session.user.id,
+    userName: session.user.name || session.user.email,
+    action: "DELETE",
+    entity: "user",
+    entityId: id,
+    details: `Utilisateur ${target?.name} (${target?.email}) supprimé`,
+  });
 
   return NextResponse.json({ success: true });
 }

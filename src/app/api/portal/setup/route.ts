@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { validatePassword, passwordErrorMessage } from "@/lib/password";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // GET - validate an invitation token
 export async function GET(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = checkRateLimit(`portal-setup:${ip}`, 10, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
   const token = req.nextUrl.searchParams.get("token");
   if (!token) {
     return NextResponse.json({ error: "Token manquant" }, { status: 400 });
@@ -24,6 +29,10 @@ export async function GET(req: NextRequest) {
 
 // POST - set password and activate account
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = checkRateLimit(`portal-setup:${ip}`, 5, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
   const { token, password, name } = await req.json();
 
   if (!token || !password) {
