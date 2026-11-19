@@ -5,7 +5,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { validateFileExtension } from "@/lib/upload-validation";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "tickets");
+const UPLOAD_DIR = path.join(process.cwd(), "uploads", "tickets");
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
   "image/jpeg", "image/png", "image/gif", "image/webp",

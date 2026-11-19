@@ -34,7 +34,7 @@ services:
       TZ: ${TZ:-Europe/Paris}
     volumes:
       - backup_data:/app/backups
-      - uploads_data:/app/public/uploads
+      - uploads_data:/app/uploads
     depends_on:
       db:
         condition: service_healthy

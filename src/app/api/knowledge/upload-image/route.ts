@@ -4,7 +4,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { validateImageExtension } from "@/lib/upload-validation";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "knowledge", "images");
+const UPLOAD_DIR = path.join(process.cwd(), "uploads", "knowledge", "images");
 
 // POST /api/knowledge/upload-image — upload image for rich text editor
 export async function POST(req: NextRequest) {

@@ -6,7 +6,7 @@ import path from "path";
 import { boardEvents } from "@/lib/board-events";
 import { validateFileExtension } from "@/lib/upload-validation";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "board");
+const UPLOAD_DIR = path.join(process.cwd(), "uploads", "board");
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
   "image/jpeg", "image/png", "image/gif", "image/webp",
@@ -86,7 +86,7 @@ export async function DELETE(req: NextRequest) {
 
   // Delete file from disk
   try {
-    const filePath = path.join(process.cwd(), "public", attachment.fileUrl);
+    const filePath = path.join(process.cwd(), attachment.fileUrl);
     await unlink(filePath);
   } catch {
     // File may already be deleted

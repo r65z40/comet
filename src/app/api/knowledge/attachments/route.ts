@@ -9,7 +9,7 @@ import { validateFileExtension } from "@/lib/upload-validation";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "knowledge");
+const UPLOAD_DIR = path.join(process.cwd(), "uploads", "knowledge");
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 const ALLOWED_TYPES = new Set([
@@ -95,7 +95,7 @@ export async function DELETE(req: NextRequest) {
   if (!attachment) return NextResponse.json({ error: "Pièce jointe non trouvée" }, { status: 404 });
 
   try {
-    await unlink(path.join(process.cwd(), "public", attachment.fileUrl));
+    await unlink(path.join(process.cwd(), attachment.fileUrl));
   } catch { /* File may already be deleted */ }
 
   await prisma.kbAttachment.delete({ where: { id } });

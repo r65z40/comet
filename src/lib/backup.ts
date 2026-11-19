@@ -11,7 +11,7 @@ import { getSettings } from "@/lib/settings";
 const execAsync = promisify(exec);
 
 const BACKUP_DIR = path.join(process.cwd(), "backups");
-const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
+const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 
 export interface BackupInfo {
   filename: string;

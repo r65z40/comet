@@ -93,12 +93,12 @@ const prisma = new PrismaClient();
 fi
 
 # Apply restored env vars from a backup restore (ENCRYPTION_KEY, AUTH_SECRET, etc.)
+# Keep the file so keys survive subsequent container restarts
 ENV_RESTORED="/app/backups/.env.restored"
 if [ -f "$ENV_RESTORED" ]; then
   echo "=== Applying restored environment keys ==="
   . "$ENV_RESTORED"
-  rm -f "$ENV_RESTORED"
-  echo "Restored keys applied and file removed."
+  echo "Restored keys applied (file kept for future restarts)."
 fi
 
 echo "=== Starting application ==="

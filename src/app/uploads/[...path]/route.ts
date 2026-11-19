@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile, stat } from "fs/promises";
 import path from "path";
+import { auth } from "@/lib/auth";
+import { verifyPortalToken } from "@/lib/portal-auth";
 
-const UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads");
+const UPLOAD_ROOT = path.join(process.cwd(), "uploads");
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -22,15 +24,20 @@ const MIME_TYPES: Record<string, string> = {
   ".txt": "text/plain",
 };
 
-// GET /uploads/[...path] — serve uploaded files
+// GET /uploads/[...path] — serve uploaded files (authenticated)
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
+  const session = await auth();
+  const portalUser = !session ? await verifyPortalToken() : null;
+  if (!session && !portalUser) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
   const { path: segments } = await params;
   const filePath = path.join(UPLOAD_ROOT, ...segments);
 
-  // Prevent path traversal
   const resolved = path.resolve(filePath);
   if (!resolved.startsWith(UPLOAD_ROOT)) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
@@ -50,7 +57,7 @@ export async function GET(
       headers: {
         "Content-Type": contentType,
         "Content-Length": fileStat.size.toString(),
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": "private, max-age=3600",
       },
     });
   } catch {

@@ -36,8 +36,8 @@ COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --from=builder /app/scripts/entrypoint.sh ./entrypoint.sh
 
 RUN chmod +x ./entrypoint.sh && \
-    mkdir -p /app/backups /app/public/uploads && \
-    chown -R nextjs:nodejs /app/backups /app/public/uploads
+    mkdir -p /app/backups /app/uploads && \
+    chown -R nextjs:nodejs /app/backups /app/uploads
 
 USER nextjs
 EXPOSE 3000
